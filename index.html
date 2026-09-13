@@ -1,0 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<title>Gainer Scan — Breakout Screener</title>
+
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0f10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Gainer Scan">
+<meta name="description" content="30m EMA9/EMA21 breakout screener for S&P 500 gainers, powered by Alpaca.">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+
+<style>
+  :root{
+    --bg:#0b0f10;
+    --panel:#12181a;
+    --panel-2:#161e21;
+    --line:#232d30;
+    --text:#dce6e6;
+    --muted:#7c8e8e;
+    --pass:#39d98a;
+    --fail:#516066;
+    --warn:#e0a13b;
+    --top:#39d98a;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  body{padding:14px 14px 60px;max-width:1080px;margin:0 auto;}
+  h1{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:0.2px;margin:4px 0 2px;}
+  .sub{color:var(--muted);font-size:12.5px;margin:0 0 14px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:14px;}
+  .action-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px;}
+  .action-bar-left{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;}
+  .field{display:flex;flex-direction:column;gap:4px;flex:1 1 130px;min-width:110px;}
+  .field label{font-size:11px;color:var(--muted);}
+  input[type=text],input[type=password],input[type=number],select,textarea{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:7px;padding:8px 9px;font-size:13.5px;font-family:var(--mono);
+    width:100%;
+  }
+  textarea{font-family:var(--mono);min-height:74px;resize:vertical;}
+  button{
+    background:var(--panel-2);border:1px solid var(--line);color:var(--text);
+    border-radius:7px;padding:9px 14px;font-size:13px;font-weight:600;cursor:pointer;
+    font-family:var(--sans);white-space:nowrap;
+  }
+  button.primary{background:#1b3b2f;border-color:#2a5c48;color:var(--pass);}
+  button:active{transform:translateY(1px);}
+  button:disabled{opacity:0.4;cursor:not-allowed;}
+  .divider{border-top:1px solid var(--line);margin:12px 0;}
+  .status{font-size:12px;color:var(--muted);margin-top:8px;font-family:var(--mono);min-height:16px;}
+  .status.err{color:#ff8177;}
+  .toggle-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);}
+  .toggle-row input{width:auto;}
+
+  /* Collapsible settings panel */
+  #settingsPanel{display:none;}
+  #settingsPanel.open{display:block;}
+
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px;}
+  th{text-align:right;color:var(--muted);font-weight:500;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line);}
+  th:first-child,td:first-child{text-align:left;}
+  td{text-align:right;padding:9px 8px;border-bottom:1px solid var(--line);}
+  tr.rank1 td{background:rgba(57,217,138,0.06);}
+  .sym{font-weight:700;font-size:13.5px;cursor:pointer;}
+  .sym:hover{text-decoration:underline;}
+  .sym .rank{color:var(--warn);font-size:10.5px;margin-right:5px;font-weight:600;}
+  .pct{color:var(--pass);}
+  .badge{display:inline-block;padding:3px 9px;border-radius:5px;font-size:11px;font-weight:700;letter-spacing:0.3px;}
+  .badge.pass{background:rgba(57,217,138,0.15);color:var(--pass);}
+  .badge.fail{background:rgba(81,96,102,0.25);color:var(--fail);}
+  .ticks{display:flex;gap:4px;justify-content:flex-end;}
+  .tick{width:15px;height:15px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;}
+  .tick.y{background:rgba(57,217,138,0.18);color:var(--pass);}
+  .tick.n{background:rgba(255,129,119,0.12);color:#ff8177;}
+  .tick.pend{background:var(--panel-2);color:var(--muted);}
+
+  .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;color:var(--muted);margin-top:10px;}
+  .legend span b{color:var(--text);}
+
+  /* modal */
+  .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:50;align-items:center;justify-content:center;padding:14px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:100%;max-width:760px;max-height:92vh;overflow-y:auto;padding:16px;}
+  .modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;}
+  .modal-header-left{display:flex;align-items:center;gap:10px;}
+  .modal-title{font-family:var(--mono);font-size:16px;font-weight:700;}
+  .modal-sub{font-size:11px;color:var(--muted);margin-top:2px;font-family:var(--mono);}
+  .modal-controls{display:flex;align-items:center;gap:6px;}
+  .nav-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:6px 10px;font-size:12px;cursor:pointer;font-family:var(--mono);line-height:1;}
+  .modal-close{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:7px;width:30px;height:30px;font-size:14px;cursor:pointer;line-height:1;margin-left:4px;}
+  .chart-container{width:100%;height:320px;margin-bottom:14px;position:relative;}
+  #cloudCanvas{position:absolute;top:0;left:0;pointer-events:none;}
+  .chart-legend{display:flex;gap:12px;font-size:10.5px;color:var(--muted);margin:-8px 0 12px;flex-wrap:wrap;}
+  .chart-legend span{display:inline-flex;align-items:center;gap:4px;}
+  .chart-legend i{width:10px;height:2px;display:inline-block;}
+  .news-heading{font-size:11px;color:var(--muted);text-transform:none;margin-bottom:6px;}
+  .news-list{display:flex;flex-direction:column;gap:6px;}
+  .news-item{display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;text-decoration:none;color:var(--text);}
+  .news-item:hover{border-color:#33403f;}
+  .news-headline{font-size:12.5px;line-height:1.35;}
+  .news-meta{font-size:10.5px;color:var(--muted);margin-top:4px;font-family:var(--mono);}
+  .news-empty{font-size:12px;color:var(--muted);padding:6px 0;}
+
+  @media (max-width:700px){
+    .modal{max-width:100%;height:100%;max-height:100%;border-radius:0;}
+  }
+
+  @media (max-width: 700px){
+    table, thead, tbody, th, td, tr { display:block; }
+    thead{display:none;}
+    tr{background:var(--panel-2);border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:9px;}
+    tr.rank1{border-color:rgba(57,217,138,0.4);}
+    td{border:none;padding:3px 0;display:flex;justify-content:space-between;text-align:right;}
+    td::before{content:attr(data-label);color:var(--muted);font-size:10.5px;text-align:left;}
+    td:first-child{display:block;text-align:left;padding-bottom:6px;}
+    td:first-child::before{content:none;}
+    .ticks{justify-content:flex-end;}
+  }
+</style>
+</head>
+<body>
+
+  <h1>GAINER SCAN</h1>
+  <p class="sub">30m EMA9 &gt; EMA21 · close &gt; both EMAs · close &gt; premarket high[cite: 1]</p>
+
+  <div class="action-bar">
+    <div class="action-bar-left">
+      <button class="primary" id="btnScanManual">Scan top 10 gainers</button>
+      <button id="btnLoadGainers">Scan S&amp;P 500 gainers</button>
+      <button id="btnViewWatchlist">Chart watchlist only</button>
+      <div class="toggle-row" style="margin-left:6px;">
+        <input type="checkbox" id="autoRefresh">
+        <label for="autoRefresh">Auto-refresh</label>
+        <select id="refreshMins" style="width:auto;padding:5px 7px;">
+          <option value="1">1m</option>
+          <option value="3">3m</option>
+          <option value="5">5m</option>
+          <option value="10" selected>10m</option>
+        </select>
+      </div>
+    </div>
+    <button id="btnToggleSettings">⚙ Settings ▼</button>
+  </div>
+
+  <div class="panel" id="settingsPanel">
+    <div class="row">
+      <div class="field" style="flex:1 1 220px;">
+        <label>Alpaca API Key ID</label>
+        <input type="text" id="apiKey" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field" style="flex:1 1 220px;">
+        <label>Alpaca Secret Key</label>
+        <input type="password" id="apiSecret" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field" style="flex:0 1 110px;">
+        <label>Data feed</label>
+        <select id="feed">
+          <option value="iex" selected>IEX (free)</option>
+          <option value="sip">SIP</option>
+        </select>
+      </div>
+      <div class="field" style="flex:0 1 90px;">
+        <label># gainers</label>
+        <input type="number" id="gainerCount" value="10" min="1" max="30">
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="row" style="align-items:flex-start;">
+      <div class="field" style="flex:1 1 300px;">
+        <label>Ticker list (comma / space separated)</label>
+        <textarea id="manualList" spellcheck="false">AAL, AAPL, ADBE, AI, AMD, AMC, AMZN, AON, APLD, APP, ARM, ASTS, AVGO, BABA, BAC, BE, BMNR, C, CIFR, CLSK, COIN, COST, CRCL, CRWD, CRWV, CSCO, CVNA, DELL, DIS, DKNG, ENPH, F, FAST, GME, GOOG, GOOGL, HIMS, HOOD, HPE, HPQ, IBM, INTC, IONQ, IREN, IWM, JPM, KKR, KO, KT, LITE, LLY, LULU, LUMN, LYFT, MARA, META, MRNA, MRK, MRVL, MSFT, MSTR, MU, NBIS, NFLX, NKE, NIO, NOK, NOW, NVO, NU, OKLO, ONDS, ONON, OPEN, ORCL, OXY, PANW, PBR, PCG, PFE, PLTR, PYPL, QCOM, QQQ, RGTI, RIOT, RIVN, RKLB, SBET, SE, SKHY, SLS, SMCI, SMR, SNAP, SNDK, SNOW, SOFI, SPCX, SPY, T, TSM, TSLA, TTD, UBER, UNH, USAR, WBD, WDC, WMT, WULF, XOM</textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="status" id="status" style="margin-bottom:12px;">Ready to scan. Settings are saved in your browser.</div>
+
+  <div id="resultsWrap"></div>
+
+  <div class="legend" id="legend" style="display:none;">
+    <span><b>Ticks, left→right:</b> EMA9&gt;EMA21 · Close&gt;EMA9 · Close&gt;EMA21 · Close&gt;PM&nbsp;High</span>
+    <span><b>PASS</b> = all 4 ticks green on the latest 30m bar</span>
+    <span>Click a symbol for chart + news</span>
+  </div>
+
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div>
+            <div class="modal-title" id="modalTitle">—</div>
+            <div class="modal-sub" id="modalSub"></div>
+          </div>
+        </div>
+        <div class="modal-controls">
+          <button class="nav-btn" id="btnPrevSym" title="Previous symbol (Left arrow)">◀ Prev</button>
+          <button class="nav-btn" id="btnNextSym" title="Next symbol (Right arrow)">Next ▶</button>
+          <select id="chartTimeframe" style="width:auto;padding:5px 8px;font-size:12px;margin-left:4px;">
+            <option value="10m"  selected>10m</option>
+            <option value="30m">30m</option>
+          </select>
+          <button class="modal-close" id="modalClose">✕</button>
+        </div>
+      </div>
+      <div class="chart-legend">
+        <span><i style="background:#c084fc;"></i>EMA5</span>
+        <span><i style="background:none;border-top:2px dashed #c9d1d1;height:0;"></i>EMA50</span>
+        <span><i style="background:rgba(57,217,138,0.35);height:8px;"></i>Bull cloud (9&gt;21)</span>
+        <span><i style="background:rgba(255,129,119,0.35);height:8px;"></i>Bear cloud (9&lt;21)</span>
+        <span><i style="background:#39d98a;border-top:2px dashed #39d98a;background:none;height:0;"></i>PM High</span>
+        <span><i style="background:#ff8177;border-top:2px dashed #ff8177;background:none;height:0;"></i>PM Low</span>
+      </div>
+      <div class="chart-container" id="chartContainer"></div>
+      <div class="news-heading">Recent headlines (Benzinga, via Alpaca News API)</div>
+      <div class="news-list" id="newsList"></div>
+    </div>
+  </div>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+const DATA_BASE = 'https://data.alpaca.markets';
+const WIKI_SP500_URL = 'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies&format=json&prop=text&origin=*';
+let autoTimer = null;
+let lastMode = 'manual';
+let lastSymbols = [];
+let sp500Cache = null;
+let rowDataMap = {};
+let activeChart = null;
+let activeModalSymbol = null;
+let activeSymbolIndex = -1;
+let activeCloudRedraw = null;
+
+function restoreStoredConfig(){
+  const k = localStorage.getItem('alpaca_api_key');
+  const s = localStorage.getItem('alpaca_api_secret');
+  const f = localStorage.getItem('alpaca_feed');
+  const list = localStorage.getItem('alpaca_manual_list');
+  if(k) document.getElementById('apiKey').value = k;
+  if(s) document.getElementById('apiSecret').value = s;
+  if(f) document.getElementById('feed').value = f;
+  if(list) document.getElementById('manualList').value = list;
+}
+function saveStoredConfig(){
+  localStorage.setItem('alpaca_api_key', document.getElementById('apiKey').value.trim());
+  localStorage.setItem('alpaca_api_secret', document.getElementById('apiSecret').value.trim());
+  localStorage.setItem('alpaca_feed', document.getElementById('feed').value);
+  localStorage.setItem('alpaca_manual_list', document.getElementById('manualList').value.trim());
+}
+
+document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
+document.getElementById('apiSecret').addEventListener('input', saveStoredConfig);
+document.getElementById('feed').addEventListener('change', saveStoredConfig);
+document.getElementById('manualList').addEventListener('input', saveStoredConfig);
+restoreStoredConfig();
+
+const btnToggle = document.getElementById('btnToggleSettings');
+const settingsPanel = document.getElementById('settingsPanel');
+btnToggle.addEventListener('click', () => {
+  const isOpen = settingsPanel.classList.toggle('open');
+  btnToggle.textContent = isOpen ? '⚙ Settings ▲' : '⚙ Settings ▼';
+});
+
+function statusMsg(msg, isErr){
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = 'status' + (isErr ? ' err' : '');
+}
+
+function headers(){
+  return {
+    'APCA-API-KEY-ID': document.getElementById('apiKey').value.trim(),
+    'APCA-API-SECRET-KEY': document.getElementById('apiSecret').value.trim()
+  };
+}
+
+function requireKeys(){
+  const h = headers();
+  if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']){
+    statusMsg('Enter your Alpaca API key and secret first in Settings.', true);
+    if(!settingsPanel.classList.contains('open')){
+      settingsPanel.classList.add('open');
+      btnToggle.textContent = '⚙ Settings ▲';
+    }
+    return false;
+  }
+  return true;
+}
+
+function etParts(dateObj){
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York', hourCycle: 'h23',
+    year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'
+  });
+  const parts = {};
+  fmt.formatToParts(dateObj).forEach(p => { if(p.type!=='literal') parts[p.type]=p.value; });
+  return {
+    dateStr: `${parts.year}-${parts.month}-${parts.day}`,
+    hh: parseInt(parts.hour, 10),
+    mm: parseInt(parts.minute, 10)
+  };
+}
+
+function toETTimestamp(dateOrStr){
+  const d = typeof dateOrStr === 'string' ? new Date(dateOrStr) : dateOrStr;
+  const p = etParts(d);
+  const [y, m, day] = p.dateStr.split('-').map(Number);
+  const ss = d.getUTCSeconds ? d.getUTCSeconds() : 0;
+  return Math.floor(Date.UTC(y, m - 1, day, p.hh, p.mm, ss) / 1000);
+}
+
+function isPremarket(parts, todayStr){
+  if(parts.dateStr !== todayStr) return false;
+  if(parts.hh < 4) return false;
+  if(parts.hh > 9) return false;
+  if(parts.hh === 9 && parts.mm >= 30) return false;
+  return true;
+}
+
+function computeEMASeries(values, period){
+  if(values.length < period) return [];
+  const k = 2/(period+1);
+  let ema = values.slice(0,period).reduce((a,b)=>a+b,0)/period;
+  const out = new Array(values.length).fill(null);
+  out[period-1] = ema;
+  for(let i=period;i<values.length;i++){
+    ema = values[i]*k + ema*(1-k);
+    out[i] = ema;
+  }
+  return out;
+}
+
+async function getSP500Tickers(){
+  if(sp500Cache) return sp500Cache;
+  const res = await fetch(WIKI_SP500_URL);
+  if(!res.ok) throw new Error(`Could not load S&P 500 constituent list (${res.status})`);
+  const data = await res.json();
+  const html = data.parse && data.parse.text ? data.parse.text['*'] : null;
+  if(!html) throw new Error('Unexpected response loading S&P 500 list');
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const table = doc.querySelector('table#constituents') || doc.querySelector('table.wikitable');
+  if(!table) throw new Error('Could not find constituents table on Wikipedia');
+  const tickers = [];
+  table.querySelectorAll('tbody tr').forEach(tr => {
+    const td = tr.querySelector('td');
+    if(td){
+      const txt = td.textContent.trim();
+      if(txt) tickers.push(txt);
+    }
+  });
+  if(tickers.length < 400) throw new Error(`Only parsed ${tickers.length} tickers — page layout may have changed`);
+  sp500Cache = tickers;
+  return tickers;
+}
+
+function chunk(arr, size){
+  const out = [];
+  for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size));
+  return out;
+}
+
+async function fetchSnapshotsChunk(symbols, feed){
+  const params = new URLSearchParams({ symbols: symbols.join(','), feed });
+  const url = `${DATA_BASE}/v2/stocks/snapshots?${params.toString()}`;
+  const res = await fetch(url, { headers: headers() });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error(`Snapshots request failed (${res.status}): ${t.slice(0,200)}`);
+  }
+  return res.json();
+}
+
+async function rankUniverseGainers(universe, count, feed, onProgress){
+  const groups = chunk(universe, 100);
+  const snapshots = {};
+  for(let i=0;i<groups.length;i++){
+    if(onProgress) onProgress(`Pricing symbols (${i+1}/${groups.length})…`);
+    const part = await fetchSnapshotsChunk(groups[i], feed);
+    Object.assign(snapshots, part);
+  }
+  const ranked = [];
+  Object.keys(snapshots).forEach(sym => {
+    const snap = snapshots[sym];
+    if(!snap) return;
+    const prevClose = snap.prevDailyBar && snap.prevDailyBar.c;
+    const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p);
+    if(!prevClose || !cur) return;
+    const pct = ((cur - prevClose) / prevClose) * 100;
+    ranked.push({ symbol: sym, percent_change: pct, price: cur });
+  });
+  ranked.sort((a,b) => b.percent_change - a.percent_change);
+  return ranked.slice(0, count);
+}
+
+async function fetchBars(symbols, timeframe, start, feed){
+  if(symbols.length === 0) return {};
+  const params = new URLSearchParams({
+    symbols: symbols.join(','),
+    timeframe,
+    start,
+    limit: '4000',
+    adjustment: 'raw',
+    feed
+  });
+  const url = `${DATA_BASE}/v2/stocks/bars?${params.toString()}`;
+  const res = await fetch(url, { headers: headers() });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error(`Bars request failed (${res.status}): ${t.slice(0,200)}`);
+  }
+  const data = await res.json();
+  return data.bars || {};
+}
+
+async function evaluateSymbols(symbolList, feed){
+  const symbols = symbolList.map(s => s.toUpperCase());
+  const now = new Date();
+  const tenDaysAgo = new Date(now.getTime() - 10*24*3600*1000).toISOString();
+  const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
+  const todayET = etParts(now).dateStr;
+
+  const [bars30, bars5] = await Promise.all([
+    fetchBars(symbols, '30Min', tenDaysAgo, feed),
+    fetchBars(symbols, '5Min', oneDayAgo, feed)
+  ]);
+
+  return symbols.map(sym => {
+    const b30 = (bars30[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+    const b5 = (bars5[sym] || []);
+
+    let row = { symbol: sym, error: null, close:null, ema9:null, ema21:null, pmHigh:null,
+      c1:false, c2:false, c3:false, c4:false, pass:false, lastBarTime:null };
+
+    if(b30.length < 22){
+      row.error = 'not enough 30m bars';
+      return row;
+    }
+    const closes = b30.map(b => b.c);
+    const ema9Series = computeEMASeries(closes, 9);
+    const ema21Series = computeEMASeries(closes, 21);
+    const ema9 = ema9Series.length ? ema9Series[ema9Series.length-1] : null;
+    const ema21 = ema21Series.length ? ema21Series[ema21Series.length-1] : null;
+    const lastClose = closes[closes.length-1];
+    const lastBar = b30[b30.length-1];
+
+    let pmHigh = null, pmLow = null;
+    b5.forEach(bar => {
+      const p = etParts(new Date(bar.t));
+      if(isPremarket(p, todayET)){
+        if(pmHigh === null || bar.h > pmHigh) pmHigh = bar.h;
+        if(pmLow === null || bar.l < pmLow) pmLow = bar.l;
+      }
+    });
+
+    row.close = lastClose;
+    row.ema9 = ema9;
+    row.ema21 = ema21;
+    row.pmHigh = pmHigh;
+    row.lastBarTime = lastBar.t;
+    row.c1 = ema9 !== null && ema21 !== null && ema9 > ema21;
+    row.c2 = ema9 !== null && lastClose > ema9;
+    row.c3 = ema21 !== null && lastClose > ema21;
+    row.c4 = pmHigh !== null && lastClose > pmHigh;
+    row.pass = row.c1 && row.c2 && row.c3 && row.c4;
+    if(pmHigh === null) row.error = 'no premarket bars yet';
+
+    rowDataMap[sym] = { pmHigh, pmLow };
+    return row;
+  });
+}
+
+function tick(v){ return v===null||v===undefined ? '<span class="tick pend">·</span>' : (v ? '<span class="tick y">✓</span>' : '<span class="tick n">✕</span>'); }
+
+function render(rows, gainerMeta){
+  document.getElementById('legend').style.display = 'flex';
+  let html = `<div class="panel"><table><thead><tr>
+    <th>Symbol</th><th>%Chg</th><th>Conditions</th><th>Signal</th>
+  </tr></thead><tbody>`;
+
+  rows.forEach((r, idx) => {
+    const meta = gainerMeta[r.symbol];
+    const rankClass = (meta && meta.rank === 1) ? ' rank1' : '';
+    const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
+    const pctTag = meta ? `<span class="pct">+${meta.percent_change.toFixed(2)}%</span>` : '—';
+
+    html += `<tr class="${rankClass.trim()}">
+      <td data-label="Symbol"><span class="sym" data-index="${idx}" data-symbol="${r.symbol}">${rankTag}${r.symbol}</span>${r.error ? `<div style="font-size:10px;color:var(--warn);margin-top:2px;">${r.error}</div>` : ''}</td>
+      <td data-label="% Chg">${pctTag}</td>
+      <td data-label="Conditions"><div class="ticks">${tick(r.c1)}${tick(r.c2)}${tick(r.c3)}${tick(r.c4)}</div></td>
+      <td data-label="Signal"><span class="badge ${r.pass ? 'pass' : 'fail'}">${r.pass ? 'PASS' : 'FAIL'}</span></td>
+    </tr>`;
+  });
+
+  html += `</tbody></table></div>`;
+  document.getElementById('resultsWrap').innerHTML = html;
+  document.querySelectorAll('.sym').forEach(el => {
+    el.addEventListener('click', () => {
+      const idx = parseInt(el.dataset.index, 10);
+      openModalAtIndex(idx);
+    });
+  });
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function updateNavButtons(){
+  const btnPrev = document.getElementById('btnPrevSym');
+  const btnNext = document.getElementById('btnNextSym');
+  btnPrev.disabled = activeSymbolIndex <= 0;
+  btnNext.disabled = activeSymbolIndex >= lastSymbols.length - 1;
+}
+
+function navigateModal(direction){
+  const nextIdx = activeSymbolIndex + direction;
+  if(nextIdx >= 0 && nextIdx < lastSymbols.length){
+    openModalAtIndex(nextIdx);
+  }
+}
+
+function closeModal(){
+  document.getElementById('modalOverlay').classList.remove('open');
+  if(activeChart){ activeChart.remove(); activeChart = null; }
+  activeModalSymbol = null;
+  activeSymbolIndex = -1;
+  activeCloudRedraw = null;
+}
+
+async function openModalAtIndex(index){
+  if(index < 0 || index >= lastSymbols.length) return;
+  activeSymbolIndex = index;
+  const symbol = lastSymbols[index];
+  activeModalSymbol = symbol;
+
+  updateNavButtons();
+
+  const overlay = document.getElementById('modalOverlay');
+  document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${lastSymbols.length})`;
+  overlay.classList.add('open');
+
+  await updateModalChart();
+  loadNews(symbol);
+}
+
+async function updateModalChart(){
+  if(!activeModalSymbol) return;
+  const symbol = activeModalSymbol;
+  const tf = document.getElementById('chartTimeframe').value;
+  const alpacaTf = tf === '10m' ? '10Min' : '30Min';
+
+  document.getElementById('modalSub').textContent = `Loading ${tf} extended bars…`;
+
+  try{
+    const feed = document.getElementById('feed').value;
+    const now = new Date();
+    // Days actually shown on the chart.
+    const displayDaysBack = tf === '10m' ? 5 : 10;
+    // Extra history fetched (but not displayed) purely so EMA50 has a full
+    // warm-up period and doesn't render truncated/cut off mid-chart.
+    const warmupDaysBack = tf === '10m' ? 3 : 8;
+    const totalDaysBack = displayDaysBack + warmupDaysBack;
+    const startTime = new Date(now.getTime() - totalDaysBack*24*3600*1000).toISOString();
+    const res = await fetchBars([symbol], alpacaTf, startTime, feed);
+    const allBars = (res[symbol] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+
+    if(allBars.length === 0){
+      document.getElementById('modalSub').textContent = `No ${tf} bar data available.`;
+      return;
+    }
+
+    // Compute EMAs over the FULL fetched range so EMA50 is warmed up, then
+    // trim down to just the display window before handing off to the chart.
+    const allCloses = allBars.map(b => b.c);
+    const ema5Full = computeEMASeries(allCloses, 5);
+    const ema9Full = computeEMASeries(allCloses, 9);
+    const ema21Full = computeEMASeries(allCloses, 21);
+    const ema50Full = computeEMASeries(allCloses, 50);
+
+    const cutoff = now.getTime() - displayDaysBack*24*3600*1000;
+    let startIdx = allBars.findIndex(b => new Date(b.t).getTime() >= cutoff);
+    if(startIdx === -1) startIdx = 0;
+
+    const bars = allBars.slice(startIdx);
+    const ema5Series = ema5Full.slice(startIdx);
+    const ema9Series = ema9Full.slice(startIdx);
+    const ema21Series = ema21Full.slice(startIdx);
+    const ema50Series = ema50Full.slice(startIdx);
+
+    const meta = rowDataMap[symbol] || {};
+
+    document.getElementById('modalSub').textContent = `${tf} · ${bars.length} bars (ET session)`;
+    renderChart({ bars, ema5Series, ema9Series, ema21Series, ema50Series, pmHigh: meta.pmHigh, pmLow: meta.pmLow });
+  }catch(e){
+    document.getElementById('modalSub').textContent = `Failed to load chart: ${e.message}`;
+  }
+}
+
+function renderChart(data){
+  const container = document.getElementById('chartContainer');
+  container.innerHTML = '';
+  if(activeChart){ activeChart.remove(); activeChart = null; }
+
+  const chart = LightweightCharts.createChart(container, {
+    layout: { background: { color: 'transparent' }, textColor: '#dce6e6' },
+    grid: { vertLines: { color: '#1b2426' }, horzLines: { color: '#1b2426' } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30' },
+    rightPriceScale: { borderColor: '#232d30' },
+    width: container.clientWidth,
+    height: 320
+  });
+  activeChart = chart;
+
+  const candleSeries = chart.addCandlestickSeries({
+    upColor: '#39d98a', downColor: '#ff8177', borderVisible: false,
+    wickUpColor: '#39d98a', wickDownColor: '#ff8177'
+  });
+  
+  candleSeries.setData(data.bars.map(b => ({
+    time: toETTimestamp(b.t),
+    open: b.o, high: b.h, low: b.l, close: b.c
+  })));
+
+  const times = data.bars.map(b => toETTimestamp(b.t));
+  const buildEmaLine = (series, color, opts) => {
+    opts = opts || {};
+    const pts = series
+      .map((v, i) => v === null ? null : { time: times[i], value: v })
+      .filter(Boolean);
+    if(pts.length){
+      const s = chart.addLineSeries({
+        color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false,
+        lineStyle: opts.dashed ? LightweightCharts.LineStyle.Dashed : LightweightCharts.LineStyle.Solid,
+        lineVisible: opts.hidden ? false : true,
+        crosshairMarkerVisible: opts.hidden ? false : true
+      });
+      s.setData(pts);
+      return s;
+    }
+    return null;
+  };
+
+  buildEmaLine(data.ema5Series, '#c084fc');
+  // EMA9/EMA21 are plotted only as the cloud below — no visible lines for them.
+  const ema9Line = buildEmaLine(data.ema9Series, '#e0a13b', { hidden: true });
+  const ema21Line = buildEmaLine(data.ema21Series, '#5b8def', { hidden: true });
+  buildEmaLine(data.ema50Series, '#c9d1d1', { dashed: true });
+
+  if(data.pmHigh !== null && data.pmHigh !== undefined){
+    candleSeries.createPriceLine({ price:data.pmHigh, color:'#39d98a', lineWidth:1, lineStyle: LightweightCharts.LineStyle.Dashed, title:'PM High' });
+  }
+  if(data.pmLow !== null && data.pmLow !== undefined){
+    candleSeries.createPriceLine({ price:data.pmLow, color:'#ff8177', lineWidth:1, lineStyle: LightweightCharts.LineStyle.Dashed, title:'PM Low' });
+  }
+
+  chart.timeScale().fitContent();
+
+  // --- Bullish/bearish cloud between EMA9 and EMA21 only ---
+  if(ema9Line && ema21Line){
+    const cloudCanvas = ensureCloudCanvas(container);
+    const draw = () => drawEmaCloud(cloudCanvas, container, chart, ema9Line, ema21Line, data.ema9Series, data.ema21Series, times);
+    activeCloudRedraw = draw;
+    chart.timeScale().subscribeVisibleLogicalRangeChange(draw);
+    requestAnimationFrame(draw);
+  } else {
+    activeCloudRedraw = null;
+  }
+}
+
+function ensureCloudCanvas(container){
+  let canvas = container.querySelector('#cloudCanvas');
+  if(!canvas){
+    canvas = document.createElement('canvas');
+    canvas.id = 'cloudCanvas';
+    container.insertBefore(canvas, container.firstChild);
+  }
+  return canvas;
+}
+
+function drawEmaCloud(canvas, container, chart, ema9Line, ema21Line, ema9Series, ema21Series, times){
+  const rect = container.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  const ts = chart.timeScale();
+  for(let i = 0; i < times.length - 1; i++){
+    const v9a = ema9Series[i], v9b = ema9Series[i+1];
+    const v21a = ema21Series[i], v21b = ema21Series[i+1];
+    if(v9a === null || v9b === null || v21a === null || v21b === null) continue;
+
+    const x1 = ts.timeToCoordinate(times[i]);
+    const x2 = ts.timeToCoordinate(times[i+1]);
+    if(x1 === null || x2 === null) continue;
+
+    const y9a = ema9Line.priceToCoordinate(v9a);
+    const y9b = ema9Line.priceToCoordinate(v9b);
+    const y21a = ema21Line.priceToCoordinate(v21a);
+    const y21b = ema21Line.priceToCoordinate(v21b);
+    if(y9a === null || y9b === null || y21a === null || y21b === null) continue;
+
+    const bullish = (v9a + v9b) / 2 > (v21a + v21b) / 2;
+    ctx.fillStyle = bullish ? 'rgba(57,217,138,0.18)' : 'rgba(255,129,119,0.18)';
+    ctx.beginPath();
+    ctx.moveTo(x1, y9a);
+    ctx.lineTo(x2, y9b);
+    ctx.lineTo(x2, y21b);
+    ctx.lineTo(x1, y21a);
+    ctx.closePath();
+    ctx.fill();
+  }
+}
+
+async function loadNews(symbol){
+  const el = document.getElementById('newsList');
+  el.innerHTML = '<div class="news-empty">Loading headlines…</div>';
+  try{
+    const params = new URLSearchParams({ symbols: symbol, limit: '8', sort: 'desc' });
+    const res = await fetch(`${DATA_BASE}/v1beta1/news?${params.toString()}`, { headers: headers() });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(`${res.status}: ${t.slice(0,150)}`);
+    }
+    const data = await res.json();
+    const items = data.news || [];
+    if(items.length === 0){
+      el.innerHTML = '<div class="news-empty">No recent headlines for this symbol.</div>';
+      return;
+    }
+    el.innerHTML = items.map(a => {
+      const t = new Date(a.created_at).toLocaleString('en-US', { timeZone: 'America/New_York' });
+      return `<a class="news-item" href="${a.url}" target="_blank" rel="noopener noreferrer">
+        <div class="news-headline">${escapeHtml(a.headline)}</div>
+        <div class="news-meta">${escapeHtml(a.source || 'Benzinga')} · ${t} ET</div>
+      </a>`;
+    }).join('');
+  }catch(e){
+    el.innerHTML = `<div class="news-empty">Couldn't load headlines (${escapeHtml(e.message)}).</div>`;
+  }
+}
+
+document.getElementById('btnPrevSym').addEventListener('click', () => navigateModal(-1));
+document.getElementById('btnNextSym').addEventListener('click', () => navigateModal(1));
+
+document.getElementById('chartTimeframe').addEventListener('change', updateModalChart);
+document.getElementById('modalClose').addEventListener('click', closeModal);
+document.getElementById('modalOverlay').addEventListener('click', (e) => {
+  if(e.target.id === 'modalOverlay') closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if(!document.getElementById('modalOverlay').classList.contains('open')) return;
+  if(e.key === 'Escape'){
+    closeModal();
+  } else if(e.key === 'ArrowLeft'){
+    navigateModal(-1);
+  } else if(e.key === 'ArrowRight'){
+    navigateModal(1);
+  }
+});
+
+window.addEventListener('resize', () => {
+  if(activeChart){
+    const container = document.getElementById('chartContainer');
+    activeChart.applyOptions({ width: container.clientWidth });
+    if(activeCloudRedraw) requestAnimationFrame(activeCloudRedraw);
+  }
+});
+
+async function runGainerScan(){
+  if(!requireKeys()) return;
+  lastMode = 'sp500';
+  const btn = document.getElementById('btnLoadGainers');
+  btn.disabled = true;
+  statusMsg('Fetching top S&P 500 gainers…');
+  try{
+    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
+    const feed = document.getElementById('feed').value;
+    const universe = await getSP500Tickers();
+    const gainers = await rankUniverseGainers(universe, count, feed, statusMsg);
+    if(gainers.length === 0){
+      statusMsg('No S&P 500 gainers could be priced right now.', true);
+      btn.disabled = false;
+      return;
+    }
+    const gainerMeta = {};
+    gainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change }; });
+    lastSymbols = gainers.map(g => g.symbol);
+
+    statusMsg(`Scanning top ${gainers.length} gainers on 30m…`);
+    const rows = await evaluateSymbols(lastSymbols, feed);
+    render(rows, gainerMeta);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} of ${rows.length} passing`);
+  }catch(e){
+    statusMsg(e.message, true);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+async function runManualScan(){
+  if(!requireKeys()) return;
+  lastMode = 'manual';
+  const raw = document.getElementById('manualList').value;
+  const symbols = [...new Set(raw.split(/[\s,]+/).map(s=>s.trim().toUpperCase()).filter(Boolean))];
+  if(symbols.length === 0){ statusMsg('Enter at least one ticker in the list.', true); return; }
+
+  const btn = document.getElementById('btnScanManual');
+  btn.disabled = true;
+  statusMsg(`Pricing ${symbols.length} tickers to rank top 10 gainers…`);
+  try{
+    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
+    const feed = document.getElementById('feed').value;
+    const gainers = await rankUniverseGainers(symbols, count, feed, statusMsg);
+    if(gainers.length === 0){
+      statusMsg('Could not price tickers in the list right now.', true);
+      btn.disabled = false;
+      return;
+    }
+
+    const gainerMeta = {};
+    gainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change }; });
+    lastSymbols = gainers.map(g => g.symbol);
+
+    statusMsg(`Scanning top ${gainers.length} gainers on 30m…`);
+    const rows = await evaluateSymbols(lastSymbols, feed);
+    render(rows, gainerMeta);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} of ${rows.length} passing`);
+  }catch(e){
+    statusMsg(e.message, true);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
+document.getElementById('btnLoadGainers').addEventListener('click', runGainerScan);
+document.getElementById('btnScanManual').addEventListener('click', runManualScan);
+
+document.getElementById('btnViewWatchlist').addEventListener('click', () => {
+  if(!requireKeys()) return;
+  const raw = document.getElementById('manualList').value;
+  const symbols = [...new Set(raw.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(Boolean))];
+  if(symbols.length === 0){
+    statusMsg('Enter at least one ticker in the watchlist to chart.', true);
+    return;
+  }
+  lastMode = 'watchlist';
+  lastSymbols = symbols;
+  statusMsg(`Browsing charts for ${symbols.length} watchlist ticker${symbols.length===1?'':'s'} (no scan/rank applied).`);
+  openModalAtIndex(0);
+});
+
+document.getElementById('autoRefresh').addEventListener('change', (e)=>{
+  if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
+  if(e.target.checked){
+    const mins = parseInt(document.getElementById('refreshMins').value, 10);
+    autoTimer = setInterval(()=>{
+      if(lastMode === 'manual') runManualScan();
+      else runGainerScan();
+    }, mins*60*1000);
+  }
+});
+document.getElementById('refreshMins').addEventListener('change', ()=>{
+  const cb = document.getElementById('autoRefresh');
+  if(cb.checked){ cb.dispatchEvent(new Event('change')); }
+});
+
+/* ---------- PWA: service worker + install prompt ---------- */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(err => {
+      console.warn('Service worker registration failed:', err);
+    });
+  });
+}
+
+let deferredInstallPrompt = null;
+const installBtn = document.createElement('button');
+installBtn.id = 'btnInstallPwa';
+installBtn.textContent = '⇩ Install app';
+installBtn.style.display = 'none';
+document.querySelector('.action-bar-left')?.appendChild(installBtn);
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  installBtn.style.display = 'inline-flex';
+});
+
+installBtn.addEventListener('click', async () => {
+  if(!deferredInstallPrompt) return;
+  installBtn.style.display = 'none';
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+  installBtn.style.display = 'none';
+  deferredInstallPrompt = null;
+});
+</script>
+</body>
+</html>
