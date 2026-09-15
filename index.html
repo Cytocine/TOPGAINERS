@@ -27,6 +27,7 @@
     --fail:#ff8177;
     --warn:#e0a13b;
     --accent:#5b8def;
+    --massive:#9c5ff5;
     --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
     --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   }
@@ -52,9 +53,9 @@
     border-radius:7px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;
     font-family:var(--sans);white-space:nowrap;touch-action:manipulation;
   }
+  button.massive-btn{background:#2a1b42;border-color:#5c3599;color:var(--massive);}
   button.primary{background:#1b3b2f;border-color:#2a5c48;color:var(--pass);}
   button.accent{background:#1a2b3c;border-color:#2b4b6f;color:var(--accent);}
-  button.av-btn{background:#2a2512;border-color:#594c1a;color:#ffd000;}
   button:active{transform:scale(0.97);}
   button:disabled{opacity:0.4;cursor:not-allowed;}
   .divider{border-top:1px solid var(--line);margin:10px 0;}
@@ -79,7 +80,6 @@
   .badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:0.3px;}
   .badge.pass{background:rgba(57,217,138,0.15);color:var(--pass);}
   .badge.fail{background:rgba(81,96,102,0.25);color:var(--muted);}
-  .badge.pullback{background:rgba(91,141,239,0.18);color:var(--accent);}
   .ticks{display:flex;gap:3px;justify-content:flex-end;}
   .tick{width:14px;height:14px;border-radius:3px;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:700;}
   .tick.y{background:rgba(57,217,138,0.18);color:var(--pass);}
@@ -150,14 +150,13 @@
 <body>
 
   <h1>GAINER SCAN &amp; EXECUTION</h1>
-  <p class="sub">Dynamic Gainers · 30m EMA5 &gt; EMA13 Breakouts · Risk Bracket Calculator</p>
+  <p class="sub">Massive (Polygon) Top Gainers · 30m EMA5 &gt; EMA13 · Risk Bracket Sizing</p>
 
   <div class="action-bar">
     <div class="action-bar-left">
-      <button class="accent" id="btnScanStockAnalysis">🚀 Top Gainers (&gt;1M Vol &amp; &gt;$1)</button>
-      <button class="av-btn" id="btnScanAlphaVantage">📈 Alpha Vantage Gainers</button>
-      <button class="primary" id="btnScanManual">Watchlist</button>
-      <button id="btnLoadGainers">S&amp;P 500</button>
+      <button class="massive-btn" id="btnScanMassive">⚡ Massive Gainers (&gt;1M Vol &amp; &gt;$1)</button>
+      <button class="primary" id="btnScanManual">Scan Watchlist</button>
+      <button id="btnLoadGainers">S&amp;P 500 Gainers</button>
       <div class="toggle-row">
         <input type="checkbox" id="autoRefresh">
         <label for="autoRefresh">Auto</label>
@@ -174,6 +173,10 @@
 
   <div class="panel" id="settingsPanel">
     <div class="row">
+      <div class="field" style="flex:1 1 200px;">
+        <label>Massive / Polygon.io API Key</label>
+        <input type="text" id="massiveApiKey" autocomplete="off" spellcheck="false" placeholder="Required for Massive scan">
+      </div>
       <div class="field" style="flex:1 1 180px;">
         <label>Alpaca API Key ID</label>
         <input type="text" id="apiKey" autocomplete="off" spellcheck="false">
@@ -182,18 +185,14 @@
         <label>Alpaca Secret Key</label>
         <input type="password" id="apiSecret" autocomplete="off" spellcheck="false">
       </div>
-      <div class="field" style="flex:1 1 160px;">
-        <label>Alpha Vantage API Key</label>
-        <input type="password" id="avApiKey" autocomplete="off" spellcheck="false">
-      </div>
       <div class="field" style="flex:0 1 90px;">
         <label>Risk Budget ($)</label>
         <input type="number" id="defaultRisk" value="50" min="5" step="5">
       </div>
-      <div class="field" style="flex:0 1 90px;">
+      <div class="field" style="flex:0 1 80px;">
         <label>Feed</label>
         <select id="feed">
-          <option value="iex" selected>IEX (free)</option>
+          <option value="iex" selected>IEX</option>
           <option value="sip">SIP</option>
         </select>
       </div>
@@ -211,13 +210,13 @@
     </div>
   </div>
 
-  <div class="status" id="status">Ready. Select a gainer source above.</div>
+  <div class="status" id="status">Ready. Tap 'Massive Gainers' to fetch market movers.</div>
 
   <div id="resultsWrap" style="margin-top:10px;"></div>
 
   <div class="legend" id="legend" style="display:none;">
-    <span><b>Ticks:</b> EMA5&gt;EMA13 (or 9&gt;21) · Close&gt;EMA · Close&gt;PM High</span>
-    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High)</span>
+    <span><b>Ticks:</b> 30m EMA5&gt;13 · Close&gt;EMA5 · Close&gt;PM High</span>
+    <span><b>PASS:</b> Active Breakout confirmed by all 3 triggers</span>
   </div>
 
   <!-- Modal -->
@@ -299,10 +298,12 @@
 
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
-const DATA_BASE = 'https://data.alpaca.markets';
+const ALPACA_BASE = 'https://data.alpaca.markets';
+const MASSIVE_BASE = 'https://api.massive.com';
 const WIKI_SP500_URL = 'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies&format=json&prop=text&origin=*';
+
 let autoTimer = null;
-let lastMode = 'sa_gainers';
+let lastMode = 'massive_gainers';
 let lastSymbols = [];
 let sp500Cache = null;
 let rowDataMap = {};
@@ -317,36 +318,37 @@ let stopPriceLine = null;
 let targetPriceLine = null;
 
 function restoreStoredConfig(){
+  const mk = localStorage.getItem('massive_api_key');
   const k = localStorage.getItem('alpaca_api_key');
   const s = localStorage.getItem('alpaca_api_secret');
   const f = localStorage.getItem('alpaca_feed');
   const list = localStorage.getItem('alpaca_manual_list');
   const risk = localStorage.getItem('alpaca_default_risk');
-  const av = localStorage.getItem('av_api_key');
+  
+  if(mk) document.getElementById('massiveApiKey').value = mk;
   if(k) document.getElementById('apiKey').value = k;
   if(s) document.getElementById('apiSecret').value = s;
   if(f) document.getElementById('feed').value = f;
   if(list) document.getElementById('manualList').value = list;
-  if(av) document.getElementById('avApiKey').value = av;
   if(risk) {
     document.getElementById('defaultRisk').value = risk;
     document.getElementById('tradeRiskBudget').value = risk;
   }
 }
 function saveStoredConfig(){
+  localStorage.setItem('massive_api_key', document.getElementById('massiveApiKey').value.trim());
   localStorage.setItem('alpaca_api_key', document.getElementById('apiKey').value.trim());
   localStorage.setItem('alpaca_api_secret', document.getElementById('apiSecret').value.trim());
   localStorage.setItem('alpaca_feed', document.getElementById('feed').value);
   localStorage.setItem('alpaca_manual_list', document.getElementById('manualList').value.trim());
   localStorage.setItem('alpaca_default_risk', document.getElementById('defaultRisk').value.trim());
-  localStorage.setItem('av_api_key', document.getElementById('avApiKey').value.trim());
 }
 
+document.getElementById('massiveApiKey').addEventListener('input', saveStoredConfig);
 document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
 document.getElementById('apiSecret').addEventListener('input', saveStoredConfig);
 document.getElementById('feed').addEventListener('change', saveStoredConfig);
 document.getElementById('manualList').addEventListener('input', saveStoredConfig);
-document.getElementById('avApiKey').addEventListener('input', saveStoredConfig);
 document.getElementById('defaultRisk').addEventListener('input', () => {
   saveStoredConfig();
   document.getElementById('tradeRiskBudget').value = document.getElementById('defaultRisk').value;
@@ -367,17 +369,17 @@ function statusMsg(msg, isErr){
   el.className = 'status' + (isErr ? ' err' : '');
 }
 
-function headers(){
+function alpacaHeaders(){
   return {
     'APCA-API-KEY-ID': document.getElementById('apiKey').value.trim(),
     'APCA-API-SECRET-KEY': document.getElementById('apiSecret').value.trim()
   };
 }
 
-function requireKeys(){
-  const h = headers();
+function requireAlpacaKeys(){
+  const h = alpacaHeaders();
   if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']){
-    statusMsg('Enter Alpaca keys in Settings.', true);
+    statusMsg('Enter your Alpaca credentials in Settings.', true);
     settingsPanel.classList.add('open');
     btnToggle.textContent = '⚙ Settings ▲';
     return false;
@@ -385,10 +387,10 @@ function requireKeys(){
   return true;
 }
 
-function requireAvKey(){
-  const key = document.getElementById('avApiKey').value.trim();
-  if(!key){
-    statusMsg('Enter an Alpha Vantage API key in Settings (free at alphavantage.co/support/#api-key).', true);
+function requireMassiveKey(){
+  const k = document.getElementById('massiveApiKey').value.trim();
+  if(!k){
+    statusMsg('Enter your Massive (Polygon.io) API key in Settings.', true);
     settingsPanel.classList.add('open');
     btnToggle.textContent = '⚙ Settings ▲';
     return false;
@@ -445,7 +447,6 @@ async function getSP500Tickers(){
   if(!res.ok) throw new Error(`Could not load S&P 500 (${res.status})`);
   const data = await res.json();
   const html = data.parse && data.parse.text ? data.parse.text['*'] : null;
-  if(!html) throw new Error('Could not parse Wikipedia');
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const table = doc.querySelector('table#constituents') || doc.querySelector('table.wikitable');
   const tickers = [];
@@ -463,36 +464,10 @@ function chunk(arr, size){
   return out;
 }
 
-async function fetchSnapshotsChunk(symbols, feed, _retriesLeft){
-  if(symbols.length === 0) return {};
-  if(_retriesLeft === undefined) _retriesLeft = 5;
-
+async function fetchSnapshotsChunk(symbols, feed){
   const params = new URLSearchParams({ symbols: symbols.join(','), feed });
-  const res = await fetch(`${DATA_BASE}/v2/stocks/snapshots?${params.toString()}`, { headers: headers() });
-
-  if(!res.ok){
-    let bodyMsg = '';
-    try{
-      const errBody = await res.json();
-      bodyMsg = errBody.message || '';
-    }catch(_){}
-
-    // Alpaca fails the ENTIRE batch if even one symbol is invalid/unrecognized
-    // (e.g. "code=400, message=invalid symbol: JENA^"). Drop that symbol and retry
-    // instead of losing every other ticker in the request. Match any non-whitespace
-    // token — invalid symbols can contain non-alphanumeric characters like ^, /, +.
-    const badMatch = bodyMsg.match(/invalid symbol:\s*(\S+)/i);
-    if(res.status === 400 && badMatch && _retriesLeft > 0){
-      const bad = badMatch[1].replace(/[.,;]+$/, '').toUpperCase();
-      const retrySymbols = symbols.filter(s => s.toUpperCase() !== bad);
-      if(retrySymbols.length > 0 && retrySymbols.length < symbols.length){
-        console.warn(`Alpaca rejected invalid symbol "${bad}" — dropping and retrying.`);
-        return fetchSnapshotsChunk(retrySymbols, feed, _retriesLeft - 1);
-      }
-    }
-
-    throw new Error(`Snapshots failed (${res.status})${bodyMsg ? ' — ' + bodyMsg : ''}`);
-  }
+  const res = await fetch(`${ALPACA_BASE}/v2/stocks/snapshots?${params.toString()}`, { headers: alpacaHeaders() });
+  if(!res.ok) throw new Error(`Alpaca snapshots failed (${res.status})`);
   return res.json();
 }
 
@@ -501,50 +476,53 @@ async function fetchBars(symbols, timeframe, start, feed){
   const params = new URLSearchParams({
     symbols: symbols.join(','), timeframe, start, limit: '4000', adjustment: 'raw', feed
   });
-  const res = await fetch(`${DATA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: headers() });
-  if(!res.ok) throw new Error(`Bars fetch error (${res.status})`);
+  const res = await fetch(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: alpacaHeaders() });
+  if(!res.ok) throw new Error(`Bars fetch failed (${res.status})`);
   const data = await res.json();
   return data.bars || {};
 }
 
-// Fetch Broad Market Gainers (Price > 1 & Volume > 1M) via Alpaca screener
-async function fetchTopMarketGainers(feed, targetCount){
-  statusMsg('Fetching top market gainers from live movers…');
-  let candidates = [];
+// ---------------- Massive (Polygon.io) Gainers Fetcher ----------------
+async function fetchMassiveGainers(targetCount){
+  const apiKey = document.getElementById('massiveApiKey').value.trim();
+  statusMsg('Querying Massive (Polygon.io) top market gainers…');
+
+  // Primary Massive endpoint (supports api.polygon.io interchangeably)
+  const url = `${MASSIVE_BASE}/v2/snapshot/locale/us/markets/stocks/gainers?apiKey=${apiKey}`;
+  
+  let data;
   try {
-    const res = await fetch(`${DATA_BASE}/v1beta1/screener/stocks/movers?top=50`, { headers: headers() });
-    if(res.ok){
-      const data = await res.json();
-      candidates = (data.gainers || []).map(g => ({ symbol: g.symbol, percent_change: g.percent_change, price: g.price }));
+    const res = await fetch(url);
+    if(!res.ok){
+      // Fallback domain if network/DNS prefers polygon.io directly
+      const fallbackUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/gainers?apiKey=${apiKey}`;
+      const fbRes = await fetch(fallbackUrl);
+      if(!fbRes.ok) throw new Error(`Massive API returned ${res.status}`);
+      data = await fbRes.json();
+    } else {
+      data = await res.json();
     }
   } catch(e) {
-    console.warn('Movers endpoint failed:', e);
+    throw new Error(`Massive request failed: ${e.message}`);
   }
 
-  let allSymbols;
-  if(candidates.length > 0){
-    // Live Alpaca movers succeeded — use only those symbols, no fallback mixed in
-    allSymbols = [...new Set(candidates.map(c => c.symbol))];
-  } else {
-    statusMsg('Movers endpoint unavailable — using fallback watchlist…', true);
-    const fallbackList = ['CRWD','PANW','NVDA','AMD','TSLA','AAPL','META','MSFT','AMZN','PLTR','COIN','SMCI','ARM','AVGO','MARA','RIOT','DKNG','HOOD','CVNA','SOFI','RIVN','LCID','BABA','NIO'];
-    allSymbols = [...new Set(fallbackList)];
-  }
-
-  const snaps = await fetchSnapshotsChunk(allSymbols, feed);
+  const rawGainers = data.tickers || [];
   const filtered = [];
-  const MIN_GAIN_PCT = 2.0; // require an actual, meaningful gain — not just liquidity
 
-  Object.keys(snaps).forEach(sym => {
-    const snap = snaps[sym];
-    if(!snap) return;
-    const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
-    const prevClose = snap.prevDailyBar ? snap.prevDailyBar.c : price;
-    const volume = (snap.dailyBar && snap.dailyBar.v) || 0;
-    const pct = prevClose ? ((price - prevClose) / prevClose) * 100 : 0;
+  rawGainers.forEach(item => {
+    const sym = (item.ticker || '').toUpperCase();
+    const price = (item.day && item.day.c) || (item.lastTrade && item.lastTrade.p) || (item.min && item.min.c) || 0;
+    const volume = (item.day && item.day.v) || 0;
+    const pct = item.todaysChangePerc || 0;
 
-    if(price > 1.0 && volume > 1000000 && pct >= MIN_GAIN_PCT){
-      filtered.push({ symbol: sym, percent_change: pct, price, volume });
+    // Screening Filters: Price > $1.00 and Volume > 1,000,000
+    if(price > 1.0 && volume > 1000000){
+      filtered.push({
+        symbol: sym,
+        percent_change: pct,
+        price: price,
+        volume: volume
+      });
     }
   });
 
@@ -552,74 +530,7 @@ async function fetchTopMarketGainers(feed, targetCount){
   return filtered.slice(0, targetCount);
 }
 
-// Fetch Top Gainers from Alpha Vantage's official TOP_GAINERS_LOSERS endpoint
-async function fetchAlphaVantageGainers(feed, targetCount){
-  statusMsg('Fetching top gainers from Alpha Vantage…');
-  const key = document.getElementById('avApiKey').value.trim();
-  const res = await fetch(`https://www.alphavantage.co/query?function=TOP_GAINERS_LOSERS&apikey=${encodeURIComponent(key)}`);
-  if(!res.ok) throw new Error(`Alpha Vantage fetch error (${res.status})`);
-  const data = await res.json();
-
-  if(data['Note'] || data['Information']){
-    // Alpha Vantage returns HTTP 200 even when the free-tier rate limit is hit
-    throw new Error(data['Note'] || data['Information'] || 'Alpha Vantage rate limit reached.');
-  }
-  if(data['Error Message']){
-    throw new Error(data['Error Message']);
-  }
-
-  const rawGainers = data['top_gainers'] || [];
-  if(rawGainers.length === 0){
-    throw new Error('Alpha Vantage returned no top_gainers data.');
-  }
-
-  const candidates = rawGainers.map(g => ({
-    symbol: g.ticker,
-    price: parseFloat(g.price) || 0,
-    percent_change: parseFloat((g.change_percentage || '0').replace('%','')) || 0,
-    av_volume: parseInt(g.volume, 10) || 0
-  }));
-
-  const MIN_GAIN_PCT = 2.0;
-
-  // Alpha Vantage's list is a raw % ranking with no liquidity filter — it commonly
-  // includes thin, sub-$1 micro-cap/OTC names, so most candidates legitimately won't
-  // clear Price > $1 / Vol > 1M. Filter on AV's own reported numbers first (that IS
-  // its definition of "top gainer"), then only use Alpaca to enrich survivors with a
-  // fresher quote — never to gatekeep, since Alpaca's dailyBar can be empty/stale
-  // outside regular session hours and would otherwise wrongly zero out real gainers.
-  const passed = candidates.filter(c =>
-    c.price > 1.0 && c.av_volume > 1000000 && c.percent_change >= MIN_GAIN_PCT
-  );
-
-  if(passed.length === 0){
-    return [];
-  }
-
-  const symbols = passed.map(c => c.symbol);
-  let snaps = {};
-  try{
-    snaps = await fetchSnapshotsChunk(symbols, feed);
-  }catch(e){
-    console.warn('Snapshot enrichment failed, using Alpha Vantage figures as-is:', e);
-  }
-
-  const todayET = etParts(new Date()).dateStr;
-  const filtered = passed.map(c => {
-    const snap = snaps[c.symbol];
-    const barIsToday = snap && snap.dailyBar && snap.dailyBar.t && snap.dailyBar.t.slice(0,10) === todayET;
-    const price = barIsToday ? snap.dailyBar.c : c.price;
-    const volume = barIsToday ? snap.dailyBar.v : c.av_volume;
-    const prevClose = barIsToday && snap.prevDailyBar ? snap.prevDailyBar.c : null;
-    const pct = prevClose ? ((price - prevClose) / prevClose) * 100 : c.percent_change;
-    return { symbol: c.symbol, percent_change: pct, price, volume };
-  });
-
-  filtered.sort((a,b) => b.percent_change - a.percent_change);
-  return filtered.slice(0, targetCount);
-}
-
-// 30m EMA Evaluation
+// ---------------- Multi-Timeframe Condition Evaluator ----------------
 async function evaluateSymbols(symbolList, feed, mode){
   const symbols = symbolList.map(s => s.toUpperCase());
   const now = new Date();
@@ -645,8 +556,8 @@ async function evaluateSymbols(symbolList, feed, mode){
     }
     const closes = b30.map(b => b.c);
 
-    // EMA5 > EMA13 for Alpaca movers / Alpha Vantage gainers; EMA9 > EMA21 for Watchlist & S&P 500
-    const useFast = (mode === 'sa_gainers' || mode === 'av_gainers');
+    // EMA5 > EMA13 for Massive Gainers Mode; EMA9 > EMA21 for S&P/Watchlist
+    const useFast = (mode === 'massive_gainers');
     const fastPeriod = useFast ? 5 : 9;
     const slowPeriod = useFast ? 13 : 21;
 
@@ -686,7 +597,7 @@ async function evaluateSymbols(symbolList, feed, mode){
 
 function tick(v){ return v ? '<span class="tick y">✓</span>' : '<span class="tick n">✕</span>'; }
 
-function render(rows, gainerMeta, title){
+function render(rows, gainerMeta){
   document.getElementById('legend').style.display = 'flex';
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>%Chg</th><th>Vol</th><th>Conditions</th><th>Signal</th>
@@ -697,7 +608,6 @@ function render(rows, gainerMeta, title){
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
     const pctTag = meta ? `<span class="pct">+${meta.percent_change.toFixed(2)}%</span>` : '—';
     const volTag = (meta && meta.volume) ? `<span class="vol">${(meta.volume / 1000000).toFixed(1)}M</span>` : '—';
-
     const signalBadge = r.pass ? `<span class="badge pass">PASS</span>` : `<span class="badge fail">FAIL</span>`;
 
     html += `<tr>
@@ -1019,7 +929,7 @@ async function loadNews(symbol){
   el.innerHTML = '<div class="news-empty">Loading headlines…</div>';
   try{
     const params = new URLSearchParams({ symbols: symbol, limit: '4', sort: 'desc' });
-    const res = await fetch(`${DATA_BASE}/v1beta1/news?${params.toString()}`, { headers: headers() });
+    const res = await fetch(`${ALPACA_BASE}/v1beta1/news?${params.toString()}`, { headers: alpacaHeaders() });
     if(!res.ok) throw new Error(`${res.status}`);
     const data = await res.json();
     const items = data.news || [];
@@ -1057,33 +967,33 @@ window.addEventListener('resize', () => {
   }
 });
 
-// 2. StockAnalysis Scanner Action
-async function runStockAnalysisGainerScan(){
-  if(!requireKeys()) return;
-  lastMode = 'sa_gainers';
-  const btn = document.getElementById('btnScanStockAnalysis');
+// 1. Massive (Polygon.io) Gainers Scanner
+async function runMassiveGainerScan(){
+  if(!requireMassiveKey() || !requireAlpacaKeys()) return;
+  lastMode = 'massive_gainers';
+  const btn = document.getElementById('btnScanMassive');
   btn.disabled = true;
-  statusMsg('Scanning market gainers (Price > $1, Vol > 1M)…');
+  statusMsg('Loading Massive top gainers (>1M Vol, >$1)…');
   try{
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
     const feed = document.getElementById('feed').value;
-    const gainers = await fetchTopMarketGainers(feed, count);
+    const gainers = await fetchMassiveGainers(count);
     
     if(gainers.length === 0){
-      statusMsg('No market gainers matched Price > $1 and Vol > 1M.', true);
+      statusMsg('No Massive gainers matched Price > $1 and Volume > 1M.', true);
       btn.disabled = false;
       return;
     }
 
     const gainerMeta = {};
     gainers.forEach((g, idx) => {
-      gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
+      gainerMeta[g.symbol] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
     });
     lastSymbols = gainers.map(g => g.symbol);
 
-    statusMsg(`Evaluating 30m EMA5>EMA13 & PM Breakout…`);
-    const rows = await evaluateSymbols(lastSymbols, feed, 'sa_gainers');
-    render(rows, gainerMeta, 'StockAnalysis Gainers');
+    statusMsg(`Scanning 30m EMA5>EMA13 & PM Breakout for top ${lastSymbols.length} gainers…`);
+    const rows = await evaluateSymbols(lastSymbols, feed, 'massive_gainers');
+    render(rows, gainerMeta);
     statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all criteria`);
   }catch(e){
     statusMsg(e.message, true);
@@ -1092,45 +1002,9 @@ async function runStockAnalysisGainerScan(){
   }
 }
 
-// 2b. Alpha Vantage Scanner Action
-async function runAlphaVantageGainerScan(){
-  if(!requireKeys()) return;
-  if(!requireAvKey()) return;
-  lastMode = 'av_gainers';
-  const btn = document.getElementById('btnScanAlphaVantage');
-  btn.disabled = true;
-  statusMsg('Loading Alpha Vantage top gainers (Price > $1, Vol > 1M)…');
-  try{
-    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
-    const feed = document.getElementById('feed').value;
-    const gainers = await fetchAlphaVantageGainers(feed, count);
-
-    if(gainers.length === 0){
-      statusMsg('No Alpha Vantage gainers matched Price > $1, Vol > 1M, and a meaningful gain.', true);
-      btn.disabled = false;
-      return;
-    }
-
-    const gainerMeta = {};
-    gainers.forEach((g, idx) => {
-      gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
-    });
-    lastSymbols = gainers.map(g => g.symbol);
-
-    statusMsg(`Scanning 30m EMA5>EMA13 for ${lastSymbols.length} Alpha Vantage gainers…`);
-    const rows = await evaluateSymbols(lastSymbols, feed, 'av_gainers');
-    render(rows, gainerMeta, 'Alpha Vantage Gainers');
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all criteria`);
-  }catch(e){
-    statusMsg(e.message, true);
-  }finally{
-    btn.disabled = false;
-  }
-}
-
-// 3. Watchlist Action
+// 2. Watchlist Scanner
 async function runManualScan(){
-  if(!requireKeys()) return;
+  if(!requireAlpacaKeys()) return;
   lastMode = 'manual';
   const raw = document.getElementById('manualList').value;
   const symbols = [...new Set(raw.split(/[\s,]+/).map(s=>s.trim().toUpperCase()).filter(Boolean))];
@@ -1159,7 +1033,7 @@ async function runManualScan(){
     lastSymbols = gainers.map(g => g.symbol);
 
     const rows = await evaluateSymbols(lastSymbols, feed, 'manual');
-    render(rows, gainerMeta, 'Watchlist');
+    render(rows, gainerMeta);
     statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} breakout hits`);
   }catch(e){
     statusMsg(e.message, true);
@@ -1168,9 +1042,9 @@ async function runManualScan(){
   }
 }
 
-// 4. S&P 500 Action
+// 3. S&P 500 Scanner
 async function runGainerScan(){
-  if(!requireKeys()) return;
+  if(!requireAlpacaKeys()) return;
   lastMode = 'sp500';
   const btn = document.getElementById('btnLoadGainers');
   btn.disabled = true;
@@ -1203,7 +1077,7 @@ async function runGainerScan(){
     lastSymbols = top.map(g => g.symbol);
 
     const rows = await evaluateSymbols(lastSymbols, feed, 'sp500');
-    render(rows, gainerMeta, 'S&P 500');
+    render(rows, gainerMeta);
     statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} hits`);
   }catch(e){
     statusMsg(e.message, true);
@@ -1212,8 +1086,7 @@ async function runGainerScan(){
   }
 }
 
-document.getElementById('btnScanStockAnalysis').addEventListener('click', runStockAnalysisGainerScan);
-document.getElementById('btnScanAlphaVantage').addEventListener('click', runAlphaVantageGainerScan);
+document.getElementById('btnScanMassive').addEventListener('click', runMassiveGainerScan);
 document.getElementById('btnScanManual').addEventListener('click', runManualScan);
 document.getElementById('btnLoadGainers').addEventListener('click', runGainerScan);
 
@@ -1222,8 +1095,7 @@ document.getElementById('autoRefresh').addEventListener('change', (e)=>{
   if(e.target.checked){
     const mins = parseInt(document.getElementById('refreshMins').value, 10);
     autoTimer = setInterval(()=>{
-      if(lastMode === 'sa_gainers') runStockAnalysisGainerScan();
-      else if(lastMode === 'av_gainers') runAlphaVantageGainerScan();
+      if(lastMode === 'massive_gainers') runMassiveGainerScan();
       else if(lastMode === 'manual') runManualScan();
       else runGainerScan();
     }, mins*60*1000);
