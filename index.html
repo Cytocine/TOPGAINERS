@@ -453,49 +453,67 @@ async function fetchBars(symbols, timeframe, start, feed){
 
 
 // Universal Market Gainers Fetcher using Alpaca's Movers Endpoint
-async function fetchTopMarketGainers(targetCount){
-  statusMsg('Querying Alpaca Top Market Movers (/v1beta1/screener/stocks/movers)…');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+async function fetchTopMarketGainers(targetCount) {
+  statusMsg('Querying Alpaca Movers & Market Snapshots…');
   let candidates = [];
-  
+
   try {
-    // Correct endpoint: /v1beta1/screener/{market_type}/movers?top=50
-    const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, { 
-      headers: alpacaHeaders() 
+    // Alpaca Movers endpoint
+    const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, {
+      headers: alpacaHeaders()
     });
-    
+
     if (res.ok) {
       const data = await res.json();
-      const gainers = data.gainers || [];
-      // Extract candidate symbols from Alpaca's gainers list
-      candidates = gainers.map(g => g.symbol);
-    } else {
-      console.warn(`Alpaca movers request failed with status: ${res.status}`);
+      candidates = (data.gainers || []).map(g => g.symbol);
     }
-  } catch(e) {
-    console.warn('Alpaca movers error:', e);
+  } catch (e) {
+    console.warn('Movers endpoint failed, expanding universe pool:', e);
   }
 
-  // Fallback: If outside trading hours or movers returns empty, fall back to high-volume universe
-  if (candidates.length === 0) {
-    statusMsg('Movers returned empty (off-hours). Scanning active volume pool…');
-    candidates = ['CRWD','PANW','NVDA','AMD','TSLA','AAPL','META','MSFT','AMZN','PLTR','COIN','SMCI','ARM','AVGO','MARA','RIOT','DKNG','HOOD','CVNA','SOFI','RIVN','LCID','BABA','NIO'];
+  // If outside trading hours or movers is empty, scan S&P 500 + high-beta pool
+  if (!candidates || candidates.length === 0) {
+    statusMsg('Off-hours: Ranking gainers from broad active universe…');
+    const spTickers = await getSP500Tickers().catch(() => []);
+    const extraPool = ['CRWD', 'PANW', 'NVDA', 'AMD', 'TSLA', 'AAPL', 'META', 'MSFT', 'AMZN', 'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'MARA', 'RIOT', 'DKNG', 'HOOD', 'CVNA', 'SOFI', 'RIVN'];
+    candidates = [...new Set([...spTickers.slice(0, 80), ...extraPool])];
   }
 
-  // Fetch volume & day prices via snapshots to evaluate criteria
   const feed = document.getElementById('feed').value;
   const snaps = await fetchSnapshotsChunk(candidates, feed);
   const filtered = [];
 
   Object.keys(snaps).forEach(sym => {
     const snap = snaps[sym];
-    if(!snap) return;
-    const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
-    const prev = snap.prevDailyBar ? snap.prevDailyBar.c : price;
-    const volume = (snap.dailyBar && snap.dailyBar.v) || 0;
+    if (!snap) return;
+
+    // Price: current trade/close, fallback to previous daily bar close
+    const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || (snap.prevDailyBar && snap.prevDailyBar.c) || 0;
+    const prev = (snap.prevDailyBar && snap.prevDailyBar.c) || price;
+
+    // Volume fix: fallback to prevDailyBar.v if dailyBar.v is 0 (happens during off-hours/pre-market)
+    const volume = (snap.dailyBar && snap.dailyBar.v > 0) 
+      ? snap.dailyBar.v 
+      : ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
+
     const pct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
 
-    // Filters: Price > $1.00 and Volume > 1,000,000
-    if(price > 1.0 && volume > 1000000){
+    // Filter: Price > $1.00 and Volume > 1,000,000
+    if (price > 1.0 && volume > 1000000) {
       filtered.push({
         symbol: sym,
         percent_change: pct,
@@ -505,10 +523,11 @@ async function fetchTopMarketGainers(targetCount){
     }
   });
 
-  // Sort strictly by highest percentage gain
-  filtered.sort((a,b) => b.percent_change - a.percent_change);
+  // Sort descending by highest percentage gain
+  filtered.sort((a, b) => b.percent_change - a.percent_change);
   return filtered.slice(0, targetCount);
 }
+
 
 
 
