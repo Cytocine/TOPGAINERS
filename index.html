@@ -609,7 +609,8 @@ function render(rows, gainerMeta){
   rows.forEach((r, idx) => {
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
-    const pctTag = meta ? `<span class="pct">+${meta.percent_change.toFixed(2)}%</span>` : '—';
+// AFTER
+const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
     const volTag = (meta && meta.volume) ? `<span class="vol">${(meta.volume / 1000000).toFixed(1)}M</span>` : '—';
     const signalBadge = r.pass ? `<span class="badge pass">PASS</span>` : `<span class="badge fail">FAIL</span>`;
 
@@ -1029,11 +1030,13 @@ async function runManualScan(){
       const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
       gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
     });
+// AFTER
     gainers.sort((a,b) => b.percent_change - a.percent_change);
+    const topGainers = gainers.slice(0, 5); // Take only top 5
 
     const gainerMeta = {};
-    gainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
-    lastSymbols = gainers.map(g => g.symbol);
+    topGainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
+    lastSymbols = topGainers.map(g => g.symbol);
 
     const rows = await evaluateSymbols(lastSymbols, feed, 'manual');
     render(rows, gainerMeta);
