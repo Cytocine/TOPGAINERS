@@ -478,11 +478,12 @@ async function fetchSnapshotsChunk(symbols, feed, _retriesLeft){
     }catch(_){}
 
     // Alpaca fails the ENTIRE batch if even one symbol is invalid/unrecognized
-    // (e.g. "code=400, message=invalid symbol: XYZ"). Drop that symbol and retry
-    // instead of losing every other ticker in the request.
-    const badMatch = bodyMsg.match(/invalid symbol:\s*([A-Za-z0-9.\-]+)/i);
+    // (e.g. "code=400, message=invalid symbol: JENA^"). Drop that symbol and retry
+    // instead of losing every other ticker in the request. Match any non-whitespace
+    // token — invalid symbols can contain non-alphanumeric characters like ^, /, +.
+    const badMatch = bodyMsg.match(/invalid symbol:\s*(\S+)/i);
     if(res.status === 400 && badMatch && _retriesLeft > 0){
-      const bad = badMatch[1].toUpperCase();
+      const bad = badMatch[1].replace(/[.,;]+$/, '').toUpperCase();
       const retrySymbols = symbols.filter(s => s.toUpperCase() !== bad);
       if(retrySymbols.length > 0 && retrySymbols.length < symbols.length){
         console.warn(`Alpaca rejected invalid symbol "${bad}" — dropping and retrying.`);
