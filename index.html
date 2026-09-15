@@ -463,10 +463,35 @@ function chunk(arr, size){
   return out;
 }
 
-async function fetchSnapshotsChunk(symbols, feed){
+async function fetchSnapshotsChunk(symbols, feed, _retriesLeft){
+  if(symbols.length === 0) return {};
+  if(_retriesLeft === undefined) _retriesLeft = 5;
+
   const params = new URLSearchParams({ symbols: symbols.join(','), feed });
   const res = await fetch(`${DATA_BASE}/v2/stocks/snapshots?${params.toString()}`, { headers: headers() });
-  if(!res.ok) throw new Error(`Snapshots failed (${res.status})`);
+
+  if(!res.ok){
+    let bodyMsg = '';
+    try{
+      const errBody = await res.json();
+      bodyMsg = errBody.message || '';
+    }catch(_){}
+
+    // Alpaca fails the ENTIRE batch if even one symbol is invalid/unrecognized
+    // (e.g. "code=400, message=invalid symbol: XYZ"). Drop that symbol and retry
+    // instead of losing every other ticker in the request.
+    const badMatch = bodyMsg.match(/invalid symbol:\s*([A-Za-z0-9.\-]+)/i);
+    if(res.status === 400 && badMatch && _retriesLeft > 0){
+      const bad = badMatch[1].toUpperCase();
+      const retrySymbols = symbols.filter(s => s.toUpperCase() !== bad);
+      if(retrySymbols.length > 0 && retrySymbols.length < symbols.length){
+        console.warn(`Alpaca rejected invalid symbol "${bad}" — dropping and retrying.`);
+        return fetchSnapshotsChunk(retrySymbols, feed, _retriesLeft - 1);
+      }
+    }
+
+    throw new Error(`Snapshots failed (${res.status})${bodyMsg ? ' — ' + bodyMsg : ''}`);
+  }
   return res.json();
 }
 
