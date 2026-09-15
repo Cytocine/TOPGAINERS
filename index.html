@@ -451,27 +451,39 @@ async function fetchBars(symbols, timeframe, start, feed){
   return data.bars || {};
 }
 
-// Universal Market Gainers Fetcher (Price > 1.00 & Volume > 1,000,000)
+
+// Universal Market Gainers Fetcher using Alpaca's Movers Endpoint
 async function fetchTopMarketGainers(targetCount){
-  statusMsg('Querying real-time market gainers…');
+  statusMsg('Querying Alpaca Top Market Movers (/v1beta1/screener/stocks/movers)…');
   let candidates = [];
   
   try {
-    const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, { headers: alpacaHeaders() });
-    if(res.ok){
+    // Correct endpoint: /v1beta1/screener/{market_type}/movers?top=50
+    const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, { 
+      headers: alpacaHeaders() 
+    });
+    
+    if (res.ok) {
       const data = await res.json();
-      candidates = (data.gainers || []).map(g => g.symbol);
+      const gainers = data.gainers || [];
+      // Extract candidate symbols from Alpaca's gainers list
+      candidates = gainers.map(g => g.symbol);
+    } else {
+      console.warn(`Alpaca movers request failed with status: ${res.status}`);
     }
   } catch(e) {
-    console.warn('Movers endpoint failed, using fallback:', e);
+    console.warn('Alpaca movers error:', e);
   }
 
-  // Supplementary pool of active high-volume movers
-  const activePool = ['CRWD','PANW','NVDA','AMD','TSLA','AAPL','META','MSFT','AMZN','PLTR','COIN','SMCI','ARM','AVGO','MARA','RIOT','DKNG','HOOD','CVNA','SOFI','RIVN','LCID','BABA','NIO'];
-  const allSymbols = [...new Set([...candidates, ...activePool])];
+  // Fallback: If outside trading hours or movers returns empty, fall back to high-volume universe
+  if (candidates.length === 0) {
+    statusMsg('Movers returned empty (off-hours). Scanning active volume pool…');
+    candidates = ['CRWD','PANW','NVDA','AMD','TSLA','AAPL','META','MSFT','AMZN','PLTR','COIN','SMCI','ARM','AVGO','MARA','RIOT','DKNG','HOOD','CVNA','SOFI','RIVN','LCID','BABA','NIO'];
+  }
 
+  // Fetch volume & day prices via snapshots to evaluate criteria
   const feed = document.getElementById('feed').value;
-  const snaps = await fetchSnapshotsChunk(allSymbols, feed);
+  const snaps = await fetchSnapshotsChunk(candidates, feed);
   const filtered = [];
 
   Object.keys(snaps).forEach(sym => {
@@ -482,7 +494,7 @@ async function fetchTopMarketGainers(targetCount){
     const volume = (snap.dailyBar && snap.dailyBar.v) || 0;
     const pct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
 
-    // Strict Criteria: Price > $1.00 and Volume > 1,000,000
+    // Filters: Price > $1.00 and Volume > 1,000,000
     if(price > 1.0 && volume > 1000000){
       filtered.push({
         symbol: sym,
@@ -493,9 +505,14 @@ async function fetchTopMarketGainers(targetCount){
     }
   });
 
+  // Sort strictly by highest percentage gain
   filtered.sort((a,b) => b.percent_change - a.percent_change);
   return filtered.slice(0, targetCount);
 }
+
+
+
+
 
 // 30m EMA Evaluation
 async function evaluateSymbols(symbolList, feed, mode){
