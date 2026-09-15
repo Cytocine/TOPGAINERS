@@ -580,24 +580,39 @@ async function fetchAlphaVantageGainers(feed, targetCount){
     av_volume: parseInt(g.volume, 10) || 0
   }));
 
-  // Re-verify against live Alpaca snapshots (Alpha Vantage's own data can lag) and
-  // enforce the same Price > $1 / Volume > 1M / meaningful-gain rules as other sources.
-  const symbols = candidates.map(c => c.symbol);
-  const snaps = await fetchSnapshotsChunk(symbols, feed);
-  const filtered = [];
   const MIN_GAIN_PCT = 2.0;
 
-  candidates.forEach(c => {
-    const snap = snaps[c.symbol];
-    if(!snap) return;
-    const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || c.price;
-    const prevClose = snap.prevDailyBar ? snap.prevDailyBar.c : price;
-    const volume = (snap.dailyBar && snap.dailyBar.v) || c.av_volume || 0;
-    const pct = prevClose ? ((price - prevClose) / prevClose) * 100 : c.percent_change;
+  // Alpha Vantage's list is a raw % ranking with no liquidity filter — it commonly
+  // includes thin, sub-$1 micro-cap/OTC names, so most candidates legitimately won't
+  // clear Price > $1 / Vol > 1M. Filter on AV's own reported numbers first (that IS
+  // its definition of "top gainer"), then only use Alpaca to enrich survivors with a
+  // fresher quote — never to gatekeep, since Alpaca's dailyBar can be empty/stale
+  // outside regular session hours and would otherwise wrongly zero out real gainers.
+  const passed = candidates.filter(c =>
+    c.price > 1.0 && c.av_volume > 1000000 && c.percent_change >= MIN_GAIN_PCT
+  );
 
-    if(price > 1.0 && volume > 1000000 && pct >= MIN_GAIN_PCT){
-      filtered.push({ symbol: c.symbol, percent_change: pct, price, volume });
-    }
+  if(passed.length === 0){
+    return [];
+  }
+
+  const symbols = passed.map(c => c.symbol);
+  let snaps = {};
+  try{
+    snaps = await fetchSnapshotsChunk(symbols, feed);
+  }catch(e){
+    console.warn('Snapshot enrichment failed, using Alpha Vantage figures as-is:', e);
+  }
+
+  const todayET = etParts(new Date()).dateStr;
+  const filtered = passed.map(c => {
+    const snap = snaps[c.symbol];
+    const barIsToday = snap && snap.dailyBar && snap.dailyBar.t && snap.dailyBar.t.slice(0,10) === todayET;
+    const price = barIsToday ? snap.dailyBar.c : c.price;
+    const volume = barIsToday ? snap.dailyBar.v : c.av_volume;
+    const prevClose = barIsToday && snap.prevDailyBar ? snap.prevDailyBar.c : null;
+    const pct = prevClose ? ((price - prevClose) / prevClose) * 100 : c.percent_change;
+    return { symbol: c.symbol, percent_change: pct, price, volume };
   });
 
   filtered.sort((a,b) => b.percent_change - a.percent_change);
