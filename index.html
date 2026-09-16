@@ -45,6 +45,7 @@
   }
   button.massive-btn{background:#2a1b42;border-color:#5c3599;color:var(--massive);}
   button.primary{background:#1b3b2f;border-color:#2a5c48;color:var(--pass);}
+  button.strict{background:#3a2a12;border-color:#7a5518;color:var(--warn);}
   button:active{transform:scale(0.97);}
   button:disabled{opacity:0.4;cursor:not-allowed;}
   .divider{border-top:1px solid var(--line);margin:10px 0;}
@@ -144,8 +145,10 @@
   <div class="action-bar">
     <div class="action-bar-left">
       <button class="massive-btn" id="btnScanTopGainers">⚡ Top Gainers (&gt;1M Vol &amp; &gt;$1)</button>
+      <button class="strict" id="btnScanStrictGainers">🎯 Strict Gainers</button>
       <button class="primary" id="btnScanManual">Scan Watchlist</button>
       <button id="btnLoadGainers">S&amp;P 500 Gainers</button>
+      <button class="strict" id="btnStrictSP500">🎯 Strict S&amp;P 500</button>
       <div class="toggle-row">
         <input type="checkbox" id="autoRefresh">
         <label for="autoRefresh">Auto</label>
@@ -187,6 +190,42 @@
       </div>
     </div>
     <div class="divider"></div>
+    <div class="row">
+      <div class="field" style="flex:0 1 110px;">
+        <label>Strict: Ext. Cap (x ATR14 above Daily EMA13)</label>
+        <input type="number" id="strictExtAtrMult" value="2.0" min="0.1" max="20" step="0.1">
+      </div>
+      <div class="field" style="flex:0 1 100px;">
+        <label>Strict: Max Gap (%)</label>
+        <input type="number" id="strictGapCap" value="40" min="1" max="500" step="1">
+      </div>
+      <div class="field" style="flex:0 1 110px;">
+        <label>Strict: Min Vol Hold Ratio</label>
+        <input type="number" id="strictVolRatio" value="0.4" min="0" max="1" step="0.05">
+      </div>
+      <div class="field" style="flex:0 1 90px;">
+        <label>Strict: Min RVOL</label>
+        <input type="number" id="strictMinRvol" value="1.5" min="0" max="20" step="0.1">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="flex:0 1 130px;">
+        <label>Strict: Min Mins After Open</label>
+        <input type="number" id="strictMinMinutes" value="10" min="0" max="390" step="5">
+      </div>
+      <div class="field" style="flex:0 1 130px;">
+        <label>Strict: Max Mins After Open</label>
+        <input type="number" id="strictMaxMinutes" value="360" min="0" max="390" step="5">
+      </div>
+      <div class="field" style="flex:0 1 160px;">
+        <label>Strict: Market Gate (SPY)</label>
+        <div class="toggle-row" style="margin-top:6px;">
+          <input type="checkbox" id="strictMarketGate" checked>
+          <label for="strictMarketGate">Require SPY&gt;VWAP &amp; EMA9</label>
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
     <div class="row" style="align-items:flex-start;">
       <div class="field" style="flex:1 1 300px;">
         <label>Watchlist Tickers</label>
@@ -200,8 +239,8 @@
   <div id="resultsWrap" style="margin-top:10px;"></div>
 
   <div class="legend" id="legend" style="display:none;">
-    <span><b>Conditions:</b> 30m EMA5&gt;EMA13 (or 9&gt;21) · Close&gt;EMA · Close&gt;PM High</span>
-    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High)</span>
+    <span><b>Conditions:</b> 30m EMA5&gt;EMA13 (or 9&gt;21) · Close&gt;EMA · Close&gt;PM High · (Top Gainers &amp; Strict tabs) Daily Close&gt;Daily EMA13</span>
+    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High; Top Gainers adds Daily Close&gt;Daily EMA13; 🎯 Strict tabs add ATR-based extension cap, Close&gt;VWAP, volume-hold check, RVOL floor, 2-bar confirmation, gap-size cap, entry-time window &amp; SPY market gate)</span>
   </div>
 
   <!-- Modal Dialog -->
@@ -397,6 +436,13 @@ function isPremarket(parts, todayStr){
   return true;
 }
 
+function isRegularSession(parts, todayStr){
+  if(parts.dateStr !== todayStr) return false;
+  if(parts.hh < 9 || (parts.hh === 9 && parts.mm < 30)) return false;
+  if(parts.hh >= 16) return false;
+  return true;
+}
+
 function computeEMASeries(values, period){
   if(values.length < period) return [];
   const k = 2/(period+1);
@@ -408,6 +454,69 @@ function computeEMASeries(values, period){
     out[i] = ema;
   }
   return out;
+}
+
+// Average True Range over `period` daily bars (simple average of True Range, most-recent `period` values)
+function computeATR(dailyBarsAsc, period){
+  if(dailyBarsAsc.length < period + 1) return null;
+  const trs = [];
+  for(let i=1;i<dailyBarsAsc.length;i++){
+    const cur = dailyBarsAsc[i], prev = dailyBarsAsc[i-1];
+    const tr = Math.max(
+      cur.h - cur.l,
+      Math.abs(cur.h - prev.c),
+      Math.abs(cur.l - prev.c)
+    );
+    trs.push(tr);
+  }
+  const lastN = trs.slice(-period);
+  return lastN.reduce((a,b)=>a+b,0) / lastN.length;
+}
+
+// VWAP for today's regular session (9:30-16:00 ET) from a set of intraday bars (any timeframe)
+function computeSessionVWAP(bars, todayET){
+  let cumPV = 0, cumVol = 0;
+  bars.forEach(bar => {
+    const p = etParts(new Date(bar.t));
+    if(isRegularSession(p, todayET)){
+      const typical = (bar.h + bar.l + bar.c) / 3;
+      cumPV += typical * bar.v;
+      cumVol += bar.v;
+    }
+  });
+  return cumVol > 0 ? { vwap: cumPV / cumVol, cumVol } : { vwap: null, cumVol: 0 };
+}
+
+// Minutes elapsed since 9:30 ET open, clamped to [0, 390]. Negative/pre-open returns null.
+function minutesSinceOpen(now, todayET){
+  const p = etParts(now);
+  if(p.dateStr !== todayET) return null;
+  const elapsed = (p.hh*60 + p.mm) - (9*60 + 30);
+  if(elapsed < 0) return null;
+  return Math.min(elapsed, 390);
+}
+
+// SPY-based market gate: SPY must be above its own session VWAP AND above its 30m EMA9
+async function fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET){
+  const [spy30, spy5] = await Promise.all([
+    fetchBars(['SPY'], '30Min', tenDaysAgo, feed),
+    fetchBars(['SPY'], '5Min', oneDayAgo, feed)
+  ]);
+  const b30 = (spy30['SPY'] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+  const b5 = (spy5['SPY'] || []);
+  if(b30.length < 9) return { ok: true, reason: 'SPY: insufficient bars, gate skipped' };
+  const closes = b30.map(b => b.c);
+  const ema9Series = computeEMASeries(closes, 9);
+  const ema9 = ema9Series[ema9Series.length-1];
+  const lastClose = b30[b30.length-1].c;
+  const { vwap } = computeSessionVWAP(b5, todayET);
+  const aboveEma = ema9 !== null && lastClose > ema9;
+  const aboveVwap = vwap !== null && lastClose > vwap;
+  return {
+    ok: aboveEma && aboveVwap,
+    close: lastClose, ema9, vwap,
+    reason: `SPY $${lastClose.toFixed(2)} ${aboveVwap ? '>' : '<'} VWAP${vwap!=null?' $'+vwap.toFixed(2):''} · ${aboveEma ? '>' : '<'} EMA9${ema9!=null?' $'+ema9.toFixed(2):''}`
+  };
 }
 
 async function getSP500Tickers(){
@@ -534,24 +643,48 @@ async function fetchTopMarketGainers(targetCount) {
 
 
 // 30m EMA Evaluation
-async function evaluateSymbols(symbolList, feed, mode){
+async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const symbols = symbolList.map(s => s.toUpperCase());
   const now = new Date();
   const tenDaysAgo = new Date(now.getTime() - 10*24*3600*1000).toISOString();
   const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
+  const fortyDaysAgo = new Date(now.getTime() - 40*24*3600*1000).toISOString();
   const todayET = etParts(now).dateStr;
+  const needsDaily = (mode === 'top_gainers' || mode === 'strict_gainers' || mode === 'strict_sp500');
+  const isStrict = (mode === 'strict_gainers' || mode === 'strict_sp500');
 
-  const [bars30, bars5] = await Promise.all([
+  // Strict-mode thresholds, read once per scan
+  const extAtrMult = isStrict ? (parseFloat(document.getElementById('strictExtAtrMult').value) || 2.0) : null;
+  const gapCapPct = isStrict ? (parseFloat(document.getElementById('strictGapCap').value) || 40) : null;
+  const volRatioMin = isStrict ? (parseFloat(document.getElementById('strictVolRatio').value) || 0.4) : null;
+  const minRvol = isStrict ? (parseFloat(document.getElementById('strictMinRvol').value) || 1.5) : null;
+  const minMinutes = isStrict ? (parseFloat(document.getElementById('strictMinMinutes').value) || 0) : null;
+  const maxMinutes = isStrict ? (parseFloat(document.getElementById('strictMaxMinutes').value) || 390) : null;
+  const marketGateEnabled = isStrict && document.getElementById('strictMarketGate').checked;
+
+  // Scan-wide guards, computed once (not per symbol)
+  const elapsedMinutes = isStrict ? minutesSinceOpen(now, todayET) : null;
+  const entryWindowOk = isStrict ? (elapsedMinutes === null ? false : (elapsedMinutes >= minMinutes && elapsedMinutes <= maxMinutes)) : true;
+  const marketGate = (isStrict && marketGateEnabled)
+    ? await fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET)
+    : { ok: true, reason: null };
+
+  const [bars30, bars5, barsDaily] = await Promise.all([
     fetchBars(symbols, '30Min', tenDaysAgo, feed),
-    fetchBars(symbols, '5Min', oneDayAgo, feed)
+    fetchBars(symbols, '5Min', oneDayAgo, feed),
+    needsDaily ? fetchBars(symbols, '1Day', fortyDaysAgo, feed) : Promise.resolve({})
   ]);
 
-  return symbols.map(sym => {
+  const rows = symbols.map(sym => {
     const b30 = (bars30[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
     const b5 = (bars5[sym] || []);
+    const bDaily = (barsDaily[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
     let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null,
-      c1:false, c2:false, c3:false, pass:false, lastBar:null };
+      dailyClose:null, dailyEma13:null, atr14:null, vwap:null, extAtr:null, volRatio:null, rvol:null, gapPct:null,
+      c1:false, c2:false, c3:false, c4:false, c5:false, c6:false, c7:false, c8:false, c9GapOk:false, c10Rvol:false,
+      entryWindowOk, marketGateOk: marketGate.ok, marketGateReason: marketGate.reason,
+      pass:false, lastBar:null };
 
     if(b30.length < 15){
       row.error = 'insufficient bars';
@@ -559,8 +692,8 @@ async function evaluateSymbols(symbolList, feed, mode){
     }
     const closes = b30.map(b => b.c);
 
-    // EMA5 > EMA13 for Top Gainers mode; EMA9 > EMA21 for S&P/Watchlist
-    const useFast = (mode === 'top_gainers');
+    // EMA5 > EMA13 for Top Gainers/Strict mode; EMA9 > EMA21 for S&P/Watchlist
+    const useFast = (mode === 'top_gainers' || mode === 'strict_gainers');
     const fastPeriod = useFast ? 5 : 9;
     const slowPeriod = useFast ? 13 : 21;
 
@@ -580,30 +713,114 @@ async function evaluateSymbols(symbolList, feed, mode){
       }
     });
 
+    let dailyClose = null, dailyEma13 = null, atr14 = null;
+    if(needsDaily && bDaily.length >= 13){
+      const dCloses = bDaily.map(b => b.c);
+      const dEma13Series = computeEMASeries(dCloses, 13);
+      dailyEma13 = dEma13Series[dEma13Series.length - 1];
+      dailyClose = bDaily[bDaily.length - 1].c;
+      atr14 = computeATR(bDaily, 14);
+    }
+
     row.close = lastClose;
     row.emaFast = emaFast;
     row.emaSlow = emaSlow;
     row.pmHigh = pmHigh;
     row.lastBar = lastBar;
-    
+    row.dailyClose = dailyClose;
+    row.dailyEma13 = dailyEma13;
+    row.atr14 = atr14;
+
     row.c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow; // EMA5 > EMA13
     row.c2 = emaFast !== null && lastClose > emaFast;                   // Close > EMA5
     row.c3 = pmHigh !== null && lastClose > pmHigh;                     // Close > Premarket High
-    row.pass = row.c1 && row.c3;
+    row.c4 = needsDaily && dailyClose !== null && dailyEma13 !== null && dailyClose > dailyEma13; // Daily Close > Daily EMA13
+
+    if(isStrict){
+      // c5: Extension cap — Close not more than (extAtrMult × daily ATR14) above Daily EMA13
+      if(dailyEma13 !== null && atr14 !== null && atr14 > 0){
+        row.extAtr = (lastClose - dailyEma13) / atr14;
+        row.c5 = row.extAtr <= extAtrMult;
+      } else if(dailyEma13 !== null){
+        row.c5 = true; // ATR not available yet — don't block on it
+      }
+
+      // c6: Close > session VWAP (regular session only, today)
+      const { vwap } = computeSessionVWAP(b5, todayET);
+      if(vwap !== null){
+        row.vwap = vwap;
+        row.c6 = lastClose > vwap;
+      }
+
+      // c7: Volume holding up — last 2 regular 30m bars' volume vs first 2 after the open
+      const regular30 = b30.filter(bar => isRegularSession(etParts(new Date(bar.t)), todayET));
+      if(regular30.length >= 4){
+        const openAvg = (regular30[0].v + regular30[1].v) / 2;
+        const recentAvg = (regular30[regular30.length-1].v + regular30[regular30.length-2].v) / 2;
+        if(openAvg > 0){
+          row.volRatio = recentAvg / openAvg;
+          row.c7 = row.volRatio >= volRatioMin;
+        }
+      } else {
+        row.c7 = true; // not enough regular-session bars yet (early in day) — don't penalize
+      }
+
+      // c8: Consecutive-bar confirmation — last 2 closes above EMA5 and PM High
+      if(b30.length >= 2 && pmHigh !== null && emaFastSeries[emaFastSeries.length-2] != null){
+        const prevBar = b30[b30.length-2];
+        const prevEmaFast = emaFastSeries[emaFastSeries.length-2];
+        row.c8 = (prevBar.c > prevEmaFast && prevBar.c > pmHigh) && (lastClose > emaFast && lastClose > pmHigh);
+      }
+
+      // Gap-size sanity filter, using the % change from the gainers list
+      const meta = gainerMeta && gainerMeta[sym];
+      if(meta && typeof meta.percent_change === 'number'){
+        row.gapPct = meta.percent_change;
+        row.c9GapOk = Math.abs(meta.percent_change) <= gapCapPct;
+      } else {
+        row.c9GapOk = true;
+      }
+
+      // c10: Relative Volume — today's regular-session volume-so-far vs this stock's own 20-day
+      // average daily volume, scaled to the fraction of the session elapsed
+      const priorDaily = bDaily.filter(b => etParts(new Date(b.t)).dateStr !== todayET);
+      const last20 = priorDaily.slice(-20);
+      if(last20.length >= 5 && elapsedMinutes !== null && elapsedMinutes > 0){
+        const avgDailyVol = last20.reduce((a,b)=>a+b.v,0) / last20.length;
+        const todaysVolSoFar = computeSessionVWAP(b5, todayET).cumVol;
+        const expectedByNow = avgDailyVol * (elapsedMinutes / 390);
+        if(expectedByNow > 0){
+          row.rvol = todaysVolSoFar / expectedByNow;
+          row.c10Rvol = row.rvol >= minRvol;
+        }
+      } else {
+        row.c10Rvol = true; // not enough history/time yet — don't penalize
+      }
+
+      row.pass = row.c1 && row.c3 && row.c4 && row.c5 && row.c6 && row.c7 && row.c8 && row.c9GapOk && row.c10Rvol
+        && entryWindowOk && marketGate.ok;
+    } else {
+      row.pass = needsDaily ? (row.c1 && row.c3 && row.c4) : (row.c1 && row.c3);
+    }
 
     rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
-      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l
+      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13
     });
     return row;
   });
+
+  rows.marketGateReason = marketGate.reason;
+  rows.entryWindowOk = entryWindowOk;
+  rows.elapsedMinutes = elapsedMinutes;
+  return rows;
 }
 
-function tick(v){ return v ? '<span class="tick y">✓</span>' : '<span class="tick n">✕</span>'; }
+function tick(v, label){ return `<span class="tick ${v ? 'y' : 'n'}"${label ? ` title="${label}"` : ''}>${v ? '✓' : '✕'}</span>`; }
 
 function render(rows, gainerMeta){
   document.getElementById('legend').style.display = 'flex';
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>%Chg</th><th>Vol</th><th>Conditions</th><th>Signal</th>
+    <th>Symbol</th><th>%Chg</th>
   </tr></thead><tbody>`;
 
   rows.forEach((r, idx) => {
@@ -611,15 +828,10 @@ function render(rows, gainerMeta){
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
 // AFTER
 const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
-    const volTag = (meta && meta.volume) ? `<span class="vol">${(meta.volume / 1000000).toFixed(1)}M</span>` : '—';
-    const signalBadge = r.pass ? `<span class="badge pass">PASS</span>` : `<span class="badge fail">FAIL</span>`;
 
     html += `<tr>
       <td data-label="Symbol"><span class="sym" data-index="${idx}">${rankTag}${r.symbol}</span></td>
       <td data-label="% Chg">${pctTag}</td>
-      <td data-label="Vol">${volTag}</td>
-      <td data-label="Conditions"><div class="ticks">${tick(r.c1)}${tick(r.c2)}${tick(r.c3)}</div></td>
-      <td data-label="Signal">${signalBadge}</td>
     </tr>`;
   });
 
@@ -1006,6 +1218,50 @@ async function runTopGainerScan(){
   }
 }
 
+// 1b. Strict Top Gainers Scanner — adds extension cap, VWAP, volume-decay, consecutive-bar & gap-size filters
+function buildStrictSuffix(rows){
+  const bits = [];
+  if(rows.marketGateReason) bits.push(`Market Gate — ${rows.marketGateReason}`);
+  if(rows.entryWindowOk === false){
+    bits.push(rows.elapsedMinutes === null ? 'Entry window: market not open' : `Entry window: ${rows.elapsedMinutes}m since open, outside allowed range`);
+  }
+  return bits.length ? ` · ${bits.join(' · ')}` : '';
+}
+
+async function runStrictGainerScan(){
+  if(!requireAlpacaKeys()) return;
+  lastMode = 'strict_gainers';
+  const btn = document.getElementById('btnScanStrictGainers');
+  btn.disabled = true;
+  statusMsg('Loading top gainers for strict scan (>1M Vol, >$1)…');
+  try{
+    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
+    const gainers = await fetchTopMarketGainers(count);
+
+    if(gainers.length === 0){
+      statusMsg('No market gainers passed Price > $1 and Volume > 1M.', true);
+      btn.disabled = false;
+      return;
+    }
+
+    const gainerMeta = {};
+    gainers.forEach((g, idx) => {
+      gainerMeta[g.symbol] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
+    });
+    lastSymbols = gainers.map(g => g.symbol);
+
+    statusMsg(`Running strict filters (extension, VWAP, volume, RVOL, gap, market gate) on ${lastSymbols.length} gainers…`);
+    const feed = document.getElementById('feed').value;
+    const rows = await evaluateSymbols(lastSymbols, feed, 'strict_gainers', gainerMeta);
+    render(rows, gainerMeta);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria${buildStrictSuffix(rows)}`);
+  }catch(e){
+    statusMsg(e.message, true);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
 // 2. Watchlist Scanner
 async function runManualScan(){
   if(!requireAlpacaKeys()) return;
@@ -1049,6 +1305,28 @@ async function runManualScan(){
 }
 
 // 3. S&P 500 Scanner
+async function fetchSP500RankedGainers(count, feed){
+  const universe = await getSP500Tickers();
+  const groups = chunk(universe, 100);
+  const snapshots = {};
+  for(let i=0;i<groups.length;i++){
+    const part = await fetchSnapshotsChunk(groups[i], feed);
+    Object.assign(snapshots, part);
+  }
+  const ranked = [];
+  Object.keys(snapshots).forEach(sym => {
+    const snap = snapshots[sym];
+    if(!snap) return;
+    const prev = snap.prevDailyBar && snap.prevDailyBar.c;
+    const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p);
+    const vol = (snap.dailyBar && snap.dailyBar.v) || 0;
+    if(!prev || !cur) return;
+    ranked.push({ symbol: sym, percent_change: ((cur - prev) / prev) * 100, price: cur, volume: vol });
+  });
+  ranked.sort((a,b) => b.percent_change - a.percent_change);
+  return ranked.slice(0, count);
+}
+
 async function runGainerScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'sp500';
@@ -1058,25 +1336,7 @@ async function runGainerScan(){
   try{
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
     const feed = document.getElementById('feed').value;
-    const universe = await getSP500Tickers();
-    const groups = chunk(universe, 100);
-    const snapshots = {};
-    for(let i=0;i<groups.length;i++){
-      const part = await fetchSnapshotsChunk(groups[i], feed);
-      Object.assign(snapshots, part);
-    }
-    const ranked = [];
-    Object.keys(snapshots).forEach(sym => {
-      const snap = snapshots[sym];
-      if(!snap) return;
-      const prev = snap.prevDailyBar && snap.prevDailyBar.c;
-      const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p);
-      const vol = (snap.dailyBar && snap.dailyBar.v) || 0;
-      if(!prev || !cur) return;
-      ranked.push({ symbol: sym, percent_change: ((cur - prev) / prev) * 100, price: cur, volume: vol });
-    });
-    ranked.sort((a,b) => b.percent_change - a.percent_change);
-    const top = ranked.slice(0, count);
+    const top = await fetchSP500RankedGainers(count, feed);
 
     const gainerMeta = {};
     top.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
@@ -1092,9 +1352,38 @@ async function runGainerScan(){
   }
 }
 
+// 2b. Strict S&P 500 Gainers Scanner — same strict filters, sourced from the S&P 500 list instead of the broad market
+async function runStrictSP500GainerScan(){
+  if(!requireAlpacaKeys()) return;
+  lastMode = 'strict_sp500';
+  const btn = document.getElementById('btnStrictSP500');
+  btn.disabled = true;
+  statusMsg('Pricing S&P 500 gainers for strict scan…');
+  try{
+    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
+    const feed = document.getElementById('feed').value;
+    const top = await fetchSP500RankedGainers(count, feed);
+
+    const gainerMeta = {};
+    top.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
+    lastSymbols = top.map(g => g.symbol);
+
+    statusMsg(`Running strict filters (extension, VWAP, volume, RVOL, gap, market gate) on ${lastSymbols.length} S&P 500 gainers…`);
+    const rows = await evaluateSymbols(lastSymbols, feed, 'strict_sp500', gainerMeta);
+    render(rows, gainerMeta);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria${buildStrictSuffix(rows)}`);
+  }catch(e){
+    statusMsg(e.message, true);
+  }finally{
+    btn.disabled = false;
+  }
+}
+
 document.getElementById('btnScanTopGainers').addEventListener('click', runTopGainerScan);
+document.getElementById('btnScanStrictGainers').addEventListener('click', runStrictGainerScan);
 document.getElementById('btnScanManual').addEventListener('click', runManualScan);
 document.getElementById('btnLoadGainers').addEventListener('click', runGainerScan);
+document.getElementById('btnStrictSP500').addEventListener('click', runStrictSP500GainerScan);
 
 document.getElementById('autoRefresh').addEventListener('change', (e)=>{
   if(autoTimer){ clearInterval(autoTimer); autoTimer=null; }
@@ -1102,7 +1391,9 @@ document.getElementById('autoRefresh').addEventListener('change', (e)=>{
     const mins = parseInt(document.getElementById('refreshMins').value, 10);
     autoTimer = setInterval(()=>{
       if(lastMode === 'top_gainers') runTopGainerScan();
+      else if(lastMode === 'strict_gainers') runStrictGainerScan();
       else if(lastMode === 'manual') runManualScan();
+      else if(lastMode === 'strict_sp500') runStrictSP500GainerScan();
       else runGainerScan();
     }, mins*60*1000);
   }
