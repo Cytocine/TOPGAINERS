@@ -240,7 +240,7 @@
 
   <div class="legend" id="legend" style="display:none;">
     <span><b>Conditions:</b> 30m EMA5&gt;EMA13 (or 9&gt;21) · Close&gt;EMA · Close&gt;PM High · (Top Gainers &amp; Strict tabs) Daily Close&gt;Daily EMA13</span>
-    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High; Top Gainers adds Daily Close&gt;Daily EMA13; 🎯 Strict tabs add ATR-based extension cap, Close&gt;VWAP, volume-hold check, RVOL floor, 2-bar confirmation, gap-size cap, entry-time window &amp; SPY market gate)</span>
+    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High; Top Gainers adds Daily Close&gt;Daily EMA13; 🎯 Strict tabs add ATR-based extension cap, Close&gt;VWAP, volume-hold check, RVOL floor, 2-bar confirmation, gap-size cap, Daily Close&gt;MagicTrend, entry-time window &amp; SPY market gate)</span>
   </div>
 
   <!-- Modal Dialog -->
@@ -473,6 +473,69 @@ function computeATR(dailyBarsAsc, period){
   return lastN.reduce((a,b)=>a+b,0) / lastN.length;
 }
 
+// Simple Moving Average series (rolling window), null until `period` values are available
+function computeSMASeries(values, period){
+  const out = new Array(values.length).fill(null);
+  let sum = 0;
+  for(let i=0;i<values.length;i++){
+    sum += values[i];
+    if(i >= period) sum -= values[i-period];
+    if(i >= period-1) out[i] = sum/period;
+  }
+  return out;
+}
+
+// True Range series (per-bar). First bar is null (no prior close to compare against).
+function computeTRSeries(dailyBarsAsc){
+  const out = new Array(dailyBarsAsc.length).fill(null);
+  for(let i=1;i<dailyBarsAsc.length;i++){
+    const cur = dailyBarsAsc[i], prev = dailyBarsAsc[i-1];
+    out[i] = Math.max(cur.h - cur.l, Math.abs(cur.h - prev.c), Math.abs(cur.l - prev.c));
+  }
+  return out;
+}
+
+// Commodity Channel Index series on a price series `src` (Webull's ind.cci(src, period) applies the
+// CCI formula directly to `src` rather than forcing a high/low/close typical price).
+function computeCCISeries(src, period){
+  const smaSeries = computeSMASeries(src, period);
+  const out = new Array(src.length).fill(null);
+  for(let i=0;i<src.length;i++){
+    if(smaSeries[i] === null) continue;
+    let sumDev = 0;
+    for(let j=i-period+1;j<=i;j++) sumDev += Math.abs(src[j] - smaSeries[i]);
+    const meanDev = sumDev / period;
+    out[i] = meanDev === 0 ? 0 : (src[i] - smaSeries[i]) / (0.015 * meanDev);
+  }
+  return out;
+}
+
+// "Magic Trend" indicator series (CCI + ATR trailing line), ported from the Webull script:
+//   ATR = SMA(TrueRange, atrPeriod); upT = low - ATR*coeff; downT = high + ATR*coeff
+//   MagicTrend = CCI(src,period) >= 0 ? max(upT, MagicTrend[1]) : min(downT, MagicTrend[1])
+// dailyBarsAsc: ascending daily bars {h,l,c}. Returns an array (same length) of MagicTrend values,
+// null for bars before there's enough history for both the CCI and ATR windows.
+function computeMagicTrendSeries(dailyBarsAsc, period=20, atrPeriod=5, coeff=1){
+  const closes = dailyBarsAsc.map(b => b.c);
+  const trSeries = computeTRSeries(dailyBarsAsc);
+  const trForSma = trSeries.map(v => v === null ? 0 : v); // mirrors fill_none-style handling of TR[0]
+  const atrSeries = computeSMASeries(trForSma, atrPeriod);
+  const cciSeries = computeCCISeries(closes, period);
+
+  const out = new Array(dailyBarsAsc.length).fill(null);
+  let prevMT = 0; // Webull's fill_none(MagicTrend[1], 0) for the first bar
+  for(let i=0;i<dailyBarsAsc.length;i++){
+    const atr = atrSeries[i], cci = cciSeries[i];
+    if(atr === null || cci === null) continue;
+    const upT = dailyBarsAsc[i].l - atr*coeff;
+    const downT = dailyBarsAsc[i].h + atr*coeff;
+    const mt = cci >= 0 ? Math.max(upT, prevMT) : Math.min(downT, prevMT);
+    out[i] = mt;
+    prevMT = mt;
+  }
+  return out;
+}
+
 // VWAP for today's regular session (9:30-16:00 ET) from a set of intraday bars (any timeframe)
 function computeSessionVWAP(bars, todayET){
   let cumPV = 0, cumVol = 0;
@@ -682,7 +745,8 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
 
     let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null,
       dailyClose:null, dailyEma13:null, atr14:null, vwap:null, extAtr:null, volRatio:null, rvol:null, gapPct:null,
-      c1:false, c2:false, c3:false, c4:false, c5:false, c6:false, c7:false, c8:false, c9GapOk:false, c10Rvol:false,
+      dailyMagicTrend:null,
+      c1:false, c2:false, c3:false, c4:false, c5:false, c6:false, c7:false, c8:false, c9GapOk:false, c10Rvol:false, c11:false,
       entryWindowOk, marketGateOk: marketGate.ok, marketGateReason: marketGate.reason,
       pass:false, lastBar:null };
 
@@ -713,13 +777,17 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
       }
     });
 
-    let dailyClose = null, dailyEma13 = null, atr14 = null;
+    let dailyClose = null, dailyEma13 = null, atr14 = null, dailyMagicTrend = null;
     if(needsDaily && bDaily.length >= 13){
       const dCloses = bDaily.map(b => b.c);
       const dEma13Series = computeEMASeries(dCloses, 13);
       dailyEma13 = dEma13Series[dEma13Series.length - 1];
       dailyClose = bDaily[bDaily.length - 1].c;
       atr14 = computeATR(bDaily, 14);
+
+      // "Magic Trend" line (CCI(20) + ATR(5) trailing stop) evaluated through the most recent daily bar
+      const mtSeries = computeMagicTrendSeries(bDaily, 20, 5, 1);
+      dailyMagicTrend = mtSeries[mtSeries.length - 1];
     }
 
     row.close = lastClose;
@@ -730,11 +798,13 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     row.dailyClose = dailyClose;
     row.dailyEma13 = dailyEma13;
     row.atr14 = atr14;
+    row.dailyMagicTrend = dailyMagicTrend;
 
     row.c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow; // EMA5 > EMA13
     row.c2 = emaFast !== null && lastClose > emaFast;                   // Close > EMA5
     row.c3 = pmHigh !== null && lastClose > pmHigh;                     // Close > Premarket High
     row.c4 = needsDaily && dailyClose !== null && dailyEma13 !== null && dailyClose > dailyEma13; // Daily Close > Daily EMA13
+    row.c11 = needsDaily && dailyClose !== null && dailyMagicTrend !== null && dailyClose > dailyMagicTrend; // Daily Close > MagicTrend
 
     if(isStrict){
       // c5: Extension cap — Close not more than (extAtrMult × daily ATR14) above Daily EMA13
@@ -797,14 +867,14 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
         row.c10Rvol = true; // not enough history/time yet — don't penalize
       }
 
-      row.pass = row.c1 && row.c3 && row.c4 && row.c5 && row.c6 && row.c7 && row.c8 && row.c9GapOk && row.c10Rvol
+      row.pass = row.c1 && row.c3 && row.c4 && row.c5 && row.c6 && row.c7 && row.c8 && row.c9GapOk && row.c10Rvol && row.c11
         && entryWindowOk && marketGate.ok;
     } else {
       row.pass = needsDaily ? (row.c1 && row.c3 && row.c4) : (row.c1 && row.c3);
     }
 
     rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
-      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13
+      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13, dailyMagicTrend
     });
     return row;
   });
@@ -819,21 +889,27 @@ function tick(v, label){ return `<span class="tick ${v ? 'y' : 'n'}"${label ? ` 
 
 function render(rows, gainerMeta){
   document.getElementById('legend').style.display = 'flex';
+  const passRows = rows.filter(r => r.pass);
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>%Chg</th>
   </tr></thead><tbody>`;
 
-  rows.forEach((r, idx) => {
+  passRows.forEach((r) => {
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
 // AFTER
 const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
+    const realIdx = lastSymbols.indexOf(r.symbol); // keep modal nav aligned to lastSymbols, not this filtered list
 
     html += `<tr>
-      <td data-label="Symbol"><span class="sym" data-index="${idx}">${rankTag}${r.symbol}</span></td>
+      <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span></td>
       <td data-label="% Chg">${pctTag}</td>
     </tr>`;
   });
+
+  if(passRows.length === 0){
+    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">No symbols passed all criteria.</td></tr>`;
+  }
 
   html += `</tbody></table></div>`;
   document.getElementById('resultsWrap').innerHTML = html;
