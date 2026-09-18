@@ -95,19 +95,6 @@
   .chart-legend span{display:inline-flex;align-items:center;gap:4px;}
   .chart-legend i{width:9px;height:2px;display:inline-block;}
 
-  /* Risk & Execution Calculator */
-  .risk-scaffold{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:12px;font-family:var(--mono);font-size:11.5px;}
-  .scaffold-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px;}
-  .scaffold-head b{color:var(--pass);font-size:11px;letter-spacing:0.4px;}
-  .scaffold-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(115px,1fr));gap:6px;}
-  .scaffold-box{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 7px;}
-  .scaffold-box label{font-size:9.5px;color:var(--muted);display:block;margin-bottom:3px;text-transform:uppercase;}
-  .scaffold-box input{padding:4px 6px;font-size:12px;}
-  .scaffold-box .val{font-size:12.5px;font-weight:700;color:var(--text);margin-top:3px;white-space:nowrap;}
-  .scaffold-actions{display:flex;gap:5px;margin-top:8px;align-items:center;flex-wrap:wrap;}
-  .scaffold-actions span{color:var(--muted);font-size:10px;text-transform:uppercase;}
-  .scaffold-btn{padding:4px 8px;font-size:10.5px;border-radius:5px;background:var(--panel);}
-
   .news-heading{font-size:10.5px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;}
   .news-list{display:flex;flex-direction:column;gap:5px;}
   .news-item{display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;text-decoration:none;color:var(--text);}
@@ -121,10 +108,6 @@
     .modal-overlay{padding:0;}
     .modal{width:100%;height:100%;max-height:100%;border-radius:0;border:none;padding:10px 10px 30px;}
     .chart-container{height:230px;}
-    .scaffold-grid{grid-template-columns:repeat(2,1fr);}
-    .scaffold-actions{display:grid;grid-template-columns:1fr 1fr;gap:5px;}
-    .scaffold-actions span{grid-column:span 2;}
-    .scaffold-btn{text-align:center;padding:7px 5px;}
     
     table, thead, tbody, th, td, tr { display:block; }
     thead{display:none;}
@@ -149,6 +132,7 @@
       <button class="primary" id="btnScanManual">Scan Watchlist</button>
       <button id="btnLoadGainers">S&amp;P 500 Gainers</button>
       <button class="strict" id="btnStrictSP500">🎯 Strict S&amp;P 500</button>
+      <button id="btnOpenTradeLog">📒 Trade Log</button>
       <div class="toggle-row">
         <input type="checkbox" id="autoRefresh">
         <label for="autoRefresh">Auto</label>
@@ -229,7 +213,8 @@
     <div class="row" style="align-items:flex-start;">
       <div class="field" style="flex:1 1 300px;">
         <label>Watchlist Tickers</label>
-        <textarea id="manualList" spellcheck="false">CRWD, PANW, NVDA, AMD, AAPL, MSFT, META, GOOGL, AMZN, TSLA, PLTR, COIN, SMCI, ARM, AVGO, QQQ, SPY</textarea>
+        <textarea id="manualList" spellcheck="false">AA, AAL, ABBV, ABT, ACB, ACN, ADBE, ADSK, AFRM, AGNC, ALHC, AMD, AMZN, APP, ARM, ASPI, ASTS, AVDL, AXON, B, BA, BABA, BAC, BAM, BE, BMY, BULL, C, CARR, CAVA, CC, CCJ, CCL, CELH, CHWY, CLMT, CLOV, CLSK, CMG, CNQ, CORZ, COST, COTY, CPNG, CRM, CRML, CRWD, CRWV, CVNA, CVS, DAR, DBX, DELL, DJT, DKNG, DOW, EBAY, ENPH, ENR, EQX, EXE, F, FCX, FDX, FSLR, GILD, GILT, GM, GME, GOOG, GOOGL, HIMS, HOOD, HPE, HPQ, HUT, INTC, IQ, IREN, IWM, JBLU, JD, JMIA, JNJ, JPM, KHC, KMI, KO, KSS, LLY, LOW, LULU, LUV, LVS, LYFT, MARA, MBLY, MBOT, META, MNDY, MO, MRK, MRVL, MSFT, MU, NEE, NEXT, NFLX, NIO, NKE, NU, NVDA, ONDS, OPEN, OWL, OXY, PBR, PCG, PDD, PEP, PFE, PG, PGEN, PINS, PLTR, PSKY, QBTS, QCOM, QD, QQQ, QS, RELY, RGTI, RIOT, RIVN, RKT, ROKU, RTX, SATS, SBUX, SERV, SLV, SMCI, SNAP, SOFI, SOUN, SPY, T, TCOM, TDOC, TEVA, TGT, TIGR, TMUS, TNA, TRMD, TSLA, TTD, U, UAL, UBER, UPS, UPST, VALE, VZ, WDC, WMT, WULF, XLE, XLF, XOM, XPEV, Z
+</textarea>
       </div>
     </div>
   </div>
@@ -269,54 +254,56 @@
         <span><i style="background:#e0a13b;"></i>EMA13 / EMA9</span>
         <span><i style="background:none;border-top:2px dashed #c9d1d1;height:0;"></i>EMA50</span>
         <span><i style="background:rgba(57,217,138,0.35);height:8px;"></i>Bull Cloud</span>
-        <span><i style="background:#39d98a;border-top:2px dashed #39d98a;background:none;height:0;"></i>PM High</span>
-        <span><i style="background:#ff8177;border-top:2px dashed #ff8177;background:none;height:0;"></i>PM Low</span>
+        <span><i style="background:rgba(57,217,138,0.55);border-top:2px dashed rgba(57,217,138,0.55);background:none;height:0;"></i>Pullback Zone (±0.3 ATR of EMA5)</span>
+        <span><i style="background:rgba(255,129,119,0.65);border-top:2px dashed rgba(255,129,119,0.65);background:none;height:0;"></i>Chase Guard (1.2 ATR above EMA5)</span>
       </div>
 
       <div class="chart-container" id="chartContainer"></div>
 
-      <!-- Execution Bracket Scaffold -->
-      <div class="risk-scaffold" id="riskScaffold">
-        <div class="scaffold-head">
-          <b>⚡ Trade Execution &amp; Bracket Calculator</b>
-          <span style="color:var(--muted);font-size:10.5px;" id="rRatioDisplay">R:R = 1:2.0</span>
-        </div>
-        <div class="scaffold-grid">
-          <div class="scaffold-box">
-            <label>Risk Budget ($)</label>
-            <input type="number" id="tradeRiskBudget" value="50" step="5">
-          </div>
-          <div class="scaffold-box">
-            <label>Entry Price ($)</label>
-            <input type="number" id="tradeEntry" step="0.01">
-          </div>
-          <div class="scaffold-box">
-            <label>Stop Loss ($)</label>
-            <input type="number" id="tradeStop" step="0.01">
-          </div>
-          <div class="scaffold-box">
-            <label>Shares to Buy</label>
-            <div class="val" id="calcShares" style="color:var(--pass);">0</div>
-          </div>
-          <div class="scaffold-box">
-            <label>Target 1 (2R)</label>
-            <div class="val" id="calcTarget" style="color:var(--accent);">$0.00</div>
-          </div>
-          <div class="scaffold-box">
-            <label>Total Position</label>
-            <div class="val" id="calcTotalCost">$0.00</div>
-          </div>
-        </div>
-        <div class="scaffold-actions">
-          <span>Preset Stop to:</span>
-          <button class="scaffold-btn" id="btnSetStopCloud">EMA Cloud Top</button>
-          <button class="scaffold-btn" id="btnSetStopPM">PM High</button>
-          <button class="scaffold-btn" id="btnSetStopLow">Last Bar Low</button>
-        </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+        <button id="btnLogTrade" style="background:#1b3b2f;border-color:#2a5c48;color:var(--pass);">📝 Log This Trade</button>
       </div>
 
       <div class="news-heading">News &amp; Catalysts</div>
       <div class="news-list" id="newsList"></div>
+    </div>
+  </div>
+
+  <!-- Trade Log Modal -->
+  <div class="modal-overlay" id="tradeLogOverlay">
+    <div class="modal" style="max-width:840px;">
+      <div class="modal-header">
+        <div class="modal-header-left">
+          <div>
+            <div class="modal-title">📒 Trade Log</div>
+            <div class="modal-sub" id="tradeLogSummary"></div>
+          </div>
+        </div>
+        <div class="modal-controls">
+          <button class="nav-btn" id="btnExportTradeLog">Export CSV</button>
+          <button class="modal-close" id="tradeLogClose">✕</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table style="min-width:680px;">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Date</th>
+              <th style="text-align:left;">Symbol</th>
+              <th style="text-align:left;">Mode</th>
+              <th>Price</th>
+              <th>RVOL</th>
+              <th>ExtATR</th>
+              <th>Gap%</th>
+              <th>VolRatio</th>
+              <th>Outcome</th>
+              <th style="text-align:left;">Notes</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="tradeLogBody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -336,10 +323,6 @@ let activeModalSymbol = null;
 let activeSymbolIndex = -1;
 let activeCloudRedraw = null;
 
-let entryPriceLine = null;
-let stopPriceLine = null;
-let targetPriceLine = null;
-
 function restoreStoredConfig(){
   const k = localStorage.getItem('alpaca_api_key');
   const s = localStorage.getItem('alpaca_api_secret');
@@ -351,10 +334,7 @@ function restoreStoredConfig(){
   if(s) document.getElementById('apiSecret').value = s;
   if(f) document.getElementById('feed').value = f;
   if(list) document.getElementById('manualList').value = list;
-  if(risk) {
-    document.getElementById('defaultRisk').value = risk;
-    document.getElementById('tradeRiskBudget').value = risk;
-  }
+  if(risk) document.getElementById('defaultRisk').value = risk;
 }
 function saveStoredConfig(){
   localStorage.setItem('alpaca_api_key', document.getElementById('apiKey').value.trim());
@@ -368,11 +348,7 @@ document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
 document.getElementById('apiSecret').addEventListener('input', saveStoredConfig);
 document.getElementById('feed').addEventListener('change', saveStoredConfig);
 document.getElementById('manualList').addEventListener('input', saveStoredConfig);
-document.getElementById('defaultRisk').addEventListener('input', () => {
-  saveStoredConfig();
-  document.getElementById('tradeRiskBudget').value = document.getElementById('defaultRisk').value;
-  recalculateBracket();
-});
+document.getElementById('defaultRisk').addEventListener('input', saveStoredConfig);
 restoreStoredConfig();
 
 const btnToggle = document.getElementById('btnToggleSettings');
@@ -471,6 +447,27 @@ function computeATR(dailyBarsAsc, period){
   }
   const lastN = trs.slice(-period);
   return lastN.reduce((a,b)=>a+b,0) / lastN.length;
+}
+
+// Rolling ATR series (Wilder smoothing), same length as barsAsc, null until warmed up.
+// Used to size the "near EMA5" / "chase guard" bands per-bar on the modal chart.
+function computeATRSeries(barsAsc, period){
+  const out = new Array(barsAsc.length).fill(null);
+  if(barsAsc.length < period + 1) return out;
+  const trs = new Array(barsAsc.length).fill(null);
+  for(let i=1;i<barsAsc.length;i++){
+    const cur = barsAsc[i], prev = barsAsc[i-1];
+    trs[i] = Math.max(cur.h - cur.l, Math.abs(cur.h - prev.c), Math.abs(cur.l - prev.c));
+  }
+  let sum = 0;
+  for(let i=1;i<=period;i++) sum += trs[i] || 0;
+  let atr = sum / period;
+  out[period] = atr;
+  for(let i=period+1;i<barsAsc.length;i++){
+    atr = (atr*(period-1) + trs[i]) / period;
+    out[i] = atr;
+  }
+  return out;
 }
 
 // Simple Moving Average series (rolling window), null until `period` values are available
@@ -874,7 +871,9 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     }
 
     rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
-      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13, dailyMagicTrend
+      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13, dailyMagicTrend,
+      atr14, extAtr: row.extAtr, vwap: row.vwap, volRatio: row.volRatio, rvol: row.rvol, gapPct: row.gapPct,
+      elapsedMinutes, mode
     });
     return row;
   });
@@ -887,28 +886,28 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
 
 function tick(v, label){ return `<span class="tick ${v ? 'y' : 'n'}"${label ? ` title="${label}"` : ''}>${v ? '✓' : '✕'}</span>`; }
 
-function render(rows, gainerMeta){
+function render(rows, gainerMeta, showAll){
   document.getElementById('legend').style.display = 'flex';
-  const passRows = rows.filter(r => r.pass);
+  const displayRows = showAll ? rows : rows.filter(r => r.pass);
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>%Chg</th>
   </tr></thead><tbody>`;
 
-  passRows.forEach((r) => {
+  displayRows.forEach((r) => {
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
-// AFTER
-const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
+    const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
     const realIdx = lastSymbols.indexOf(r.symbol); // keep modal nav aligned to lastSymbols, not this filtered list
+    const breakoutTag = showAll ? ` <span title="Passes breakout conditions" style="color:${r.pass ? 'var(--pass)' : 'var(--muted)'};font-size:11px;">${r.pass ? '✓' : '·'}</span>` : '';
 
     html += `<tr>
-      <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span></td>
+      <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span>${breakoutTag}</td>
       <td data-label="% Chg">${pctTag}</td>
     </tr>`;
   });
 
-  if(passRows.length === 0){
-    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">No symbols passed all criteria.</td></tr>`;
+  if(displayRows.length === 0){
+    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">${showAll ? 'No gainer data available.' : 'No symbols passed all criteria.'}</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
@@ -918,101 +917,149 @@ const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0
   });
 }
 
-function recalculateBracket(){
-  const entry = parseFloat(document.getElementById('tradeEntry').value);
-  const stop = parseFloat(document.getElementById('tradeStop').value);
-  const riskBudget = parseFloat(document.getElementById('tradeRiskBudget').value);
 
-  const sharesEl = document.getElementById('calcShares');
-  const targetEl = document.getElementById('calcTarget');
-  const costEl = document.getElementById('calcTotalCost');
-  const rrEl = document.getElementById('rRatioDisplay');
+// ---------------- Trade Log ----------------
+const TRADE_LOG_KEY = 'gainerscan_trade_log_v1';
 
-  if(isNaN(entry) || isNaN(stop) || isNaN(riskBudget) || entry <= stop || entry <= 0 || stop <= 0){
-    sharesEl.textContent = '0';
-    targetEl.textContent = '$0.00';
-    costEl.textContent = '$0.00';
-    rrEl.textContent = 'R:R = 1:2.0';
-    removeRiskLines();
+function loadTradeLog(){
+  try { return JSON.parse(localStorage.getItem(TRADE_LOG_KEY) || '[]'); } catch(e){ return []; }
+}
+function saveTradeLog(log){
+  try { localStorage.setItem(TRADE_LOG_KEY, JSON.stringify(log)); } catch(e){}
+}
+function fmt(v, d=2){ return (v === null || v === undefined || isNaN(v)) ? '—' : Number(v).toFixed(d); }
+
+function logCurrentTrade(){
+  const symbol = activeModalSymbol;
+  if(!symbol){ statusMsg('Open a symbol before logging a trade.', true); return; }
+  const meta = rowDataMap[symbol] || {};
+  if(!meta.lastClose){ statusMsg('No price data loaded for this symbol yet.', true); return; }
+
+  const entryObj = {
+    id: `${symbol}_${Date.now()}`,
+    date: etParts(new Date()).dateStr,
+    symbol, mode: meta.mode || lastMode,
+    price: meta.lastClose,
+    rvol: meta.rvol ?? null, extAtr: meta.extAtr ?? null, gapPct: meta.gapPct ?? null,
+    volRatio: meta.volRatio ?? null, vwap: meta.vwap ?? null,
+    dailyEma13: meta.dailyEma13 ?? null, atr14: meta.atr14 ?? null,
+    elapsedMinutes: meta.elapsedMinutes ?? null,
+    outcome: 'open', notes: ''
+  };
+  const log = loadTradeLog();
+  log.unshift(entryObj);
+  saveTradeLog(log);
+  statusMsg(`Logged ${symbol} @ $${meta.lastClose.toFixed(2)} to trade log.`);
+  renderTradeLogModal();
+  document.getElementById('tradeLogOverlay').classList.add('open');
+}
+
+function tradeLogStats(log){
+  const closed = log.filter(t => t.outcome === 'win' || t.outcome === 'loss');
+  const wins = closed.filter(t => t.outcome === 'win');
+  const losses = closed.filter(t => t.outcome === 'loss');
+  const winRate = closed.length ? (wins.length / closed.length * 100) : null;
+  const avg = (arr, key) => {
+    const vals = arr.map(t => t[key]).filter(v => typeof v === 'number' && !isNaN(v));
+    return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
+  };
+  return {
+    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate,
+    avgRvolWin: avg(wins,'rvol'), avgRvolLoss: avg(losses,'rvol'),
+    avgExtAtrWin: avg(wins,'extAtr'), avgExtAtrLoss: avg(losses,'extAtr'),
+    avgGapWin: avg(wins,'gapPct'), avgGapLoss: avg(losses,'gapPct')
+  };
+}
+
+function renderTradeLogModal(){
+  const log = loadTradeLog();
+  const s = tradeLogStats(log);
+  const summaryEl = document.getElementById('tradeLogSummary');
+  if(s.closedCount === 0){
+    summaryEl.textContent = `${s.total} logged · no closed trades tagged yet`;
+  } else {
+    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate) · `
+      + `Avg RVOL win ${fmt(s.avgRvolWin)} vs loss ${fmt(s.avgRvolLoss)} · `
+      + `Avg ExtATR win ${fmt(s.avgExtAtrWin)} vs loss ${fmt(s.avgExtAtrLoss)} · `
+      + `Avg Gap% win ${fmt(s.avgGapWin,1)} vs loss ${fmt(s.avgGapLoss,1)}`;
+  }
+
+  const body = document.getElementById('tradeLogBody');
+  if(log.length === 0){
+    body.innerHTML = `<tr><td colspan="11" style="text-align:center;opacity:0.6;padding:16px;">No trades logged yet. Open a symbol and click "Log This Trade".</td></tr>`;
     return;
   }
-
-  const riskPerShare = entry - stop;
-  const shares = Math.floor(riskBudget / riskPerShare);
-  const targetPrice = entry + (riskPerShare * 2.0);
-  const totalCost = shares * entry;
-
-  sharesEl.textContent = shares > 0 ? `${shares} shs` : '0 (Risk budget too small)';
-  targetEl.textContent = `$${targetPrice.toFixed(2)}`;
-  costEl.textContent = `$${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  rrEl.textContent = `Risk: $${riskPerShare.toFixed(2)} | Target 2R: $${targetPrice.toFixed(2)}`;
-
-  updateChartRiskLines(entry, stop, targetPrice);
+  body.innerHTML = log.map(t => `
+    <tr data-id="${t.id}">
+      <td style="text-align:left;">${t.date}</td>
+      <td style="text-align:left;font-weight:700;">${t.symbol}</td>
+      <td style="text-align:left;font-size:11px;color:var(--muted);">${t.mode || '—'}</td>
+      <td>${fmt(t.price)}</td>
+      <td>${fmt(t.rvol)}</td>
+      <td>${fmt(t.extAtr)}</td>
+      <td>${fmt(t.gapPct,1)}</td>
+      <td>${fmt(t.volRatio)}</td>
+      <td>
+        <select class="tl-outcome" data-id="${t.id}" style="width:auto;padding:4px 6px;font-size:11px;">
+          <option value="open" ${t.outcome==='open'?'selected':''}>Open</option>
+          <option value="win" ${t.outcome==='win'?'selected':''}>Win</option>
+          <option value="loss" ${t.outcome==='loss'?'selected':''}>Loss</option>
+          <option value="breakeven" ${t.outcome==='breakeven'?'selected':''}>B/E</option>
+        </select>
+      </td>
+      <td style="text-align:left;">
+        <input type="text" class="tl-notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" style="width:130px;padding:4px 6px;font-size:11px;">
+      </td>
+      <td><button class="tl-delete" data-id="${t.id}" style="padding:4px 8px;font-size:11px;color:var(--fail);">✕</button></td>
+    </tr>
+  `).join('');
 }
 
-function removeRiskLines(){
-  if(!activeCandleSeries) return;
-  if(entryPriceLine){ activeCandleSeries.removePriceLine(entryPriceLine); entryPriceLine = null; }
-  if(stopPriceLine){ activeCandleSeries.removePriceLine(stopPriceLine); stopPriceLine = null; }
-  if(targetPriceLine){ activeCandleSeries.removePriceLine(targetPriceLine); targetPriceLine = null; }
+function exportTradeLogCsv(){
+  const log = loadTradeLog();
+  if(log.length === 0){ statusMsg('No trades to export.', true); return; }
+  const cols = ['date','symbol','mode','price','rvol','extAtr','gapPct','volRatio','elapsedMinutes','outcome','notes'];
+  const csv = [cols.join(',')].concat(log.map(t => cols.map(c => {
+    const v = t[c];
+    if(v === null || v === undefined) return '';
+    const s = String(v).replace(/"/g,'""');
+    return /[,"\n]/.test(s) ? `"${s}"` : s;
+  }).join(','))).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `trade_log_${etParts(new Date()).dateStr}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
 }
 
-function updateChartRiskLines(entry, stop, target){
-  removeRiskLines();
-  if(!activeCandleSeries) return;
-
-  entryPriceLine = activeCandleSeries.createPriceLine({
-    price: entry, color: '#5b8def', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dotted, title: 'Entry'
-  });
-  stopPriceLine = activeCandleSeries.createPriceLine({
-    price: stop, color: '#ff8177', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Solid, title: 'Stop'
-  });
-  targetPriceLine = activeCandleSeries.createPriceLine({
-    price: target, color: '#39d98a', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Solid, title: 'Target (2R)'
-  });
-}
-
-function populateBracketInputs(symbol){
-  const meta = rowDataMap[symbol] || {};
-  if(!meta.lastClose) return;
-
-  document.getElementById('tradeEntry').value = meta.lastClose.toFixed(2);
-  
-  let stopVal = meta.emaSlow ? (meta.emaSlow * 0.998) : null;
-  if(!stopVal && meta.pmHigh && meta.pmHigh < meta.lastClose){
-    stopVal = meta.pmHigh * 0.998;
-  }
-  if(!stopVal || stopVal >= meta.lastClose){
-    stopVal = meta.lastClose * 0.98;
-  }
-  document.getElementById('tradeStop').value = stopVal.toFixed(2);
-  recalculateBracket();
-}
-
-document.getElementById('tradeEntry').addEventListener('input', recalculateBracket);
-document.getElementById('tradeStop').addEventListener('input', recalculateBracket);
-document.getElementById('tradeRiskBudget').addEventListener('input', recalculateBracket);
-
-document.getElementById('btnSetStopCloud').addEventListener('click', () => {
-  const meta = rowDataMap[activeModalSymbol];
-  if(meta && meta.emaSlow){
-    document.getElementById('tradeStop').value = (meta.emaSlow * 0.998).toFixed(2);
-    recalculateBracket();
-  }
+document.getElementById('btnLogTrade').addEventListener('click', logCurrentTrade);
+document.getElementById('btnOpenTradeLog').addEventListener('click', () => {
+  renderTradeLogModal();
+  document.getElementById('tradeLogOverlay').classList.add('open');
 });
-document.getElementById('btnSetStopPM').addEventListener('click', () => {
-  const meta = rowDataMap[activeModalSymbol];
-  if(meta && meta.pmHigh){
-    document.getElementById('tradeStop').value = (meta.pmHigh * 0.998).toFixed(2);
-    recalculateBracket();
-  }
+document.getElementById('tradeLogClose').addEventListener('click', () => {
+  document.getElementById('tradeLogOverlay').classList.remove('open');
 });
-document.getElementById('btnSetStopLow').addEventListener('click', () => {
-  const meta = rowDataMap[activeModalSymbol];
-  if(meta && meta.lastBarLow){
-    document.getElementById('tradeStop').value = (meta.lastBarLow * 0.998).toFixed(2);
-    recalculateBracket();
-  }
+document.getElementById('btnExportTradeLog').addEventListener('click', exportTradeLogCsv);
+document.getElementById('tradeLogBody').addEventListener('change', (e) => {
+  const id = e.target.dataset.id;
+  if(!id) return;
+  const log = loadTradeLog();
+  const rec = log.find(t => t.id === id);
+  if(!rec) return;
+  if(e.target.classList.contains('tl-outcome')) rec.outcome = e.target.value;
+  if(e.target.classList.contains('tl-notes')) rec.notes = e.target.value;
+  saveTradeLog(log);
+  renderTradeLogModal();
+});
+document.getElementById('tradeLogBody').addEventListener('click', (e) => {
+  if(!e.target.classList.contains('tl-delete')) return;
+  const id = e.target.dataset.id;
+  let log = loadTradeLog();
+  log = log.filter(t => t.id !== id);
+  saveTradeLog(log);
+  renderTradeLogModal();
 });
 
 function updateNavButtons(){
@@ -1027,7 +1074,6 @@ function navigateModal(dir){
 
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
-  removeRiskLines();
   if(activeChart){ activeChart.remove(); activeChart = null; }
   activeCandleSeries = null;
   activeModalSymbol = null;
@@ -1045,9 +1091,7 @@ async function openModalAtIndex(index){
   document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${lastSymbols.length})`;
   overlay.classList.add('open');
 
-  populateBracketInputs(symbol);
   await updateModalChart();
-  populateBracketInputs(symbol);
   loadNews(symbol);
 }
 
@@ -1077,6 +1121,7 @@ async function updateModalChart(){
     const ema5Full = computeEMASeries(allCloses, 5);
     const ema13Full = computeEMASeries(allCloses, 13);
     const ema50Full = computeEMASeries(allCloses, 50);
+    const atrFull = computeATRSeries(allBars, 14);
 
     const cutoff = now.getTime() - displayDaysBack*24*3600*1000;
     let startIdx = allBars.findIndex(b => new Date(b.t).getTime() >= cutoff);
@@ -1092,16 +1137,13 @@ async function updateModalChart(){
       emaSlow: ema13Full[ema13Full.length - 1]
     });
 
-    const meta = rowDataMap[symbol];
-
     document.getElementById('modalSub').textContent = `${tf} · Last: $${lastBar.c.toFixed(2)}`;
     renderChart({
       bars,
       ema5Series: ema5Full.slice(startIdx),
       ema13Series: ema13Full.slice(startIdx),
       ema50Series: ema50Full.slice(startIdx),
-      pmHigh: meta.pmHigh,
-      pmLow: meta.pmLow
+      atrSeries: atrFull.slice(startIdx)
     });
   }catch(e){
     document.getElementById('modalSub').textContent = `Error: ${e.message}`;
@@ -1153,8 +1195,29 @@ function renderChart(data){
   const ema13Line = buildEmaLine(data.ema13Series, '#e0a13b', { hidden: true });
   buildEmaLine(data.ema50Series, '#c9d1d1', { dashed: true });
 
-  if(data.pmHigh) activeCandleSeries.createPriceLine({ price: data.pmHigh, color: '#39d98a', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'PM High' });
-  if(data.pmLow) activeCandleSeries.createPriceLine({ price: data.pmLow, color: '#ff8177', lineWidth: 1, lineStyle: LightweightCharts.LineStyle.Dashed, title: 'PM Low' });
+  // Entry-quality bands relative to EMA5, sized in ATR(14) — no right-axis labels, just visual guides.
+  const NEAR_EMA5_ATR = 0.3;   // within this many ATRs of EMA5 = good pullback entry zone
+  const CHASE_GUARD_ATR = 1.2; // beyond this many ATRs above EMA5 = overextended, avoid chasing
+  const pullbackLower = data.ema5Series.map((v,i) => (v != null && data.atrSeries[i] != null) ? v - NEAR_EMA5_ATR*data.atrSeries[i] : null);
+  const chaseGuardUpper = data.ema5Series.map((v,i) => (v != null && data.atrSeries[i] != null) ? v + CHASE_GUARD_ATR*data.atrSeries[i] : null);
+  buildEmaLine(pullbackLower, 'rgba(57,217,138,0.55)', { dashed: true });
+  buildEmaLine(chaseGuardUpper, 'rgba(255,129,119,0.65)', { dashed: true });
+
+  // Flag only the transition into an overextended stretch (first bar that closes too far above
+  // EMA5), rather than every bar while still extended — keeps the chart from getting cluttered.
+  const markers = [];
+  let wasOverextended = false;
+  data.bars.forEach((b, i) => {
+    const ema5v = data.ema5Series[i], atrv = data.atrSeries[i];
+    if(ema5v == null || atrv == null || atrv <= 0) { wasOverextended = false; return; }
+    const ext = (b.c - ema5v) / atrv;
+    const isOverextended = ext > CHASE_GUARD_ATR;
+    if(isOverextended && !wasOverextended){
+      markers.push({ time: toETTimestamp(b.t), position: 'aboveBar', color: '#ff8177', shape: 'circle', text: '⚠' });
+    }
+    wasOverextended = isOverextended;
+  });
+  activeCandleSeries.setMarkers(markers);
 
   chart.timeScale().fitContent();
 
@@ -1242,10 +1305,7 @@ async function loadNews(symbol){
 
 document.getElementById('btnPrevSym').addEventListener('click', () => navigateModal(-1));
 document.getElementById('btnNextSym').addEventListener('click', () => navigateModal(1));
-document.getElementById('chartTimeframe').addEventListener('change', async () => {
-  await updateModalChart();
-  populateBracketInputs(activeModalSymbol);
-});
+document.getElementById('chartTimeframe').addEventListener('change', updateModalChart);
 document.getElementById('modalClose').addEventListener('click', closeModal);
 document.getElementById('modalOverlay').addEventListener('click', (e) => {
   if(e.target.id === 'modalOverlay') closeModal();
@@ -1419,8 +1479,8 @@ async function runGainerScan(){
     lastSymbols = top.map(g => g.symbol);
 
     const rows = await evaluateSymbols(lastSymbols, feed, 'sp500');
-    render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} hits`);
+    render(rows, gainerMeta, true);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${top.length} S&P 500 gainers · ${rows.filter(r=>r.pass).length} showing a breakout setup`);
   }catch(e){
     statusMsg(e.message, true);
   }finally{
