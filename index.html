@@ -89,25 +89,40 @@
   .modal-controls{display:flex;align-items:center;gap:5px;}
   .nav-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:6px 9px;font-size:12px;cursor:pointer;font-family:var(--mono);}
   .modal-close{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;width:32px;height:32px;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+  #modalOverlay .modal{display:flex;flex-direction:column;height:92vh;height:92dvh;overflow:hidden;overscroll-behavior:contain;}
+  #modalOverlay .modal-header,#modalOverlay .draw-bar,#modalOverlay .modal-footer{flex:0 0 auto;}
+  #modalOverlay .modal-header-left{min-width:0;}
+  #modalOverlay .modal-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* min-height:0 + overflow:hidden lets the chart shrink/grow with the modal instead of pushing it taller */
+  #modalOverlay .chart-container{flex:1 1 0;min-height:0;height:auto;overflow:hidden;margin-bottom:10px;border-radius:8px;}
+  .modal-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;}
+  .modal-footer button{white-space:nowrap;}
   .chart-container{width:100%;height:270px;margin-bottom:10px;position:relative;}
-  #cloudCanvas{position:absolute;top:0;left:0;pointer-events:none;}
-  .chart-legend{display:flex;gap:10px;font-size:10px;color:var(--muted);margin:-2px 0 8px;flex-wrap:wrap;}
-  .chart-legend span{display:inline-flex;align-items:center;gap:4px;}
-  .chart-legend i{width:9px;height:2px;display:inline-block;}
-
-  .news-heading{font-size:10.5px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;}
-  .news-list{display:flex;flex-direction:column;gap:5px;}
-  .news-item{display:block;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:7px 9px;text-decoration:none;color:var(--text);}
-  .news-headline{font-size:11.5px;line-height:1.35;}
-  .news-meta{font-size:9.5px;color:var(--muted);margin-top:3px;font-family:var(--mono);}
-  .news-empty{font-size:11px;color:var(--muted);padding:4px 0;}
+  #cloudCanvas,#dayCanvas{position:absolute;top:0;left:0;pointer-events:none;}
+  .draw-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;}
+  .draw-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;}
+  .draw-btn.stop.armed{background:#3b1b1b;border-color:#ff8177;color:#ff8177;}
+  .draw-btn.target.armed{background:#1b3b2f;border-color:#39d98a;color:#39d98a;}
+  .draw-info{flex:1;min-width:0;text-align:right;font-family:var(--mono);font-size:11px;line-height:1.3;color:var(--muted);white-space:pre-line;overflow:hidden;}
 
   /* Mobile Layout */
   @media (max-width:700px){
     body{padding:8px 8px 50px;}
     .modal-overlay{padding:0;}
     .modal{width:100%;height:100%;max-height:100%;border-radius:0;border:none;padding:10px 10px 30px;}
-    .chart-container{height:230px;}
+    #modalOverlay .modal{height:100vh;height:100dvh;max-height:none;padding:calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom));}
+    #modalOverlay .modal-header{margin-bottom:6px;}
+    #modalOverlay .modal-title{font-size:15px;}
+    #modalOverlay .modal-controls{gap:4px;}
+    #modalOverlay .nav-btn,#modalOverlay .modal-close{min-width:40px;height:40px;padding:0 8px;font-size:14px;}
+    #modalOverlay select{height:40px;font-size:13px !important;}
+    #modalOverlay .draw-btn{height:40px;min-width:40px;padding:0 8px;font-size:15px;}
+    #modalOverlay .draw-btn .lbl{display:none;}
+    #modalOverlay .draw-info{font-size:10px;}
+    #modalOverlay .chart-container{margin-bottom:8px;border-radius:6px;}
+    #modalOverlay .modal-footer{margin-bottom:0;}
+    #modalOverlay .modal-footer button{height:44px;font-size:13.5px;}
+    #modalOverlay #btnLogTrade{flex:1;}
     
     table, thead, tbody, th, td, tr { display:block; }
     thead{display:none;}
@@ -249,23 +264,21 @@
         </div>
       </div>
 
-      <div class="chart-legend">
-        <span><i style="background:#c084fc;"></i>EMA5</span>
-        <span><i style="background:#e0a13b;"></i>EMA13 / EMA9</span>
-        <span><i style="background:none;border-top:2px dashed #c9d1d1;height:0;"></i>EMA50</span>
-        <span><i style="background:rgba(57,217,138,0.35);height:8px;"></i>Bull Cloud</span>
-        <span><i style="background:rgba(57,217,138,0.55);border-top:2px dashed rgba(57,217,138,0.55);background:none;height:0;"></i>Pullback Zone (±0.3 ATR of EMA5)</span>
-        <span><i style="background:rgba(255,129,119,0.65);border-top:2px dashed rgba(255,129,119,0.65);background:none;height:0;"></i>Chase Guard (1.2 ATR above EMA5)</span>
+      <div class="draw-bar">
+        <button id="btnDrawStop" class="draw-btn stop" title="Set stop loss">🛑<span class="lbl"> Stop</span></button>
+        <button id="btnDrawTarget" class="draw-btn target" title="Set target">🎯<span class="lbl"> Target</span></button>
+        <button id="btnDrawAuto" class="draw-btn" title="Suggest stop &amp; target from ATR">⚡<span class="lbl"> Auto</span></button>
+        <button id="btnDrawClear" class="draw-btn" title="Clear lines">🗑<span class="lbl"> Clear</span></button>
+        <div class="draw-info" id="drawInfo"></div>
       </div>
 
       <div class="chart-container" id="chartContainer"></div>
 
-      <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
+      <div class="modal-footer">
+        <button id="btnResetZoom" title="Reset zoom">⤢ Fit</button>
+        <button id="btnExportImg" title="Save chart as image">📷 Image</button>
         <button id="btnLogTrade" style="background:#1b3b2f;border-color:#2a5c48;color:var(--pass);">📝 Log This Trade</button>
       </div>
-
-      <div class="news-heading">News &amp; Catalysts</div>
-      <div class="news-list" id="newsList"></div>
     </div>
   </div>
 
@@ -944,6 +957,7 @@ function logCurrentTrade(){
     volRatio: meta.volRatio ?? null, vwap: meta.vwap ?? null,
     dailyEma13: meta.dailyEma13 ?? null, atr14: meta.atr14 ?? null,
     elapsedMinutes: meta.elapsedMinutes ?? null,
+    stop: getLevels(symbol).stop ?? null, target: getLevels(symbol).target ?? null,
     outcome: 'open', notes: ''
   };
   const log = loadTradeLog();
@@ -1034,6 +1048,26 @@ function exportTradeLogCsv(){
 }
 
 document.getElementById('btnLogTrade').addEventListener('click', logCurrentTrade);
+document.getElementById('btnExportImg').addEventListener('click', exportChartImage);
+document.getElementById('btnDrawStop').addEventListener('click', () => setDrawMode(drawMode === 'stop' ? null : 'stop'));
+document.getElementById('btnDrawTarget').addEventListener('click', () => setDrawMode(drawMode === 'target' ? null : 'target'));
+document.getElementById('btnDrawAuto').addEventListener('click', () => {
+  setDrawMode(null);
+  if(!suggestLevels()){ statusMsg('No ATR data yet to suggest levels.', true); return; }
+  drawLevelLines();
+  if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
+});
+document.getElementById('btnDrawClear').addEventListener('click', () => {
+  if(activeModalSymbol) clearLevels(activeModalSymbol);
+  setDrawMode(null);
+  drawLevelLines();
+  if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
+});
+document.getElementById('btnResetZoom').addEventListener('click', () => {
+  if(!activeChart) return;
+  activeChart.timeScale().fitContent();
+  activeChart.priceScale('right').applyOptions({ autoScale: true });
+});
 document.getElementById('btnOpenTradeLog').addEventListener('click', () => {
   renderTradeLogModal();
   document.getElementById('tradeLogOverlay').classList.add('open');
@@ -1074,6 +1108,9 @@ function navigateModal(dir){
 
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  stopLine = null; targetLine = null; setDrawMode(null);
+  if(chartResizeObserver){ chartResizeObserver.disconnect(); chartResizeObserver = null; }
   if(activeChart){ activeChart.remove(); activeChart = null; }
   activeCandleSeries = null;
   activeModalSymbol = null;
@@ -1084,15 +1121,16 @@ async function openModalAtIndex(index){
   activeSymbolIndex = index;
   const symbol = lastSymbols[index];
   activeModalSymbol = symbol;
+  setDrawMode(null);
 
   updateNavButtons();
 
   const overlay = document.getElementById('modalOverlay');
   document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${lastSymbols.length})`;
   overlay.classList.add('open');
+  document.body.style.overflow = 'hidden'; // stop the page behind the chart from scrolling on touch
 
   await updateModalChart();
-  loadNews(symbol);
 }
 
 async function updateModalChart(){
@@ -1106,9 +1144,11 @@ async function updateModalChart(){
   try{
     const feed = document.getElementById('feed').value;
     const now = new Date();
-    const displayDaysBack = tf === '10m' ? 5 : 10;
-    const warmupDaysBack = tf === '10m' ? 3 : 8;
-    const startTime = new Date(now.getTime() - (displayDaysBack + warmupDaysBack)*24*3600*1000).toISOString();
+    // Show only the last N trading sessions so candles stay readable; extra history is fetched
+    // purely as EMA/ATR warm-up and trimmed off before rendering.
+    const CHART_TRADING_DAYS = 2;
+    const fetchDaysBack = tf === '10m' ? 10 : 18;
+    const startTime = new Date(now.getTime() - fetchDaysBack*24*3600*1000).toISOString();
     const res = await fetchBars([symbol], alpacaTf, startTime, feed);
     const allBars = (res[symbol] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
@@ -1123,9 +1163,30 @@ async function updateModalChart(){
     const ema50Full = computeEMASeries(allCloses, 50);
     const atrFull = computeATRSeries(allBars, 14);
 
-    const cutoff = now.getTime() - displayDaysBack*24*3600*1000;
-    let startIdx = allBars.findIndex(b => new Date(b.t).getTime() >= cutoff);
+    const barParts = allBars.map(b => etParts(new Date(b.t)));
+    const barDates = barParts.map(p => p.dateStr);
+    const allDates = [...new Set(barDates)];
+    const keepDates = allDates.slice(-CHART_TRADING_DAYS);
+    let startIdx = barDates.findIndex(d => keepDates.includes(d));
     if(startIdx === -1) startIdx = 0;
+
+    // Regular-session (9:30-16:00 ET) high/low per date, used for the previous-day high/low lines
+    const rth = {};
+    allBars.forEach((b, i) => {
+      const m = barParts[i].hh * 60 + barParts[i].mm;
+      if(m < 570 || m >= 960) return;
+      const r = rth[barDates[i]] || (rth[barDates[i]] = { hi: -Infinity, lo: Infinity });
+      r.hi = Math.max(r.hi, b.h); r.lo = Math.min(r.lo, b.l);
+    });
+    const days = keepDates.map(d => {
+      const di = allDates.indexOf(d);
+      const prev = di > 0 ? rth[allDates[di - 1]] : null;
+      return {
+        date: d, parity: di % 2,
+        startIdx: barDates.indexOf(d) - startIdx, endIdx: barDates.lastIndexOf(d) - startIdx,
+        prevHigh: prev ? prev.hi : null, prevLow: prev ? prev.lo : null
+      };
+    });
 
     const bars = allBars.slice(startIdx);
     const lastBar = bars[bars.length - 1];
@@ -1143,11 +1204,259 @@ async function updateModalChart(){
       ema5Series: ema5Full.slice(startIdx),
       ema13Series: ema13Full.slice(startIdx),
       ema50Series: ema50Full.slice(startIdx),
-      atrSeries: atrFull.slice(startIdx)
+      atrSeries: atrFull.slice(startIdx),
+      days
     });
   }catch(e){
     document.getElementById('modalSub').textContent = `Error: ${e.message}`;
   }
+}
+
+// ---- Stop-loss / target price lines (tap a button, then tap the chart) ----
+const LEVELS_KEY = 'chartLevels_v1';
+const LEVELS_TTL_MS = 3*24*3600*1000; // levels older than this are ignored so stale lines don't mislead
+let drawMode = null;          // 'stop' | 'target' | null
+let stopLine = null, targetLine = null;
+// "Auto" suggestion: stop = entry - STOP_ATR x ATR(14); target sits at RR x the risk above entry
+const SUGGEST_STOP_ATR = 1.5;
+const SUGGEST_RR = 2;
+let chartCtx = { last: null, atr: null };
+let levelDrag = null;         // { kind } while a line is being dragged
+
+function loadLevelsStore(){ try { return JSON.parse(localStorage.getItem(LEVELS_KEY)) || {}; } catch(e){ return {}; } }
+function saveLevelsStore(o){ try { localStorage.setItem(LEVELS_KEY, JSON.stringify(o)); } catch(e){} }
+function getLevels(symbol){
+  const e = loadLevelsStore()[symbol];
+  if(!e || Date.now() - (e.ts || 0) > LEVELS_TTL_MS) return {};
+  return { stop: e.stop ?? null, target: e.target ?? null };
+}
+function setLevel(symbol, key, price){
+  const store = loadLevelsStore();
+  const cur = getLevels(symbol);
+  cur[key] = price;
+  store[symbol] = { stop: cur.stop ?? null, target: cur.target ?? null, ts: Date.now() };
+  if(store[symbol].stop == null && store[symbol].target == null) delete store[symbol];
+  saveLevelsStore(store);
+}
+function clearLevels(symbol){
+  const store = loadLevelsStore(); delete store[symbol]; saveLevelsStore(store);
+}
+
+function setDrawMode(mode){
+  drawMode = mode;
+  document.getElementById('btnDrawStop').classList.toggle('armed', mode === 'stop');
+  document.getElementById('btnDrawTarget').classList.toggle('armed', mode === 'target');
+  updateDrawInfo();
+}
+
+function fmtPct(price, last){
+  return `${price >= last ? '+' : ''}${((price - last) / last * 100).toFixed(1)}%`;
+}
+
+// e.g. ["SL $1750.00 (-3.2%)", "TP $1900.00 (+6.1%) · 1.9R"] — shared by the info line and the exported image
+function levelSummaryLines(symbol){
+  const last = symbol && rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
+  const lv = symbol ? getLevels(symbol) : {};
+  if(!last) return [];
+  const lines = [];
+  if(lv.stop != null) lines.push(`SL $${lv.stop.toFixed(2)} (${fmtPct(lv.stop, last)})`);
+  if(lv.target != null){
+    let t = `TP $${lv.target.toFixed(2)} (${fmtPct(lv.target, last)})`;
+    if(lv.stop != null && lv.stop < last && lv.target > last){
+      t += ` · ${((lv.target - last) / (last - lv.stop)).toFixed(1)}R`;
+    }
+    lines.push(t);
+  }
+  return lines;
+}
+
+function updateDrawInfo(){
+  const el = document.getElementById('drawInfo');
+  if(!el) return;
+  if(drawMode){ el.textContent = `Tap chart to set ${drawMode === 'stop' ? 'stop loss' : 'target'}`; return; }
+  el.textContent = levelSummaryLines(activeModalSymbol).join('\n');
+}
+
+function levelTitle(kind, price, last){
+  return `${kind === 'stop' ? 'SL' : 'TP'} $${price.toFixed(2)}` + (last ? ` ${fmtPct(price, last)}` : '');
+}
+
+function drawLevelLines(){
+  const series = activeCandleSeries;
+  if(!series) return;
+  if(stopLine){ try { series.removePriceLine(stopLine); } catch(e){} stopLine = null; }
+  if(targetLine){ try { series.removePriceLine(targetLine); } catch(e){} targetLine = null; }
+  const symbol = activeModalSymbol;
+  if(!symbol) return;
+  const last = rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
+  const lv = getLevels(symbol);
+  if(lv.stop != null){
+    stopLine = series.createPriceLine({ price: lv.stop, color: '#ff8177', lineWidth: 2,
+      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: levelTitle('stop', lv.stop, last) });
+  }
+  if(lv.target != null){
+    targetLine = series.createPriceLine({ price: lv.target, color: '#39d98a', lineWidth: 2,
+      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: levelTitle('target', lv.target, last) });
+  }
+  updateDrawInfo();
+}
+
+function suggestLevels(){
+  const symbol = activeModalSymbol;
+  const { last, atr } = chartCtx;
+  if(!symbol || !last || !atr) return false;
+  const risk = SUGGEST_STOP_ATR * atr;
+  const round2 = v => Math.round(v * 100) / 100;
+  setLevel(symbol, 'stop', round2(last - risk));
+  setLevel(symbol, 'target', round2(last + SUGGEST_RR * risk));
+  return true;
+}
+
+// Price lines can't be dragged natively, so hit-test pointer position against each line's y and
+// take over the gesture (capture phase) before the chart's own pan/zoom handlers see it.
+function setupLevelDrag(container){
+  if(container._levelDragBound) return;
+  container._levelDragBound = true;
+  const HIT_PX = 18;
+
+  const pointY = e => {
+    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+    return t.clientY - container.getBoundingClientRect().top;
+  };
+  const hitTest = y => {
+    if(!activeCandleSeries || !activeModalSymbol) return null;
+    const lv = getLevels(activeModalSymbol);
+    let best = null, bestD = HIT_PX;
+    ['stop','target'].forEach(kind => {
+      if(lv[kind] == null) return;
+      const ly = activeCandleSeries.priceToCoordinate(lv[kind]);
+      if(ly == null) return;
+      const d = Math.abs(ly - y);
+      if(d <= bestD){ best = kind; bestD = d; }
+    });
+    return best;
+  };
+
+  const start = e => {
+    if(drawMode || !activeChart) return;
+    if(e.touches && e.touches.length > 1) return;   // pinch = zoom, not drag
+    if(e.button !== undefined && e.button !== 0) return;
+    const kind = hitTest(pointY(e));
+    if(!kind) return;
+    levelDrag = { kind };
+    e.stopPropagation();
+    if(e.cancelable) e.preventDefault();
+  };
+  const move = e => {
+    if(!levelDrag || !activeCandleSeries) return;
+    e.stopPropagation();
+    if(e.cancelable) e.preventDefault();
+    const raw = activeCandleSeries.coordinateToPrice(pointY(e));
+    if(raw == null || !isFinite(raw) || raw <= 0) return;
+    const price = Math.round(raw * 100) / 100;
+    levelDrag.price = price;
+    const line = levelDrag.kind === 'stop' ? stopLine : targetLine;
+    if(line) line.applyOptions({ price, title: levelTitle(levelDrag.kind, price, chartCtx.last) });
+    const el = document.getElementById('drawInfo');
+    if(el && chartCtx.last) el.textContent = `${levelDrag.kind === 'stop' ? 'SL' : 'TP'} $${price.toFixed(2)} (${fmtPct(price, chartCtx.last)})`;
+  };
+  const end = e => {
+    if(!levelDrag) return;
+    e.stopPropagation();
+    const d = levelDrag; levelDrag = null;
+    if(d.price != null && activeModalSymbol){
+      setLevel(activeModalSymbol, d.kind, d.price);
+      drawLevelLines();
+      if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
+    } else {
+      updateDrawInfo();
+    }
+  };
+
+  container.addEventListener('touchstart', start, { capture: true, passive: false });
+  container.addEventListener('touchmove', move, { capture: true, passive: false });
+  container.addEventListener('touchend', end, { capture: true });
+  container.addEventListener('touchcancel', end, { capture: true });
+  container.addEventListener('mousedown', start, { capture: true });
+  window.addEventListener('mousemove', move, { capture: true });
+  window.addEventListener('mouseup', end, { capture: true });
+}
+
+async function exportChartImage(){
+  if(!activeChart || !activeModalSymbol) return;
+  const symbol = activeModalSymbol;
+  const tf = document.getElementById('chartTimeframe').value;
+  const container = document.getElementById('chartContainer');
+  const shot = activeChart.takeScreenshot();           // candles, EMAs, markers, price lines, axes
+  const cloud = container.querySelector('#cloudCanvas'); // EMA cloud lives on its own canvas beneath the chart
+  const dpr = shot.width / Math.max(1, container.clientWidth);
+
+  const lines = levelSummaryLines(symbol);
+  const last = rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
+  const now = new Date(); const ep = etParts(now);
+  const stamp = `${ep.dateStr} ${String(ep.hh).padStart(2,'0')}:${String(ep.mm).padStart(2,'0')} ET`;
+
+  const pad = Math.round(12 * dpr);
+  const lineH = Math.round(18 * dpr);
+  const headerH = pad * 2 + lineH * (2 + (lines.length ? 1 : 0));
+  const out = document.createElement('canvas');
+  out.width = shot.width; out.height = shot.height + headerH;
+  const ctx = out.getContext('2d');
+  const css = getComputedStyle(document.documentElement);
+  ctx.fillStyle = (css.getPropertyValue('--panel') || '').trim() || '#0f1517';
+  ctx.fillRect(0, 0, out.width, out.height);
+  const dayC = container.querySelector('#dayCanvas');
+  if(dayC && dayC.width > 0) ctx.drawImage(dayC, 0, headerH, shot.width, shot.height);
+  if(cloud && cloud.width > 0) ctx.drawImage(cloud, 0, headerH, shot.width, shot.height);
+  ctx.drawImage(shot, 0, headerH);
+
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = '#e8f0f0';
+  ctx.font = `700 ${Math.round(16 * dpr)}px ui-monospace, Menlo, Consolas, monospace`;
+  ctx.fillText(`${symbol}  ${tf}` + (last ? `  Last $${last.toFixed(2)}` : ''), pad, pad);
+  ctx.fillStyle = '#8fa1a3';
+  ctx.font = `${Math.round(12 * dpr)}px ui-monospace, Menlo, Consolas, monospace`;
+  ctx.fillText(stamp, pad, pad + lineH);
+  if(lines.length){
+    ctx.font = `600 ${Math.round(12.5 * dpr)}px ui-monospace, Menlo, Consolas, monospace`;
+    let x = pad;
+    lines.forEach(t => {
+      ctx.fillStyle = t.startsWith('SL') ? '#ff8177' : '#39d98a';
+      ctx.fillText(t, x, pad + lineH * 2);
+      x += ctx.measureText(t).width + Math.round(16 * dpr);
+    });
+  }
+
+  const name = `${symbol}_${tf}_${ep.dateStr}.png`;
+  out.toBlob(async blob => {
+    if(!blob){ statusMsg('Could not create the image.', true); return; }
+    const file = new File([blob], name, { type: 'image/png' });
+    // phones: open the native share sheet (Save to Photos, messages, etc.)
+    if(isMobileView() && navigator.canShare && navigator.canShare({ files: [file] })){
+      try { await navigator.share({ files: [file], title: `${symbol} chart` }); return; }
+      catch(e){ if(e && e.name === 'AbortError') return; }
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }, 'image/png');
+}
+
+function isMobileView(){ return window.matchMedia('(max-width:700px)').matches; }
+
+let chartResizeObserver = null;
+function watchChartSize(container){
+  if(chartResizeObserver){ chartResizeObserver.disconnect(); chartResizeObserver = null; }
+  if(typeof ResizeObserver === 'undefined') return;
+  chartResizeObserver = new ResizeObserver(() => {
+    if(!activeChart) return;
+    const w = container.clientWidth, h = container.clientHeight;
+    if(w > 0 && h > 0) activeChart.applyOptions({ width: w, height: h });
+    if(activeCloudRedraw) requestAnimationFrame(activeCloudRedraw);
+  });
+  chartResizeObserver.observe(container);
 }
 
 function renderChart(data){
@@ -1157,10 +1466,14 @@ function renderChart(data){
   activeCandleSeries = null;
 
   const chart = LightweightCharts.createChart(container, {
-    layout: { background: { color: 'transparent' }, textColor: '#dce6e6' },
+    layout: { background: { color: 'transparent' }, textColor: '#dce6e6', fontSize: isMobileView() ? 11 : 12 },
     grid: { vertLines: { color: '#1b2426' }, horzLines: { color: '#1b2426' } },
-    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30' },
-    rightPriceScale: { borderColor: '#232d30' },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30', rightOffset: 3, minBarSpacing: 0.5 },
+    rightPriceScale: { borderColor: '#232d30', scaleMargins: { top: 0.08, bottom: 0.08 } },
+    // touch: one-finger drag pans time, pinch zooms; vertical drag is ignored so the price axis doesn't get knocked around
+    handleScroll: { pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false, mouseWheel: true },
+    handleScale: { pinch: true, mouseWheel: true, axisPressedMouseMove: true },
+    kineticScroll: { touch: true, mouse: false },
     width: container.clientWidth,
     height: container.clientHeight || 260
   });
@@ -1168,7 +1481,19 @@ function renderChart(data){
 
   activeCandleSeries = chart.addCandlestickSeries({
     upColor: '#39d98a', downColor: '#ff8177', borderVisible: false,
-    wickUpColor: '#39d98a', wickDownColor: '#ff8177'
+    wickUpColor: '#39d98a', wickDownColor: '#ff8177',
+    // keep stop/target lines inside the visible price range even when they sit beyond the candles
+    autoscaleInfoProvider: (original) => {
+      const res = original();
+      if(!res || !activeModalSymbol) return res;
+      const lv = getLevels(activeModalSymbol);
+      [lv.stop, lv.target].forEach(v => {
+        if(v == null) return;
+        res.priceRange.minValue = Math.min(res.priceRange.minValue, v);
+        res.priceRange.maxValue = Math.max(res.priceRange.maxValue, v);
+      });
+      return res;
+    }
   });
   
   activeCandleSeries.setData(data.bars.map(b => ({
@@ -1203,6 +1528,23 @@ function renderChart(data){
   buildEmaLine(pullbackLower, 'rgba(57,217,138,0.55)', { dashed: true });
   buildEmaLine(chaseGuardUpper, 'rgba(255,129,119,0.65)', { dashed: true });
 
+  // Previous-day high / low: one flat segment per displayed day. Excluded from autoscale so a far-away
+  // level can't squash the candles; the latest day's segment carries the axis label.
+  (data.days || []).forEach((d, di) => {
+    const isLatest = di === data.days.length - 1;
+    [['prevHigh', '#f472b6', 'PDH'], ['prevLow', '#38bdf8', 'PDL']].forEach(([key, color, title]) => {
+      if(d[key] == null || d.startIdx < 0) return;
+      const ln = chart.addLineSeries({
+        color, lineWidth: 1, lineStyle: LightweightCharts.LineStyle.LargeDashed,
+        priceLineVisible: false, lastValueVisible: isLatest, title: isLatest ? title : '',
+        crosshairMarkerVisible: false, autoscaleInfoProvider: () => null
+      });
+      const pts = [];
+      for(let i = d.startIdx; i <= d.endIdx; i++) pts.push({ time: times[i], value: d[key] });
+      ln.setData(pts);
+    });
+  });
+
   // Flag only the transition into an overextended stretch (first bar that closes too far above
   // EMA5), rather than every bar while still extended — keeps the chart from getting cluttered.
   const markers = [];
@@ -1219,15 +1561,89 @@ function renderChart(data){
   });
   activeCandleSeries.setMarkers(markers);
 
-  chart.timeScale().fitContent();
-
-  if(ema5Line && ema13Line){
-    const cloudCanvas = ensureCloudCanvas(container);
-    const draw = () => drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, data.ema5Series, data.ema13Series, times);
-    activeCloudRedraw = draw;
-    chart.timeScale().subscribeVisibleLogicalRangeChange(draw);
-    requestAnimationFrame(draw);
+  {
+    const lastAtr = [...data.atrSeries].reverse().find(v => v != null);
+    chartCtx = { last: data.bars[data.bars.length - 1].c, atr: lastAtr ?? null };
   }
+  setupLevelDrag(container);
+  drawLevelLines();
+  chart.subscribeClick(param => {
+    if(!drawMode || !param.point || !activeCandleSeries || !activeModalSymbol) return;
+    const raw = activeCandleSeries.coordinateToPrice(param.point.y);
+    if(raw == null || !isFinite(raw) || raw <= 0) return;
+    setLevel(activeModalSymbol, drawMode, Math.round(raw * 100) / 100);
+    setDrawMode(null);
+    drawLevelLines();
+    chart.priceScale('right').applyOptions({ autoScale: true });
+  });
+
+  chart.timeScale().fitContent();
+  watchChartSize(container);
+
+  const cloudCanvas = (ema5Line && ema13Line) ? ensureCloudCanvas(container) : null;
+  const dayCanvas = ensureDayCanvas(container);   // created last, inserted first => sits beneath the cloud
+  const draw = () => {
+    drawDayBands(dayCanvas, container, chart, times, data.days || []);
+    if(cloudCanvas) drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, data.ema5Series, data.ema13Series, times);
+  };
+  activeCloudRedraw = draw;
+  chart.timeScale().subscribeVisibleLogicalRangeChange(draw);
+  requestAnimationFrame(draw);
+}
+
+function ensureDayCanvas(container){
+  let canvas = container.querySelector('#dayCanvas');
+  if(!canvas){
+    canvas = document.createElement('canvas');
+    canvas.id = 'dayCanvas';
+    container.insertBefore(canvas, container.firstChild);
+  }
+  return canvas;
+}
+
+// Tint the plot background per trading day (alternating hues) with a small date label per band.
+const DAY_TINTS = ['rgba(59,130,246,0.10)', 'rgba(245,158,11,0.07)'];
+function drawDayBands(canvas, container, chart, times, days){
+  const rect = container.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  canvas.style.width = rect.width + 'px';
+  canvas.style.height = rect.height + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, rect.width, rect.height);
+
+  const ts = chart.timeScale();
+  const plotW = (typeof ts.width === 'function' ? ts.width() : rect.width - 60) || rect.width;
+  const plotH = rect.height - ((typeof ts.height === 'function' ? ts.height() : 26) || 26);
+  // half a bar width, measured from real bar positions so it stays right after pinch-zoom
+  const c0 = times.length > 1 ? ts.timeToCoordinate(times[0]) : null;
+  const c1 = times.length > 1 ? ts.timeToCoordinate(times[1]) : null;
+  const half = (c0 !== null && c1 !== null && c1 > c0) ? (c1 - c0) / 2 : 3;
+
+  days.forEach((d, i) => {
+    if(d.startIdx < 0 || d.endIdx < d.startIdx) return;
+    const xs = ts.timeToCoordinate(times[d.startIdx]);
+    const xe = ts.timeToCoordinate(times[d.endIdx]);
+    if(xs === null || xe === null) return;
+    const left = Math.max(0, xs - half), right = Math.min(plotW, xe + half);
+    if(right <= left) return;
+
+    ctx.fillStyle = DAY_TINTS[d.parity];
+    ctx.fillRect(left, 0, right - left, plotH);
+    if(i > 0 && xs - half > 0){          // thin separator where a new session starts
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fillRect(Math.round(xs - half), 0, 1, plotH);
+    }
+    if(right - left > 64){
+      const label = new Date(d.date + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric', timeZone: 'UTC' });
+      ctx.font = '10px ui-monospace, Menlo, Consolas, monospace';
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(210,225,225,0.55)';
+      ctx.fillText(label, Math.max(left, 0) + 6, 6);
+    }
+  });
 }
 
 function ensureCloudCanvas(container){
@@ -1279,30 +1695,6 @@ function drawEmaCloud(canvas, container, chart, lineA, lineB, seriesA, seriesB, 
   }
 }
 
-async function loadNews(symbol){
-  const el = document.getElementById('newsList');
-  el.innerHTML = '<div class="news-empty">Loading headlines…</div>';
-  try{
-    const params = new URLSearchParams({ symbols: symbol, limit: '4', sort: 'desc' });
-    const res = await fetch(`${ALPACA_BASE}/v1beta1/news?${params.toString()}`, { headers: alpacaHeaders() });
-    if(!res.ok) throw new Error(`${res.status}`);
-    const data = await res.json();
-    const items = data.news || [];
-    if(items.length === 0){
-      el.innerHTML = '<div class="news-empty">No headlines available.</div>';
-      return;
-    }
-    el.innerHTML = items.map(a => `
-      <a class="news-item" href="${a.url}" target="_blank" rel="noopener noreferrer">
-        <div class="news-headline">${a.headline}</div>
-        <div class="news-meta">${a.source || 'News'} · ${new Date(a.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} ET</div>
-      </a>
-    `).join('');
-  }catch(e){
-    el.innerHTML = `<div class="news-empty">Could not load news (${e.message}).</div>`;
-  }
-}
-
 document.getElementById('btnPrevSym').addEventListener('click', () => navigateModal(-1));
 document.getElementById('btnNextSym').addEventListener('click', () => navigateModal(1));
 document.getElementById('chartTimeframe').addEventListener('change', updateModalChart);
@@ -1314,7 +1706,7 @@ document.getElementById('modalOverlay').addEventListener('click', (e) => {
 window.addEventListener('resize', () => {
   if(activeChart){
     const container = document.getElementById('chartContainer');
-    activeChart.applyOptions({ width: container.clientWidth });
+    activeChart.applyOptions({ width: container.clientWidth, height: container.clientHeight });
     if(activeCloudRedraw) requestAnimationFrame(activeCloudRedraw);
   }
 });
