@@ -93,13 +93,12 @@
   #modalOverlay .modal-header,#modalOverlay .draw-bar,#modalOverlay .modal-footer{flex:0 0 auto;}
   #modalOverlay .modal-header-left{min-width:0;}
   #modalOverlay .modal-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  /* min-height:0 + overflow:hidden lets the chart shrink/grow with the modal instead of pushing it taller */
   #modalOverlay .chart-container{flex:1 1 0;min-height:0;height:auto;overflow:hidden;margin-bottom:10px;border-radius:8px;}
   .modal-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;}
   .modal-footer button{white-space:nowrap;}
   .chart-container{width:100%;height:270px;margin-bottom:10px;position:relative;}
   #cloudCanvas,#dayCanvas{position:absolute;top:0;left:0;pointer-events:none;}
-  .draw-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;}
+  .draw-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;flex-wrap:wrap;}
   .draw-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;}
   .draw-btn.stop.armed{background:#3b1b1b;border-color:#ff8177;color:#ff8177;}
   .draw-btn.target.armed{background:#1b3b2f;border-color:#39d98a;color:#39d98a;}
@@ -190,8 +189,16 @@
     </div>
     <div class="divider"></div>
     <div class="row">
+      <div class="field" style="flex:0 1 90px;">
+        <label>ST ATR Len</label>
+        <input type="number" id="stAtrLength" value="10" min="2" max="50" step="1">
+      </div>
+      <div class="field" style="flex:0 1 90px;">
+        <label>ST Mult</label>
+        <input type="number" id="stAtrMult" value="3" min="0.5" max="10" step="0.1">
+      </div>
       <div class="field" style="flex:0 1 110px;">
-        <label>Strict: Ext. Cap (x ATR14 above Daily EMA13)</label>
+        <label>Strict: Ext. Cap (x ATR14)</label>
         <input type="number" id="strictExtAtrMult" value="2.0" min="0.1" max="20" step="0.1">
       </div>
       <div class="field" style="flex:0 1 100px;">
@@ -239,8 +246,8 @@
   <div id="resultsWrap" style="margin-top:10px;"></div>
 
   <div class="legend" id="legend" style="display:none;">
-    <span><b>Conditions:</b> 30m EMA5&gt;EMA13 (or 9&gt;21) · Close&gt;EMA · Close&gt;PM High · (Top Gainers &amp; Strict tabs) Daily Close&gt;Daily EMA13</span>
-    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High; Top Gainers adds Daily Close&gt;Daily EMA13; 🎯 Strict tabs add ATR-based extension cap, Close&gt;VWAP, volume-hold check, RVOL floor, 2-bar confirmation, gap-size cap, Daily Close&gt;MagicTrend, entry-time window &amp; SPY market gate)</span>
+    <span><b>Conditions:</b> 30m EMA5&gt;EMA13 · Close&gt;EMA · Close&gt;PM High · Supertrend Support/Resistance</span>
+    <span><b>PASS:</b> Breakout active (Price &gt; $1, Vol &gt; 1M, EMA5&gt;13, Close&gt;PM High)</span>
   </div>
 
   <!-- Modal Dialog -->
@@ -269,6 +276,11 @@
         <button id="btnDrawTarget" class="draw-btn target" title="Set target">🎯<span class="lbl"> Target</span></button>
         <button id="btnDrawAuto" class="draw-btn" title="Suggest stop &amp; target from ATR">⚡<span class="lbl"> Auto</span></button>
         <button id="btnDrawClear" class="draw-btn" title="Clear lines">🗑<span class="lbl"> Clear</span></button>
+        <div style="display:flex;gap:4px;align-items:center;font-size:11px;font-family:var(--mono);margin-left:4px;">
+          <span style="color:var(--muted);">ST:</span>
+          <input type="number" id="modalStLen" value="10" min="2" max="50" style="width:42px;padding:3px;font-size:11px;" title="Supertrend ATR Length">
+          <input type="number" id="modalStMult" value="3" min="0.5" max="10" step="0.5" style="width:42px;padding:3px;font-size:11px;" title="Supertrend Multiplier">
+        </div>
         <div class="draw-info" id="drawInfo"></div>
       </div>
 
@@ -342,12 +354,22 @@ function restoreStoredConfig(){
   const f = localStorage.getItem('alpaca_feed');
   const list = localStorage.getItem('alpaca_manual_list');
   const risk = localStorage.getItem('alpaca_default_risk');
+  const stLen = localStorage.getItem('st_atr_length');
+  const stMult = localStorage.getItem('st_atr_mult');
   
   if(k) document.getElementById('apiKey').value = k;
   if(s) document.getElementById('apiSecret').value = s;
   if(f) document.getElementById('feed').value = f;
   if(list) document.getElementById('manualList').value = list;
   if(risk) document.getElementById('defaultRisk').value = risk;
+  if(stLen) {
+    document.getElementById('stAtrLength').value = stLen;
+    document.getElementById('modalStLen').value = stLen;
+  }
+  if(stMult) {
+    document.getElementById('stAtrMult').value = stMult;
+    document.getElementById('modalStMult').value = stMult;
+  }
 }
 function saveStoredConfig(){
   localStorage.setItem('alpaca_api_key', document.getElementById('apiKey').value.trim());
@@ -355,6 +377,8 @@ function saveStoredConfig(){
   localStorage.setItem('alpaca_feed', document.getElementById('feed').value);
   localStorage.setItem('alpaca_manual_list', document.getElementById('manualList').value.trim());
   localStorage.setItem('alpaca_default_risk', document.getElementById('defaultRisk').value.trim());
+  localStorage.setItem('st_atr_length', document.getElementById('stAtrLength').value);
+  localStorage.setItem('st_atr_mult', document.getElementById('stAtrMult').value);
 }
 
 document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
@@ -362,6 +386,24 @@ document.getElementById('apiSecret').addEventListener('input', saveStoredConfig)
 document.getElementById('feed').addEventListener('change', saveStoredConfig);
 document.getElementById('manualList').addEventListener('input', saveStoredConfig);
 document.getElementById('defaultRisk').addEventListener('input', saveStoredConfig);
+document.getElementById('stAtrLength').addEventListener('input', (e) => {
+  document.getElementById('modalStLen').value = e.target.value;
+  saveStoredConfig();
+});
+document.getElementById('stAtrMult').addEventListener('input', (e) => {
+  document.getElementById('modalStMult').value = e.target.value;
+  saveStoredConfig();
+});
+document.getElementById('modalStLen').addEventListener('input', (e) => {
+  document.getElementById('stAtrLength').value = e.target.value;
+  saveStoredConfig();
+  updateModalChart();
+});
+document.getElementById('modalStMult').addEventListener('input', (e) => {
+  document.getElementById('stAtrMult').value = e.target.value;
+  saveStoredConfig();
+  updateModalChart();
+});
 restoreStoredConfig();
 
 const btnToggle = document.getElementById('btnToggleSettings');
@@ -445,7 +487,6 @@ function computeEMASeries(values, period){
   return out;
 }
 
-// Average True Range over `period` daily bars (simple average of True Range, most-recent `period` values)
 function computeATR(dailyBarsAsc, period){
   if(dailyBarsAsc.length < period + 1) return null;
   const trs = [];
@@ -462,8 +503,6 @@ function computeATR(dailyBarsAsc, period){
   return lastN.reduce((a,b)=>a+b,0) / lastN.length;
 }
 
-// Rolling ATR series (Wilder smoothing), same length as barsAsc, null until warmed up.
-// Used to size the "near EMA5" / "chase guard" bands per-bar on the modal chart.
 function computeATRSeries(barsAsc, period){
   const out = new Array(barsAsc.length).fill(null);
   if(barsAsc.length < period + 1) return out;
@@ -483,7 +522,60 @@ function computeATRSeries(barsAsc, period){
   return out;
 }
 
-// Simple Moving Average series (rolling window), null until `period` values are available
+function SuperTrend(r, period, multiplier) {
+    var atr = computeATRSeries(r, period);
+    var st = new Array(r.length).fill(NaN);
+    var trend = new Array(r.length).fill(1);
+    var up = new Array(r.length).fill(NaN);
+    var down = new Array(r.length).fill(NaN);
+
+    var basicUp = new Array(r.length).fill(NaN);
+    var basicDown = new Array(r.length).fill(NaN);
+
+    for (var i = 0; i < r.length; i++) {
+        if (isNaN(atr[i])) continue;
+        var hl2 = (r[i].h + r[i].l) / 2;
+        basicUp[i] = hl2 + multiplier * atr[i];
+        basicDown[i] = hl2 - multiplier * atr[i];
+    }
+
+    var finalUp = new Array(r.length).fill(NaN);
+    var finalDown = new Array(r.length).fill(NaN);
+
+    for (var i = period; i < r.length; i++) {
+        if (isNaN(atr[i])) continue;
+
+        if (i === period) {
+            finalUp[i] = basicUp[i];
+            finalDown[i] = basicDown[i];
+            trend[i] = 1;
+        } else {
+            finalUp[i] = (basicUp[i] < finalUp[i-1] || r[i-1].c > finalUp[i-1]) ? basicUp[i] : finalUp[i-1];
+            finalDown[i] = (basicDown[i] > finalDown[i-1] || r[i-1].c < finalDown[i-1]) ? basicDown[i] : finalDown[i-1];
+
+            if (trend[i-1] === 1 && r[i].c < finalDown[i-1]) {
+                trend[i] = -1;
+            } else if (trend[i-1] === -1 && r[i].c > finalUp[i-1]) {
+                trend[i] = 1;
+            } else {
+                trend[i] = trend[i-1];
+            }
+        }
+
+        if (trend[i] === 1) {
+            st[i] = finalDown[i];
+            down[i] = finalDown[i];
+            up[i] = NaN;
+        } else {
+            st[i] = finalUp[i];
+            up[i] = finalUp[i];
+            down[i] = NaN;
+        }
+    }
+
+    return { st, trend, up, down };
+}
+
 function computeSMASeries(values, period){
   const out = new Array(values.length).fill(null);
   let sum = 0;
@@ -495,7 +587,6 @@ function computeSMASeries(values, period){
   return out;
 }
 
-// True Range series (per-bar). First bar is null (no prior close to compare against).
 function computeTRSeries(dailyBarsAsc){
   const out = new Array(dailyBarsAsc.length).fill(null);
   for(let i=1;i<dailyBarsAsc.length;i++){
@@ -505,8 +596,6 @@ function computeTRSeries(dailyBarsAsc){
   return out;
 }
 
-// Commodity Channel Index series on a price series `src` (Webull's ind.cci(src, period) applies the
-// CCI formula directly to `src` rather than forcing a high/low/close typical price).
 function computeCCISeries(src, period){
   const smaSeries = computeSMASeries(src, period);
   const out = new Array(src.length).fill(null);
@@ -520,20 +609,15 @@ function computeCCISeries(src, period){
   return out;
 }
 
-// "Magic Trend" indicator series (CCI + ATR trailing line), ported from the Webull script:
-//   ATR = SMA(TrueRange, atrPeriod); upT = low - ATR*coeff; downT = high + ATR*coeff
-//   MagicTrend = CCI(src,period) >= 0 ? max(upT, MagicTrend[1]) : min(downT, MagicTrend[1])
-// dailyBarsAsc: ascending daily bars {h,l,c}. Returns an array (same length) of MagicTrend values,
-// null for bars before there's enough history for both the CCI and ATR windows.
 function computeMagicTrendSeries(dailyBarsAsc, period=20, atrPeriod=5, coeff=1){
   const closes = dailyBarsAsc.map(b => b.c);
   const trSeries = computeTRSeries(dailyBarsAsc);
-  const trForSma = trSeries.map(v => v === null ? 0 : v); // mirrors fill_none-style handling of TR[0]
+  const trForSma = trSeries.map(v => v === null ? 0 : v);
   const atrSeries = computeSMASeries(trForSma, atrPeriod);
   const cciSeries = computeCCISeries(closes, period);
 
   const out = new Array(dailyBarsAsc.length).fill(null);
-  let prevMT = 0; // Webull's fill_none(MagicTrend[1], 0) for the first bar
+  let prevMT = 0;
   for(let i=0;i<dailyBarsAsc.length;i++){
     const atr = atrSeries[i], cci = cciSeries[i];
     if(atr === null || cci === null) continue;
@@ -546,7 +630,6 @@ function computeMagicTrendSeries(dailyBarsAsc, period=20, atrPeriod=5, coeff=1){
   return out;
 }
 
-// VWAP for today's regular session (9:30-16:00 ET) from a set of intraday bars (any timeframe)
 function computeSessionVWAP(bars, todayET){
   let cumPV = 0, cumVol = 0;
   bars.forEach(bar => {
@@ -560,7 +643,6 @@ function computeSessionVWAP(bars, todayET){
   return cumVol > 0 ? { vwap: cumPV / cumVol, cumVol } : { vwap: null, cumVol: 0 };
 }
 
-// Minutes elapsed since 9:30 ET open, clamped to [0, 390]. Negative/pre-open returns null.
 function minutesSinceOpen(now, todayET){
   const p = etParts(now);
   if(p.dateStr !== todayET) return null;
@@ -569,7 +651,6 @@ function minutesSinceOpen(now, todayET){
   return Math.min(elapsed, 390);
 }
 
-// SPY-based market gate: SPY must be above its own session VWAP AND above its 30m EMA9
 async function fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET){
   const [spy30, spy5] = await Promise.all([
     fetchBars(['SPY'], '30Min', tenDaysAgo, feed),
@@ -633,28 +714,11 @@ async function fetchBars(symbols, timeframe, start, feed){
   return data.bars || {};
 }
 
-
-// Universal Market Gainers Fetcher using Alpaca's Movers Endpoint
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 async function fetchTopMarketGainers(targetCount) {
   statusMsg('Querying Alpaca Movers & Market Snapshots…');
   let candidates = [];
 
   try {
-    // Alpaca Movers endpoint
     const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, {
       headers: alpacaHeaders()
     });
@@ -667,7 +731,6 @@ async function fetchTopMarketGainers(targetCount) {
     console.warn('Movers endpoint failed, expanding universe pool:', e);
   }
 
-  // If outside trading hours or movers is empty, scan S&P 500 + high-beta pool
   if (!candidates || candidates.length === 0) {
     statusMsg('Off-hours: Ranking gainers from broad active universe…');
     const spTickers = await getSP500Tickers().catch(() => []);
@@ -683,39 +746,20 @@ async function fetchTopMarketGainers(targetCount) {
     const snap = snaps[sym];
     if (!snap) return;
 
-    // Price: current trade/close, fallback to previous daily bar close
     const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || (snap.prevDailyBar && snap.prevDailyBar.c) || 0;
     const prev = (snap.prevDailyBar && snap.prevDailyBar.c) || price;
-
-    // Volume fix: fallback to prevDailyBar.v if dailyBar.v is 0 (happens during off-hours/pre-market)
-    const volume = (snap.dailyBar && snap.dailyBar.v > 0) 
-      ? snap.dailyBar.v 
-      : ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
-
+    const volume = (snap.dailyBar && snap.dailyBar.v > 0) ? snap.dailyBar.v : ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
     const pct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
 
-    // Filter: Price > $1.00 and Volume > 1,000,000
     if (price > 1.0 && volume > 1000000) {
-      filtered.push({
-        symbol: sym,
-        percent_change: pct,
-        price: price,
-        volume: volume
-      });
+      filtered.push({ symbol: sym, percent_change: pct, price: price, volume: volume });
     }
   });
 
-  // Sort descending by highest percentage gain
   filtered.sort((a, b) => b.percent_change - a.percent_change);
   return filtered.slice(0, targetCount);
 }
 
-
-
-
-
-
-// 30m EMA Evaluation
 async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const symbols = symbolList.map(s => s.toUpperCase());
   const now = new Date();
@@ -726,7 +770,6 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const needsDaily = (mode === 'top_gainers' || mode === 'strict_gainers' || mode === 'strict_sp500');
   const isStrict = (mode === 'strict_gainers' || mode === 'strict_sp500');
 
-  // Strict-mode thresholds, read once per scan
   const extAtrMult = isStrict ? (parseFloat(document.getElementById('strictExtAtrMult').value) || 2.0) : null;
   const gapCapPct = isStrict ? (parseFloat(document.getElementById('strictGapCap').value) || 40) : null;
   const volRatioMin = isStrict ? (parseFloat(document.getElementById('strictVolRatio').value) || 0.4) : null;
@@ -735,12 +778,9 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const maxMinutes = isStrict ? (parseFloat(document.getElementById('strictMaxMinutes').value) || 390) : null;
   const marketGateEnabled = isStrict && document.getElementById('strictMarketGate').checked;
 
-  // Scan-wide guards, computed once (not per symbol)
   const elapsedMinutes = isStrict ? minutesSinceOpen(now, todayET) : null;
   const entryWindowOk = isStrict ? (elapsedMinutes === null ? false : (elapsedMinutes >= minMinutes && elapsedMinutes <= maxMinutes)) : true;
-  const marketGate = (isStrict && marketGateEnabled)
-    ? await fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET)
-    : { ok: true, reason: null };
+  const marketGate = (isStrict && marketGateEnabled) ? await fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET) : { ok: true, reason: null };
 
   const [bars30, bars5, barsDaily] = await Promise.all([
     fetchBars(symbols, '30Min', tenDaysAgo, feed),
@@ -766,7 +806,6 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     }
     const closes = b30.map(b => b.c);
 
-    // EMA5 > EMA13 for Top Gainers/Strict mode; EMA9 > EMA21 for S&P/Watchlist
     const useFast = (mode === 'top_gainers' || mode === 'strict_gainers');
     const fastPeriod = useFast ? 5 : 9;
     const slowPeriod = useFast ? 13 : 21;
@@ -795,7 +834,6 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
       dailyClose = bDaily[bDaily.length - 1].c;
       atr14 = computeATR(bDaily, 14);
 
-      // "Magic Trend" line (CCI(20) + ATR(5) trailing stop) evaluated through the most recent daily bar
       const mtSeries = computeMagicTrendSeries(bDaily, 20, 5, 1);
       dailyMagicTrend = mtSeries[mtSeries.length - 1];
     }
@@ -810,29 +848,26 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     row.atr14 = atr14;
     row.dailyMagicTrend = dailyMagicTrend;
 
-    row.c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow; // EMA5 > EMA13
-    row.c2 = emaFast !== null && lastClose > emaFast;                   // Close > EMA5
-    row.c3 = pmHigh !== null && lastClose > pmHigh;                     // Close > Premarket High
-    row.c4 = needsDaily && dailyClose !== null && dailyEma13 !== null && dailyClose > dailyEma13; // Daily Close > Daily EMA13
-    row.c11 = needsDaily && dailyClose !== null && dailyMagicTrend !== null && dailyClose > dailyMagicTrend; // Daily Close > MagicTrend
+    row.c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow;
+    row.c2 = emaFast !== null && lastClose > emaFast;
+    row.c3 = pmHigh !== null && lastClose > pmHigh;
+    row.c4 = needsDaily && dailyClose !== null && dailyEma13 !== null && dailyClose > dailyEma13;
+    row.c11 = needsDaily && dailyClose !== null && dailyMagicTrend !== null && dailyClose > dailyMagicTrend;
 
     if(isStrict){
-      // c5: Extension cap — Close not more than (extAtrMult × daily ATR14) above Daily EMA13
       if(dailyEma13 !== null && atr14 !== null && atr14 > 0){
         row.extAtr = (lastClose - dailyEma13) / atr14;
         row.c5 = row.extAtr <= extAtrMult;
       } else if(dailyEma13 !== null){
-        row.c5 = true; // ATR not available yet — don't block on it
+        row.c5 = true;
       }
 
-      // c6: Close > session VWAP (regular session only, today)
       const { vwap } = computeSessionVWAP(b5, todayET);
       if(vwap !== null){
         row.vwap = vwap;
         row.c6 = lastClose > vwap;
       }
 
-      // c7: Volume holding up — last 2 regular 30m bars' volume vs first 2 after the open
       const regular30 = b30.filter(bar => isRegularSession(etParts(new Date(bar.t)), todayET));
       if(regular30.length >= 4){
         const openAvg = (regular30[0].v + regular30[1].v) / 2;
@@ -842,17 +877,15 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
           row.c7 = row.volRatio >= volRatioMin;
         }
       } else {
-        row.c7 = true; // not enough regular-session bars yet (early in day) — don't penalize
+        row.c7 = true;
       }
 
-      // c8: Consecutive-bar confirmation — last 2 closes above EMA5 and PM High
       if(b30.length >= 2 && pmHigh !== null && emaFastSeries[emaFastSeries.length-2] != null){
         const prevBar = b30[b30.length-2];
         const prevEmaFast = emaFastSeries[emaFastSeries.length-2];
         row.c8 = (prevBar.c > prevEmaFast && prevBar.c > pmHigh) && (lastClose > emaFast && lastClose > pmHigh);
       }
 
-      // Gap-size sanity filter, using the % change from the gainers list
       const meta = gainerMeta && gainerMeta[sym];
       if(meta && typeof meta.percent_change === 'number'){
         row.gapPct = meta.percent_change;
@@ -861,8 +894,6 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
         row.c9GapOk = true;
       }
 
-      // c10: Relative Volume — today's regular-session volume-so-far vs this stock's own 20-day
-      // average daily volume, scaled to the fraction of the session elapsed
       const priorDaily = bDaily.filter(b => etParts(new Date(b.t)).dateStr !== todayET);
       const last20 = priorDaily.slice(-20);
       if(last20.length >= 5 && elapsedMinutes !== null && elapsedMinutes > 0){
@@ -874,7 +905,7 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
           row.c10Rvol = row.rvol >= minRvol;
         }
       } else {
-        row.c10Rvol = true; // not enough history/time yet — don't penalize
+        row.c10Rvol = true;
       }
 
       row.pass = row.c1 && row.c3 && row.c4 && row.c5 && row.c6 && row.c7 && row.c8 && row.c9GapOk && row.c10Rvol && row.c11
@@ -897,8 +928,6 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   return rows;
 }
 
-function tick(v, label){ return `<span class="tick ${v ? 'y' : 'n'}"${label ? ` title="${label}"` : ''}>${v ? '✓' : '✕'}</span>`; }
-
 function render(rows, gainerMeta, showAll){
   document.getElementById('legend').style.display = 'flex';
   const displayRows = showAll ? rows : rows.filter(r => r.pass);
@@ -910,7 +939,7 @@ function render(rows, gainerMeta, showAll){
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
     const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
-    const realIdx = lastSymbols.indexOf(r.symbol); // keep modal nav aligned to lastSymbols, not this filtered list
+    const realIdx = lastSymbols.indexOf(r.symbol);
     const breakoutTag = showAll ? ` <span title="Passes breakout conditions" style="color:${r.pass ? 'var(--pass)' : 'var(--muted)'};font-size:11px;">${r.pass ? '✓' : '·'}</span>` : '';
 
     html += `<tr>
@@ -930,8 +959,6 @@ function render(rows, gainerMeta, showAll){
   });
 }
 
-
-// ---------------- Trade Log ----------------
 const TRADE_LOG_KEY = 'gainerscan_trade_log_v1';
 
 function loadTradeLog(){
@@ -992,15 +1019,12 @@ function renderTradeLogModal(){
   if(s.closedCount === 0){
     summaryEl.textContent = `${s.total} logged · no closed trades tagged yet`;
   } else {
-    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate) · `
-      + `Avg RVOL win ${fmt(s.avgRvolWin)} vs loss ${fmt(s.avgRvolLoss)} · `
-      + `Avg ExtATR win ${fmt(s.avgExtAtrWin)} vs loss ${fmt(s.avgExtAtrLoss)} · `
-      + `Avg Gap% win ${fmt(s.avgGapWin,1)} vs loss ${fmt(s.avgGapLoss,1)}`;
+    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate)`;
   }
 
   const body = document.getElementById('tradeLogBody');
   if(log.length === 0){
-    body.innerHTML = `<tr><td colspan="11" style="text-align:center;opacity:0.6;padding:16px;">No trades logged yet. Open a symbol and click "Log This Trade".</td></tr>`;
+    body.innerHTML = `<tr><td colspan="11" style="text-align:center;opacity:0.6;padding:16px;">No trades logged yet.</td></tr>`;
     return;
   }
   body.innerHTML = log.map(t => `
@@ -1128,7 +1152,7 @@ async function openModalAtIndex(index){
   const overlay = document.getElementById('modalOverlay');
   document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${lastSymbols.length})`;
   overlay.classList.add('open');
-  document.body.style.overflow = 'hidden'; // stop the page behind the chart from scrolling on touch
+  document.body.style.overflow = 'hidden';
 
   await updateModalChart();
 }
@@ -1144,8 +1168,6 @@ async function updateModalChart(){
   try{
     const feed = document.getElementById('feed').value;
     const now = new Date();
-    // Show only the last N trading sessions so candles stay readable; extra history is fetched
-    // purely as EMA/ATR warm-up and trimmed off before rendering.
     const CHART_TRADING_DAYS = 2;
     const fetchDaysBack = tf === '10m' ? 10 : 18;
     const startTime = new Date(now.getTime() - fetchDaysBack*24*3600*1000).toISOString();
@@ -1163,6 +1185,10 @@ async function updateModalChart(){
     const ema50Full = computeEMASeries(allCloses, 50);
     const atrFull = computeATRSeries(allBars, 14);
 
+    const stLen = parseInt(document.getElementById('modalStLen').value, 10) || 10;
+    const stMult = parseFloat(document.getElementById('modalStMult').value) || 3.0;
+    const superTrendRes = SuperTrend(allBars, stLen, stMult);
+
     const barParts = allBars.map(b => etParts(new Date(b.t)));
     const barDates = barParts.map(p => p.dateStr);
     const allDates = [...new Set(barDates)];
@@ -1170,7 +1196,6 @@ async function updateModalChart(){
     let startIdx = barDates.findIndex(d => keepDates.includes(d));
     if(startIdx === -1) startIdx = 0;
 
-    // Regular-session (9:30-16:00 ET) high/low per date, used for the previous-day high/low lines
     const rth = {};
     allBars.forEach((b, i) => {
       const m = barParts[i].hh * 60 + barParts[i].mm;
@@ -1205,6 +1230,8 @@ async function updateModalChart(){
       ema13Series: ema13Full.slice(startIdx),
       ema50Series: ema50Full.slice(startIdx),
       atrSeries: atrFull.slice(startIdx),
+      superTrendSt: superTrendRes.st.slice(startIdx),
+      superTrendTrend: superTrendRes.trend.slice(startIdx),
       days
     });
   }catch(e){
@@ -1212,16 +1239,14 @@ async function updateModalChart(){
   }
 }
 
-// ---- Stop-loss / target price lines (tap a button, then tap the chart) ----
 const LEVELS_KEY = 'chartLevels_v1';
-const LEVELS_TTL_MS = 3*24*3600*1000; // levels older than this are ignored so stale lines don't mislead
-let drawMode = null;          // 'stop' | 'target' | null
+const LEVELS_TTL_MS = 3*24*3600*1000;
+let drawMode = null;
 let stopLine = null, targetLine = null;
-// "Auto" suggestion: stop = entry - STOP_ATR x ATR(14); target sits at RR x the risk above entry
 const SUGGEST_STOP_ATR = 1.5;
 const SUGGEST_RR = 2;
 let chartCtx = { last: null, atr: null };
-let levelDrag = null;         // { kind } while a line is being dragged
+let levelDrag = null;
 
 function loadLevelsStore(){ try { return JSON.parse(localStorage.getItem(LEVELS_KEY)) || {}; } catch(e){ return {}; } }
 function saveLevelsStore(o){ try { localStorage.setItem(LEVELS_KEY, JSON.stringify(o)); } catch(e){} }
@@ -1253,7 +1278,6 @@ function fmtPct(price, last){
   return `${price >= last ? '+' : ''}${((price - last) / last * 100).toFixed(1)}%`;
 }
 
-// e.g. ["SL $1750.00 (-3.2%)", "TP $1900.00 (+6.1%) · 1.9R"] — shared by the info line and the exported image
 function levelSummaryLines(symbol){
   const last = symbol && rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
   const lv = symbol ? getLevels(symbol) : {};
@@ -1312,8 +1336,6 @@ function suggestLevels(){
   return true;
 }
 
-// Price lines can't be dragged natively, so hit-test pointer position against each line's y and
-// take over the gesture (capture phase) before the chart's own pan/zoom handlers see it.
 function setupLevelDrag(container){
   if(container._levelDragBound) return;
   container._levelDragBound = true;
@@ -1339,7 +1361,7 @@ function setupLevelDrag(container){
 
   const start = e => {
     if(drawMode || !activeChart) return;
-    if(e.touches && e.touches.length > 1) return;   // pinch = zoom, not drag
+    if(e.touches && e.touches.length > 1) return;
     if(e.button !== undefined && e.button !== 0) return;
     const kind = hitTest(pointY(e));
     if(!kind) return;
@@ -1387,8 +1409,8 @@ async function exportChartImage(){
   const symbol = activeModalSymbol;
   const tf = document.getElementById('chartTimeframe').value;
   const container = document.getElementById('chartContainer');
-  const shot = activeChart.takeScreenshot();           // candles, EMAs, markers, price lines, axes
-  const cloud = container.querySelector('#cloudCanvas'); // EMA cloud lives on its own canvas beneath the chart
+  const shot = activeChart.takeScreenshot();
+  const cloud = container.querySelector('#cloudCanvas');
   const dpr = shot.width / Math.max(1, container.clientWidth);
 
   const lines = levelSummaryLines(symbol);
@@ -1431,7 +1453,6 @@ async function exportChartImage(){
   out.toBlob(async blob => {
     if(!blob){ statusMsg('Could not create the image.', true); return; }
     const file = new File([blob], name, { type: 'image/png' });
-    // phones: open the native share sheet (Save to Photos, messages, etc.)
     if(isMobileView() && navigator.canShare && navigator.canShare({ files: [file] })){
       try { await navigator.share({ files: [file], title: `${symbol} chart` }); return; }
       catch(e){ if(e && e.name === 'AbortError') return; }
@@ -1470,7 +1491,6 @@ function renderChart(data){
     grid: { vertLines: { color: '#1b2426' }, horzLines: { color: '#1b2426' } },
     timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30', rightOffset: 3, minBarSpacing: 0.5 },
     rightPriceScale: { borderColor: '#232d30', scaleMargins: { top: 0.08, bottom: 0.08 } },
-    // touch: one-finger drag pans time, pinch zooms; vertical drag is ignored so the price axis doesn't get knocked around
     handleScroll: { pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false, mouseWheel: true },
     handleScale: { pinch: true, mouseWheel: true, axisPressedMouseMove: true },
     kineticScroll: { touch: true, mouse: false },
@@ -1482,7 +1502,6 @@ function renderChart(data){
   activeCandleSeries = chart.addCandlestickSeries({
     upColor: '#39d98a', downColor: '#ff8177', borderVisible: false,
     wickUpColor: '#39d98a', wickDownColor: '#ff8177',
-    // keep stop/target lines inside the visible price range even when they sit beyond the candles
     autoscaleInfoProvider: (original) => {
       const res = original();
       if(!res || !activeModalSymbol) return res;
@@ -1520,16 +1539,30 @@ function renderChart(data){
   const ema13Line = buildEmaLine(data.ema13Series, '#e0a13b', { hidden: true });
   buildEmaLine(data.ema50Series, '#c9d1d1', { dashed: true });
 
-  // Entry-quality bands relative to EMA5, sized in ATR(14) — no right-axis labels, just visual guides.
-  const NEAR_EMA5_ATR = 0.3;   // within this many ATRs of EMA5 = good pullback entry zone
-  const CHASE_GUARD_ATR = 1.2; // beyond this many ATRs above EMA5 = overextended, avoid chasing
-  const pullbackLower = data.ema5Series.map((v,i) => (v != null && data.atrSeries[i] != null) ? v - NEAR_EMA5_ATR*data.atrSeries[i] : null);
-  const chaseGuardUpper = data.ema5Series.map((v,i) => (v != null && data.atrSeries[i] != null) ? v + CHASE_GUARD_ATR*data.atrSeries[i] : null);
-  buildEmaLine(pullbackLower, 'rgba(57,217,138,0.55)', { dashed: true });
-  buildEmaLine(chaseGuardUpper, 'rgba(255,129,119,0.65)', { dashed: true });
+  // Draw Supertrend segments
+  const stVals = data.superTrendSt;
+  const stTrend = data.superTrendTrend;
+  let i = 0;
+  while (i < data.bars.length) {
+    if (isNaN(stVals[i])) { i++; continue; }
+    const segTrend = stTrend[i];
+    const color = segTrend === 1 ? '#39d98a' : '#ff8177';
+    let j = i;
+    while (j < data.bars.length && stTrend[j] === segTrend && !isNaN(stVals[j])) j++;
 
-  // Previous-day high / low: one flat segment per displayed day. Excluded from autoscale so a far-away
-  // level can't squash the candles; the latest day's segment carries the axis label.
+    const pts = [];
+    if (i > 0 && !isNaN(stVals[i - 1])) {
+      pts.push({ time: times[i - 1], value: stVals[i - 1] });
+    }
+    for (let k = i; k < j; k++) {
+      pts.push({ time: times[k], value: stVals[k] });
+    }
+
+    const segSeries = chart.addLineSeries({ color, lineWidth: 2, priceLineVisible: false, lastValueVisible: false });
+    segSeries.setData(pts);
+    i = j;
+  }
+
   (data.days || []).forEach((d, di) => {
     const isLatest = di === data.days.length - 1;
     [['prevHigh', '#f472b6', 'PDH'], ['prevLow', '#38bdf8', 'PDL']].forEach(([key, color, title]) => {
@@ -1544,22 +1577,6 @@ function renderChart(data){
       ln.setData(pts);
     });
   });
-
-  // Flag only the transition into an overextended stretch (first bar that closes too far above
-  // EMA5), rather than every bar while still extended — keeps the chart from getting cluttered.
-  const markers = [];
-  let wasOverextended = false;
-  data.bars.forEach((b, i) => {
-    const ema5v = data.ema5Series[i], atrv = data.atrSeries[i];
-    if(ema5v == null || atrv == null || atrv <= 0) { wasOverextended = false; return; }
-    const ext = (b.c - ema5v) / atrv;
-    const isOverextended = ext > CHASE_GUARD_ATR;
-    if(isOverextended && !wasOverextended){
-      markers.push({ time: toETTimestamp(b.t), position: 'aboveBar', color: '#ff8177', shape: 'circle', text: '⚠' });
-    }
-    wasOverextended = isOverextended;
-  });
-  activeCandleSeries.setMarkers(markers);
 
   {
     const lastAtr = [...data.atrSeries].reverse().find(v => v != null);
@@ -1581,7 +1598,7 @@ function renderChart(data){
   watchChartSize(container);
 
   const cloudCanvas = (ema5Line && ema13Line) ? ensureCloudCanvas(container) : null;
-  const dayCanvas = ensureDayCanvas(container);   // created last, inserted first => sits beneath the cloud
+  const dayCanvas = ensureDayCanvas(container);
   const draw = () => {
     drawDayBands(dayCanvas, container, chart, times, data.days || []);
     if(cloudCanvas) drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, data.ema5Series, data.ema13Series, times);
@@ -1601,7 +1618,6 @@ function ensureDayCanvas(container){
   return canvas;
 }
 
-// Tint the plot background per trading day (alternating hues) with a small date label per band.
 const DAY_TINTS = ['rgba(59,130,246,0.10)', 'rgba(245,158,11,0.07)'];
 function drawDayBands(canvas, container, chart, times, days){
   const rect = container.getBoundingClientRect();
@@ -1617,7 +1633,6 @@ function drawDayBands(canvas, container, chart, times, days){
   const ts = chart.timeScale();
   const plotW = (typeof ts.width === 'function' ? ts.width() : rect.width - 60) || rect.width;
   const plotH = rect.height - ((typeof ts.height === 'function' ? ts.height() : 26) || 26);
-  // half a bar width, measured from real bar positions so it stays right after pinch-zoom
   const c0 = times.length > 1 ? ts.timeToCoordinate(times[0]) : null;
   const c1 = times.length > 1 ? ts.timeToCoordinate(times[1]) : null;
   const half = (c0 !== null && c1 !== null && c1 > c0) ? (c1 - c0) / 2 : 3;
@@ -1632,7 +1647,7 @@ function drawDayBands(canvas, container, chart, times, days){
 
     ctx.fillStyle = DAY_TINTS[d.parity];
     ctx.fillRect(left, 0, right - left, plotH);
-    if(i > 0 && xs - half > 0){          // thin separator where a new session starts
+    if(i > 0 && xs - half > 0){
       ctx.fillStyle = 'rgba(255,255,255,0.12)';
       ctx.fillRect(Math.round(xs - half), 0, 1, plotH);
     }
@@ -1711,7 +1726,6 @@ window.addEventListener('resize', () => {
   }
 });
 
-// 1. Top Gainers Scanner (>1M Volume & >$1.00)
 async function runTopGainerScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'top_gainers';
@@ -1746,16 +1760,6 @@ async function runTopGainerScan(){
   }
 }
 
-// 1b. Strict Top Gainers Scanner — adds extension cap, VWAP, volume-decay, consecutive-bar & gap-size filters
-function buildStrictSuffix(rows){
-  const bits = [];
-  if(rows.marketGateReason) bits.push(`Market Gate — ${rows.marketGateReason}`);
-  if(rows.entryWindowOk === false){
-    bits.push(rows.elapsedMinutes === null ? 'Entry window: market not open' : `Entry window: ${rows.elapsedMinutes}m since open, outside allowed range`);
-  }
-  return bits.length ? ` · ${bits.join(' · ')}` : '';
-}
-
 async function runStrictGainerScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'strict_gainers';
@@ -1778,11 +1782,11 @@ async function runStrictGainerScan(){
     });
     lastSymbols = gainers.map(g => g.symbol);
 
-    statusMsg(`Running strict filters (extension, VWAP, volume, RVOL, gap, market gate) on ${lastSymbols.length} gainers…`);
+    statusMsg(`Running strict filters on ${lastSymbols.length} gainers…`);
     const feed = document.getElementById('feed').value;
     const rows = await evaluateSymbols(lastSymbols, feed, 'strict_gainers', gainerMeta);
     render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria${buildStrictSuffix(rows)}`);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria`);
   }catch(e){
     statusMsg(e.message, true);
   }finally{
@@ -1790,7 +1794,6 @@ async function runStrictGainerScan(){
   }
 }
 
-// 2. Watchlist Scanner
 async function runManualScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'manual';
@@ -1814,9 +1817,8 @@ async function runManualScan(){
       const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
       gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
     });
-// AFTER
     gainers.sort((a,b) => b.percent_change - a.percent_change);
-    const topGainers = gainers.slice(0, 5); // Take only top 5
+    const topGainers = gainers.slice(0, 5);
 
     const gainerMeta = {};
     topGainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
@@ -1832,7 +1834,6 @@ async function runManualScan(){
   }
 }
 
-// 3. S&P 500 Scanner
 async function fetchSP500RankedGainers(count, feed){
   const universe = await getSP500Tickers();
   const groups = chunk(universe, 100);
@@ -1872,7 +1873,7 @@ async function runGainerScan(){
 
     const rows = await evaluateSymbols(lastSymbols, feed, 'sp500');
     render(rows, gainerMeta, true);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${top.length} S&P 500 gainers · ${rows.filter(r=>r.pass).length} showing a breakout setup`);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${top.length} S&P 500 gainers`);
   }catch(e){
     statusMsg(e.message, true);
   }finally{
@@ -1880,7 +1881,6 @@ async function runGainerScan(){
   }
 }
 
-// 2b. Strict S&P 500 Gainers Scanner — same strict filters, sourced from the S&P 500 list instead of the broad market
 async function runStrictSP500GainerScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'strict_sp500';
@@ -1896,10 +1896,9 @@ async function runStrictSP500GainerScan(){
     top.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
     lastSymbols = top.map(g => g.symbol);
 
-    statusMsg(`Running strict filters (extension, VWAP, volume, RVOL, gap, market gate) on ${lastSymbols.length} S&P 500 gainers…`);
     const rows = await evaluateSymbols(lastSymbols, feed, 'strict_sp500', gainerMeta);
     render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria${buildStrictSuffix(rows)}`);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria`);
   }catch(e){
     statusMsg(e.message, true);
   }finally{
