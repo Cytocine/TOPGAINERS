@@ -32,12 +32,13 @@
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
   .field{display:flex;flex-direction:column;gap:3px;flex:1 1 120px;min-width:100px;}
   .field label{font-size:10.5px;color:var(--muted);}
-  input[type=text],input[type=password],input[type=number],select,textarea{
+  input[type=text],input[type=password],input[type=number],input[type=date],select,textarea{
     background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     border-radius:7px;padding:7px 9px;font-size:13px;font-family:var(--mono);
     width:100%;
   }
   textarea{font-family:var(--mono);min-height:64px;resize:vertical;}
+  input[type=date]{color-scheme:dark;}
   button{
     background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     border-radius:7px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;
@@ -98,6 +99,11 @@
   .draw-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;}
   .draw-btn.stop.armed{background:#3b1b1b;border-color:#ff8177;color:#ff8177;}
   .draw-btn.target.armed{background:#1b3b2f;border-color:#39d98a;color:#39d98a;}
+  .draw-btn.entry.armed{background:#16263f;border-color:#5b8def;color:#5b8def;}
+  .draw-btn.level.armed{background:#3a3210;border-color:#facc15;color:#facc15;}
+  #toastWrap{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top));z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 10px;}
+  .toast{pointer-events:auto;max-width:460px;width:100%;background:#1c2427;border:1px solid var(--line);border-left:4px solid var(--warn);color:var(--text);border-radius:8px;padding:11px 13px;font-family:var(--mono);font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,0.5);}
+  .toast.entry{border-left-color:#5b8def;} .toast.stop{border-left-color:var(--fail);} .toast.target{border-left-color:var(--pass);} .toast.lvl{border-left-color:#facc15;}
   .draw-info{flex:1;min-width:0;text-align:right;font-family:var(--mono);font-size:11px;line-height:1.3;color:var(--muted);white-space:pre-line;overflow:hidden;}
 
   /* Mobile Layout */
@@ -118,6 +124,7 @@
     #modalOverlay .modal-footer{margin-bottom:0;}
     #modalOverlay .modal-footer button{height:44px;font-size:13.5px;}
     #modalOverlay #btnLogTrade{flex:1;}
+    #modalOverlay #btnOptions .lbl{display:none;}
     
     table, thead, tbody, th, td, tr { display:block; }
     thead{display:none;}
@@ -128,6 +135,52 @@
     td:first-child{display:block;text-align:left;padding-bottom:4px;}
     td:first-child::before{content:none;}
   }
+  [hidden]{display:none !important;}
+  /* ---- main tabs ---- */
+  .tabs{display:flex;gap:6px;margin:0 0 12px;border-bottom:1px solid var(--line);}
+  .tab{background:none;border:none;border-bottom:2px solid transparent;border-radius:0;color:var(--muted);padding:9px 14px;font-size:13px;font-weight:600;}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent);}
+  .tabcount{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-left:4px;}
+  /* ---- options view ---- */
+  #viewOptions details > summary{cursor:pointer;font-size:12px;color:var(--muted);list-style:none;user-select:none;}
+  #viewOptions details > summary::-webkit-details-marker{display:none;}
+  #viewOptions details > summary::before{content:'▸ ';}
+  #viewOptions details[open] > summary::before{content:'▾ ';}
+  #viewOptions details.oc-filters > summary{font-size:13px;color:var(--text);font-weight:600;margin-bottom:8px;}
+  #viewOptions .row{margin-bottom:8px;}
+  #viewOptions .row:last-child{margin-bottom:0;}
+  .oc-src{color:var(--muted);font-family:var(--mono);font-size:10.5px;margin-left:4px;}
+  .oc-stage{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(4px + env(safe-area-inset-top)) 0 6px;margin-top:-4px;}
+  .oc-stage .panel{margin-bottom:0;padding:8px;}
+  .oc-player{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;}
+  .oc-grow{flex:1;min-width:0;}
+  .oc-title{font-family:var(--mono);font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .oc-subline{font-family:var(--mono);font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .oc-navb{min-width:38px;height:38px;padding:0 8px;font-size:14px;}
+  #ocPlayBtn{min-width:92px;height:38px;}
+  #ocPlayBtn.playing{background:#3a2a12;border-color:#7a5518;color:var(--warn);}
+  #ocSpeed{width:auto;height:38px;padding:0 6px;font-size:12px;}
+  .oc-counter{font-family:var(--mono);font-size:11.5px;color:var(--muted);min-width:44px;text-align:center;}
+  .oc-chartwrap{position:relative;width:100%;height:clamp(240px,42vh,440px);}
+  #ocChart{position:absolute;inset:0;}
+  .oc-zoom{position:absolute;top:6px;left:6px;z-index:3;display:flex;gap:4px;}
+  .oc-zoom button{min-width:34px;height:34px;padding:0 8px;font-size:16px;line-height:1;background:rgba(20,28,30,0.85);}
+  #ocChartMsg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12.5px;font-family:var(--mono);text-align:center;padding:16px;pointer-events:none;z-index:2;}
+  .oc-legend{display:flex;gap:12px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:6px;}
+  .oc-legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle;}
+  .oc-legend .up{color:var(--pass);} .oc-legend .dn{color:var(--fail);}
+  .oc-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:10px;background:var(--panel);margin-top:10px;}
+  .oc-grid{min-width:760px;font-family:var(--mono);font-size:12px;}
+  .oc-tr{display:grid;grid-template-columns:minmax(170px,1.8fr) 56px 44px 60px 56px 56px 56px 66px 44px 46px;border-bottom:1px solid var(--line);cursor:pointer;scroll-margin-top:calc(var(--ocStageH,320px) + 8px);}
+  .oc-tr.oc-head{cursor:default;color:var(--muted);font-size:11px;}
+  .oc-tr > div{padding:8px;text-align:right;white-space:nowrap;}
+  .oc-tr > div:first-child{text-align:left;position:sticky;left:0;background:var(--panel);}
+  .oc-tr.oc-sel > div{background:#182a30;}
+  .oc-tr.oc-sel > div:first-child{box-shadow:inset 3px 0 0 var(--accent);}
+  .oc-sym{font-weight:700;}
+  .oc-itm{color:var(--pass);}
+  .oc-empty{padding:18px;text-align:center;color:var(--muted);font-size:12.5px;}
+  @media (max-width:700px){ .oc-chartwrap{height:clamp(220px,36vh,340px);} }
 </style>
 </head>
 <body>
@@ -135,6 +188,13 @@
   <h1>GAINER SCAN &amp; EXECUTION</h1>
   <p class="sub">Dynamic Top Gainers · Supertrend Flip Screener · Risk Bracket Calculator</p>
 
+  <div class="tabs" id="mainTabs">
+    <button class="tab active" data-tab="scanner">Scanner</button>
+    <button class="tab" data-tab="prevday">Prev Day<span class="tabcount" id="pdTabCount"></span></button>
+    <button class="tab" data-tab="options">Options<span class="tabcount" id="ocTabCount"></span></button>
+  </div>
+
+  <div id="viewScanner">
   <div class="action-bar">
     <div class="action-bar-left">
       <button class="massive-btn" id="btnScanTopGainers">⚡ Top Gainers (&gt;1M Vol &amp; &gt;$1)</button>
@@ -228,6 +288,29 @@
       </div>
     </div>
     <div class="divider"></div>
+    <div class="row">
+      <div class="field" style="flex:0 1 130px;">
+        <label>Price Alerts</label>
+        <div class="toggle-row" style="margin-top:6px;">
+          <input type="checkbox" id="alertsOn">
+          <label for="alertsOn">🔔 Enable</label>
+        </div>
+      </div>
+      <div class="field" style="flex:1 1 220px;">
+        <label>Alert Worker URL (for alerts while app is closed)</label>
+        <input type="text" id="workerUrl" autocomplete="off" spellcheck="false" placeholder="https://price-alerts.yourname.workers.dev">
+      </div>
+      <div class="field" style="flex:1 1 140px;">
+        <label>Worker Key</label>
+        <input type="password" id="workerKey" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="field" style="flex:0 0 auto;min-width:0;">
+        <label>&nbsp;</label>
+        <div style="display:flex;gap:6px;"><button id="btnAlertTest">Test</button><button id="btnAlertSync">Sync</button></div>
+      </div>
+    </div>
+    <div class="status" id="alertStatus"></div>
+    <div class="divider"></div>
     <div class="row" style="align-items:flex-start;">
       <div class="field" style="flex:1 1 300px;">
         <label>Watchlist Tickers</label>
@@ -244,6 +327,118 @@
   <div class="legend" id="legend" style="display:none;">
     <span><b>Conditions:</b> Supertrend Flipped Bullish (Green) within the last 5 Bars on 30m Timeframe</span>
   </div>
+
+  </div><!-- /viewScanner -->
+
+  <div id="viewPrevDay" hidden>
+    <div class="action-bar">
+      <div class="action-bar-left" style="align-items:flex-end;">
+        <button class="massive-btn" id="pdLoadBtn">📅 Prev Day Gainers (&gt;$1 &amp; vol)</button>
+        <div class="field" style="flex:0 1 150px;">
+          <label>Date (blank = last session)</label>
+          <input type="date" id="pdDate">
+        </div>
+        <div class="field" style="flex:0 1 110px;min-width:90px;">
+          <label>Min volume</label>
+          <input type="number" id="pdMinVol" value="1000000" min="0" step="100000">
+        </div>
+        <button id="pdOptionsBtn" title="Load these symbols in the Options tab">📈 Options chain</button>
+      </div>
+    </div>
+    <div class="status" id="pdStatus">Press the button to rank the last completed session's top gainers. Tap a symbol for the chart; the Options tab follows this list.</div>
+    <div id="pdResults" style="margin-top:10px;"></div>
+  </div><!-- /viewPrevDay -->
+
+<div id="viewOptions" hidden>
+  <div class="panel">
+    <details class="oc-filters" id="ocFilters" open>
+      <summary>Chain filters</summary>
+      <div class="row">
+        <div class="field" style="flex:2 1 220px;">
+          <label>Symbols <span class="oc-src" id="ocSrcNote"></span></label>
+          <input type="text" id="ocSymbols" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Populated from the scanner — or type your own">
+        </div>
+        <div class="field">
+          <label>Side</label>
+          <select id="ocSide"><option value="call">Calls</option><option value="put">Puts</option></select>
+        </div>
+        <div class="field" style="flex:0 0 auto;">
+          <label>&nbsp;</label>
+          <button class="primary" id="ocLoadBtn">Load chain</button>
+        </div>
+      </div>
+      <div class="row" style="align-items:center;">
+        <div class="toggle-row"><input type="checkbox" id="ocFollow" checked><label for="ocFollow">Follow scanner</label></div>
+        <select id="ocSource" style="width:auto;padding:5px 8px;">
+          <option value="all">All top gainers</option>
+          <option value="passed">Scan hits only</option>
+        </select>
+        <div class="toggle-row"><input type="checkbox" id="ocAuto" checked><label for="ocAuto">Auto-load</label></div>
+        <button id="ocUseScan">↻ Use latest scan</button>
+      </div>
+      <div class="row">
+        <div class="field"><label>Min DTE</label><input type="number" id="ocMinDte" value="7" min="0" step="1"></div>
+        <div class="field"><label>Max DTE</label><input type="number" id="ocMaxDte" value="45" min="1" step="1"></div>
+        <div class="field"><label>Min volume</label><input type="number" id="ocMinVol" value="1000" min="0" step="50"></div>
+        <div class="field"><label>Top per stock (0 = all)</label><input type="number" id="ocTopN" value="2" min="0" step="1"></div>
+        <div class="field"><label>ITM depth ≤ %</label><input type="number" id="ocItmPct" value="1" min="0" step="0.5"></div>
+        <div class="field"><label>OTM up to %</label><input type="number" id="ocOtmPct" value="5" min="0" step="0.5"></div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Chart timeframe</label>
+          <select id="ocTf">
+            <option value="5Min">5 min</option>
+	   <option value="15Min" selected>15 min</option>
+           <option value="30Min">30 min</option>
+            <option value="1Hour" >1 hour</option>
+            <option value="1Day">1 day</option>
+          </select>
+        </div>
+        <div class="field"><label>EMA 1</label><input type="number" id="ocEma1" value="10" min="0" max="200" step="1"></div>
+        <div class="field"><label>EMA 2</label><input type="number" id="ocEma2" value="20" min="0" max="200" step="1"></div>
+        <div class="field"><label>EMA 3 (0 = off)</label><input type="number" id="ocEma3" value="50" min="0" max="200" step="1"></div>
+        <div class="field">
+          <label>Options feed</label>
+          <select id="ocOptFeed"><option value="indicative">Indicative (free)</option><option value="opra">OPRA</option></select>
+        </div>
+      </div>
+    </details>
+  </div>
+
+  <div class="status" id="ocStatus">Run a scan on the Scanner tab — its symbols land here automatically.</div>
+
+  <div class="oc-stage" id="ocStage">
+    <div class="panel">
+      <div class="oc-player">
+        <button class="oc-navb" id="ocPrevBtn" title="Previous contract">◀</button>
+        <button id="ocPlayBtn" class="primary" title="Play / pause (space)">▶ Play</button>
+        <button class="oc-navb" id="ocNextBtn" title="Next contract">▶</button>
+        <select id="ocSpeed" title="Seconds per contract">
+          <option value="2000">2s</option><option value="4000" selected>4s</option>
+          <option value="6000">6s</option><option value="10000">10s</option>
+        </select>
+        <span class="oc-counter" id="ocCounter">0/0</span>
+        <div class="oc-grow">
+          <div class="oc-title" id="ocTitle">—</div>
+          <div class="oc-subline" id="ocSub"></div>
+        </div>
+      </div>
+      <div class="oc-chartwrap">
+        <div id="ocChart"></div>
+        <div class="oc-zoom" id="ocZoom">
+          <button id="ocZoomOut" title="Zoom out">−</button>
+          <button id="ocZoomIn" title="Zoom in">+</button>
+          <button id="ocZoomFit" title="Fit all bars">⤢</button>
+        </div>
+        <div id="ocChartMsg">Load a chain to see contracts.</div>
+      </div>
+      <div class="oc-legend" id="ocLegend"></div>
+    </div>
+  </div>
+
+  <div id="ocResults"></div>
+</div>
 
   <!-- Modal Dialog -->
   <div class="modal-overlay" id="modalOverlay">
@@ -267,8 +462,10 @@
       </div>
 
       <div class="draw-bar">
+        <button id="btnDrawEntry" class="draw-btn entry" title="Set entry price">📥<span class="lbl"> Entry</span></button>
         <button id="btnDrawStop" class="draw-btn stop" title="Set stop loss">🛑<span class="lbl"> Stop</span></button>
         <button id="btnDrawTarget" class="draw-btn target" title="Set target">🎯<span class="lbl"> Target</span></button>
+        <button id="btnDrawLevel" class="draw-btn level" title="Add price levels (tap an existing one to remove)">📏<span class="lbl"> Level</span></button>
         <button id="btnDrawAuto" class="draw-btn" title="Suggest stop &amp; target from ATR">⚡<span class="lbl"> Auto</span></button>
         <button id="btnDrawClear" class="draw-btn" title="Clear lines">🗑<span class="lbl"> Clear</span></button>
         <div style="display:flex;gap:4px;align-items:center;font-size:11px;font-family:var(--mono);margin-left:4px;">
@@ -284,6 +481,7 @@
       <div class="modal-footer">
         <button id="btnResetZoom" title="Reset zoom">⤢ Fit</button>
         <button id="btnExportImg" title="Save chart as image">📷 Image</button>
+        <button id="btnOptions" title="Open this symbol's options chain in the Options tab">📈<span class="lbl"> Options</span></button>
         <button id="btnLogTrade" style="background:#1b3b2f;border-color:#2a5c48;color:var(--pass);">📝 Log This Trade</button>
       </div>
     </div>
@@ -327,6 +525,8 @@
     </div>
   </div>
 
+<div id="toastWrap"></div>
+
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const ALPACA_BASE = 'https://data.alpaca.markets';
@@ -341,6 +541,8 @@ let activeChart = null;
 let activeCandleSeries = null;
 let activeModalSymbol = null;
 let activeSymbolIndex = -1;
+let modalList = [];      // symbols the chart modal steps through (◀ ▶)
+let chartAsOf = null;    // 'YYYY-MM-DD' session the modal chart starts from (Prev Day tab), else null = latest
 let activeCloudRedraw = null;
 
 function restoreStoredConfig(){
@@ -351,6 +553,10 @@ function restoreStoredConfig(){
   const risk = localStorage.getItem('alpaca_default_risk');
   const stLen = localStorage.getItem('st_atr_length');
   const stMult = localStorage.getItem('st_atr_mult');
+  if(localStorage.getItem('alerts_on') === '1') document.getElementById('alertsOn').checked = true;
+  const wu = localStorage.getItem('alert_worker_url'), wk = localStorage.getItem('alert_worker_key');
+  if(wu) document.getElementById('workerUrl').value = wu;
+  if(wk) document.getElementById('workerKey').value = wk;
   
   if(k) document.getElementById('apiKey').value = k;
   if(s) document.getElementById('apiSecret').value = s;
@@ -374,6 +580,9 @@ function saveStoredConfig(){
   localStorage.setItem('alpaca_default_risk', document.getElementById('defaultRisk').value.trim());
   localStorage.setItem('st_atr_length', document.getElementById('stAtrLength').value);
   localStorage.setItem('st_atr_mult', document.getElementById('stAtrMult').value);
+  localStorage.setItem('alerts_on', document.getElementById('alertsOn').checked ? '1' : '0');
+  localStorage.setItem('alert_worker_url', document.getElementById('workerUrl').value.trim());
+  localStorage.setItem('alert_worker_key', document.getElementById('workerKey').value.trim());
 }
 
 document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
@@ -594,11 +803,12 @@ async function fetchSnapshotsChunk(symbols, feed){
   return res.json();
 }
 
-async function fetchBars(symbols, timeframe, start, feed){
+async function fetchBars(symbols, timeframe, start, feed, end){
   if(symbols.length === 0) return {};
   const params = new URLSearchParams({
     symbols: symbols.join(','), timeframe, start, limit: '4000', adjustment: 'raw', feed
   });
+  if(end) params.set('end', end);
   const res = await fetch(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: alpacaHeaders() });
   if(!res.ok) throw new Error(`Bars fetch failed (${res.status})`);
   const data = await res.json();
@@ -744,6 +954,8 @@ async function runSupertrendFlipScan(){
 }
 
 function renderSupertrendFlipResults(rows, gainerMeta){
+  const list = lastSymbols.slice();
+  OC.setScan('st_flip', lastSymbols, rows.map(r => r.symbol), gainerMeta);
   document.getElementById('legend').style.display = 'flex';
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>Last Price</th><th>%Chg</th><th>Flip Age</th>
@@ -768,8 +980,8 @@ function renderSupertrendFlipResults(rows, gainerMeta){
 
   html += `</tbody></table></div>`;
   document.getElementById('resultsWrap').innerHTML = html;
-  document.querySelectorAll('.sym').forEach(el => {
-    el.addEventListener('click', () => openModalAtIndex(parseInt(el.dataset.index, 10)));
+  document.querySelectorAll('#resultsWrap .sym').forEach(el => {
+    el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), null));
   });
 }
 
@@ -942,8 +1154,10 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
 }
 
 function render(rows, gainerMeta, showAll){
+  const list = lastSymbols.slice();
   document.getElementById('legend').style.display = 'flex';
   const displayRows = showAll ? rows : rows.filter(r => r.pass);
+  OC.setScan(lastMode, lastSymbols, displayRows.map(r => r.symbol), gainerMeta);
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>%Chg</th>
   </tr></thead><tbody>`;
@@ -952,7 +1166,7 @@ function render(rows, gainerMeta, showAll){
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
     const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
-    const realIdx = lastSymbols.indexOf(r.symbol);
+    const realIdx = list.indexOf(r.symbol);
     const breakoutTag = showAll ? ` <span title="Passes breakout conditions" style="color:${r.pass ? 'var(--pass)' : 'var(--muted)'};font-size:11px;">${r.pass ? '✓' : '·'}</span>` : '';
 
     html += `<tr>
@@ -967,8 +1181,8 @@ function render(rows, gainerMeta, showAll){
 
   html += `</tbody></table></div>`;
   document.getElementById('resultsWrap').innerHTML = html;
-  document.querySelectorAll('.sym').forEach(el => {
-    el.addEventListener('click', () => openModalAtIndex(parseInt(el.dataset.index, 10)));
+  document.querySelectorAll('#resultsWrap .sym').forEach(el => {
+    el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), null));
   });
 }
 
@@ -988,22 +1202,24 @@ function logCurrentTrade(){
   const meta = rowDataMap[symbol] || {};
   if(!meta.lastClose){ statusMsg('No price data loaded for this symbol yet.', true); return; }
 
+  const lvNow = getLevels(symbol);
+  const entryPx = lvNow.entry ?? meta.lastClose;
   const entryObj = {
     id: `${symbol}_${Date.now()}`,
     date: etParts(new Date()).dateStr,
     symbol, mode: meta.mode || lastMode,
-    price: meta.lastClose,
+    price: entryPx, entry: lvNow.entry ?? null,
     rvol: meta.rvol ?? null, extAtr: meta.extAtr ?? null, gapPct: meta.gapPct ?? null,
     volRatio: meta.volRatio ?? null, vwap: meta.vwap ?? null,
     dailyEma13: meta.dailyEma13 ?? null, atr14: meta.atr14 ?? null,
     elapsedMinutes: meta.elapsedMinutes ?? null,
-    stop: getLevels(symbol).stop ?? null, target: getLevels(symbol).target ?? null,
+    stop: lvNow.stop ?? null, target: lvNow.target ?? null,
     outcome: 'open', notes: ''
   };
   const log = loadTradeLog();
   log.unshift(entryObj);
   saveTradeLog(log);
-  statusMsg(`Logged ${symbol} @ $${meta.lastClose.toFixed(2)} to trade log.`);
+  statusMsg(`Logged ${symbol} @ $${entryPx.toFixed(2)} to trade log.`);
   renderTradeLogModal();
   document.getElementById('tradeLogOverlay').classList.add('open');
 }
@@ -1086,6 +1302,14 @@ function exportTradeLogCsv(){
 
 document.getElementById('btnLogTrade').addEventListener('click', logCurrentTrade);
 document.getElementById('btnExportImg').addEventListener('click', exportChartImage);
+document.getElementById('btnOptions').addEventListener('click', () => {
+  if(!activeModalSymbol) return;
+  const sym = activeModalSymbol;
+  closeModal();
+  OC.openFor(sym);
+});
+document.getElementById('btnDrawEntry').addEventListener('click', () => setDrawMode(drawMode === 'entry' ? null : 'entry'));
+document.getElementById('btnDrawLevel').addEventListener('click', () => setDrawMode(drawMode === 'level' ? null : 'level'));
 document.getElementById('btnDrawStop').addEventListener('click', () => setDrawMode(drawMode === 'stop' ? null : 'stop'));
 document.getElementById('btnDrawTarget').addEventListener('click', () => setDrawMode(drawMode === 'target' ? null : 'target'));
 document.getElementById('btnDrawAuto').addEventListener('click', () => {
@@ -1135,35 +1359,41 @@ document.getElementById('tradeLogBody').addEventListener('click', (e) => {
 
 function updateNavButtons(){
   document.getElementById('btnPrevSym').disabled = activeSymbolIndex <= 0;
-  document.getElementById('btnNextSym').disabled = activeSymbolIndex >= lastSymbols.length - 1;
+  document.getElementById('btnNextSym').disabled = activeSymbolIndex >= modalList.length - 1;
 }
 
 function navigateModal(dir){
   const nextIdx = activeSymbolIndex + dir;
-  if(nextIdx >= 0 && nextIdx < lastSymbols.length) openModalAtIndex(nextIdx);
+  if(nextIdx >= 0 && nextIdx < modalList.length) openModalAtIndex(nextIdx);
 }
 
 function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
-  stopLine = null; targetLine = null; setDrawMode(null);
+  levelLines = { entry:null, stop:null, target:null, lv:[] }; setDrawMode(null);
   if(chartResizeObserver){ chartResizeObserver.disconnect(); chartResizeObserver = null; }
   if(activeChart){ activeChart.remove(); activeChart = null; }
   activeCandleSeries = null;
   activeModalSymbol = null;
 }
 
+function openModalList(list, index, asOf){
+  modalList = list.slice();
+  chartAsOf = asOf || null;
+  return openModalAtIndex(index);
+}
+
 async function openModalAtIndex(index){
-  if(index < 0 || index >= lastSymbols.length) return;
+  if(index < 0 || index >= modalList.length) return;
   activeSymbolIndex = index;
-  const symbol = lastSymbols[index];
+  const symbol = modalList[index];
   activeModalSymbol = symbol;
   setDrawMode(null);
 
   updateNavButtons();
 
   const overlay = document.getElementById('modalOverlay');
-  document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${lastSymbols.length})`;
+  document.getElementById('modalTitle').textContent = `${symbol} (${index + 1}/${modalList.length})`;
   overlay.classList.add('open');
   document.body.style.overflow = 'hidden';
 
@@ -1183,8 +1413,12 @@ async function updateModalChart(){
     const now = new Date();
     const CHART_TRADING_DAYS = 2;
     const fetchDaysBack = tf === '10m' ? 10 : 18;
-    const startTime = new Date(now.getTime() - fetchDaysBack*24*3600*1000).toISOString();
-    const res = await fetchBars([symbol], alpacaTf, startTime, feed);
+    const asOf = chartAsOf;
+    const asOfMs = asOf ? Date.parse(asOf + 'T12:00:00Z') : null;
+    const startTime = new Date((asOfMs ?? now.getTime()) - fetchDaysBack*24*3600*1000).toISOString();
+    const endMs = asOfMs != null ? asOfMs + 6*24*3600*1000 : null;
+    const endTime = (endMs != null && endMs < now.getTime() - 24*3600*1000) ? new Date(endMs).toISOString() : null;
+    const res = await fetchBars([symbol], alpacaTf, startTime, feed, endTime);
     const allBars = (res[symbol] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
     if(allBars.length === 0){
@@ -1205,9 +1439,13 @@ async function updateModalChart(){
     const barParts = allBars.map(b => etParts(new Date(b.t)));
     const barDates = barParts.map(p => p.dateStr);
     const allDates = [...new Set(barDates)];
-    const keepDates = allDates.slice(-CHART_TRADING_DAYS);
+    // Prev Day tab: start on the chosen session and show it plus the next one; otherwise the latest sessions
+    const asOfIdx = asOf ? allDates.indexOf(asOf) : -1;
+    const keepDates = asOfIdx >= 0 ? allDates.slice(asOfIdx, asOfIdx + CHART_TRADING_DAYS) : allDates.slice(-CHART_TRADING_DAYS);
     let startIdx = barDates.findIndex(d => keepDates.includes(d));
     if(startIdx === -1) startIdx = 0;
+    // when charting from a past session, stop after the last kept day instead of running to today
+    const stopIdx = asOfIdx >= 0 ? barDates.lastIndexOf(keepDates[keepDates.length - 1]) + 1 : allBars.length;
 
     const rth = {};
     allBars.forEach((b, i) => {
@@ -1226,7 +1464,7 @@ async function updateModalChart(){
       };
     });
 
-    const bars = allBars.slice(startIdx);
+    const bars = allBars.slice(startIdx, stopIdx);
     const lastBar = bars[bars.length - 1];
 
     rowDataMap[symbol] = Object.assign(rowDataMap[symbol] || {}, {
@@ -1239,12 +1477,12 @@ async function updateModalChart(){
     document.getElementById('modalSub').textContent = `${tf} · Last: $${lastBar.c.toFixed(2)}`;
     renderChart({
       bars,
-      ema5Series: ema5Full.slice(startIdx),
-      ema13Series: ema13Full.slice(startIdx),
-      ema50Series: ema50Full.slice(startIdx),
-      atrSeries: atrFull.slice(startIdx),
-      superTrendSt: superTrendRes.st.slice(startIdx),
-      superTrendTrend: superTrendRes.trend.slice(startIdx),
+      ema5Series: ema5Full.slice(startIdx, stopIdx),
+      ema13Series: ema13Full.slice(startIdx, stopIdx),
+      ema50Series: ema50Full.slice(startIdx, stopIdx),
+      atrSeries: atrFull.slice(startIdx, stopIdx),
+      superTrendSt: superTrendRes.st.slice(startIdx, stopIdx),
+      superTrendTrend: superTrendRes.trend.slice(startIdx, stopIdx),
       days
     });
   }catch(e){
@@ -1254,87 +1492,169 @@ async function updateModalChart(){
 
 const LEVELS_KEY = 'chartLevels_v1';
 const LEVELS_TTL_MS = 3*24*3600*1000;
-let drawMode = null;
-let stopLine = null, targetLine = null;
+const MAX_PRICE_LEVELS = 8;
+let drawMode = null;   // 'entry' | 'stop' | 'target' | 'level' | null
+let levelLines = { entry:null, stop:null, target:null, lv:[] };
 const SUGGEST_STOP_ATR = 1.5;
 const SUGGEST_RR = 2;
 let chartCtx = { last: null, atr: null };
 let levelDrag = null;
 
+const LEVEL_STYLE = {
+  entry:  { label:'EN',  name:'Entry',  color:'#5b8def', width:2, style:'Solid'  },
+  stop:   { label:'SL',  name:'Stop',   color:'#ff8177', width:2, style:'Dashed' },
+  target: { label:'TP',  name:'Target', color:'#39d98a', width:2, style:'Dashed' },
+  lvl:    { label:'LVL', name:'Level',  color:'#facc15', width:1, style:'Dotted' }
+};
+const round2 = v => Math.round(v * 100) / 100;
+const lvKey = p => 'lvl:' + Number(p).toFixed(2);
+
 function loadLevelsStore(){ try { return JSON.parse(localStorage.getItem(LEVELS_KEY)) || {}; } catch(e){ return {}; } }
 function saveLevelsStore(o){ try { localStorage.setItem(LEVELS_KEY, JSON.stringify(o)); } catch(e){} }
-function getLevels(symbol){
+
+function levelsEntry(symbol){
   const e = loadLevelsStore()[symbol];
-  if(!e || Date.now() - (e.ts || 0) > LEVELS_TTL_MS) return {};
-  return { stop: e.stop ?? null, target: e.target ?? null };
+  return (!e || Date.now() - (e.ts || 0) > LEVELS_TTL_MS) ? null : e;
 }
-function setLevel(symbol, key, price){
+function getLevels(symbol){
+  const e = levelsEntry(symbol);
+  if(!e) return { entry:null, stop:null, target:null, lv:[] };
+  return { entry: e.entry ?? null, stop: e.stop ?? null, target: e.target ?? null,
+           lv: (e.lv || []).slice().sort((a,b) => a - b) };
+}
+function isLevelFired(symbol, key){
+  const e = levelsEntry(symbol);
+  return !!(e && e.fired && e.fired[key]);
+}
+// Every edit goes through here so arm-time / fired flags / worker sync stay consistent.
+function mutateLevels(symbol, fn){
   const store = loadLevelsStore();
-  const cur = getLevels(symbol);
-  cur[key] = price;
-  store[symbol] = { stop: cur.stop ?? null, target: cur.target ?? null, ts: Date.now() };
-  if(store[symbol].stop == null && store[symbol].target == null) delete store[symbol];
+  let e = store[symbol];
+  if(!e || Date.now() - (e.ts || 0) > LEVELS_TTL_MS) e = {};
+  e = { entry: e.entry ?? null, stop: e.stop ?? null, target: e.target ?? null,
+        lv: (e.lv || []).slice(), arm: Object.assign({}, e.arm), fired: Object.assign({}, e.fired) };
+  fn(e);
+  e.ts = Date.now();
+  if(e.entry == null && e.stop == null && e.target == null && !e.lv.length) delete store[symbol];
+  else store[symbol] = e;
   saveLevelsStore(store);
+  scheduleAlertSync();
+}
+function setLevel(symbol, key, price){   // key: entry | stop | target
+  mutateLevels(symbol, e => { e[key] = price; e.arm[key] = Date.now(); delete e.fired[key]; });
+}
+function addPriceLevel(symbol, price){
+  let ok = true;
+  mutateLevels(symbol, e => {
+    if(e.lv.some(p => Math.abs(p - price) < 0.005) || e.lv.length >= MAX_PRICE_LEVELS){ ok = false; return; }
+    e.lv.push(price); e.arm[lvKey(price)] = Date.now(); delete e.fired[lvKey(price)];
+  });
+  return ok;
+}
+function movePriceLevel(symbol, from, to){
+  mutateLevels(symbol, e => {
+    const i = e.lv.findIndex(p => Math.abs(p - from) < 0.005);
+    if(i < 0) return;
+    const kOld = lvKey(e.lv[i]); delete e.arm[kOld]; delete e.fired[kOld];
+    if(e.lv.some((p, j) => j !== i && Math.abs(p - to) < 0.005)){ e.lv.splice(i, 1); return; }
+    e.lv[i] = to; e.arm[lvKey(to)] = Date.now(); delete e.fired[lvKey(to)];
+  });
+}
+function removePriceLevel(symbol, price){
+  mutateLevels(symbol, e => {
+    const i = e.lv.findIndex(p => Math.abs(p - price) < 0.005);
+    if(i < 0) return;
+    const k = lvKey(e.lv[i]); delete e.arm[k]; delete e.fired[k];
+    e.lv.splice(i, 1);
+  });
 }
 function clearLevels(symbol){
   const store = loadLevelsStore(); delete store[symbol]; saveLevelsStore(store);
+  scheduleAlertSync();
+}
+function markLevelFired(symbol, key){
+  const store = loadLevelsStore(); const e = store[symbol];
+  if(!e) return;
+  e.fired = e.fired || {}; e.fired[key] = Date.now();
+  saveLevelsStore(store);
 }
 
 function setDrawMode(mode){
   drawMode = mode;
+  document.getElementById('btnDrawEntry').classList.toggle('armed', mode === 'entry');
   document.getElementById('btnDrawStop').classList.toggle('armed', mode === 'stop');
   document.getElementById('btnDrawTarget').classList.toggle('armed', mode === 'target');
+  document.getElementById('btnDrawLevel').classList.toggle('armed', mode === 'level');
   updateDrawInfo();
 }
 
 function fmtPct(price, last){
   return `${price >= last ? '+' : ''}${((price - last) / last * 100).toFixed(1)}%`;
 }
+// SL/TP % and R are measured from the entry when one is set, otherwise from the last price.
+function levelBase(kind, lv, last){
+  return (kind === 'stop' || kind === 'target') && lv.entry != null ? lv.entry : last;
+}
 
 function levelSummaryLines(symbol){
   const last = symbol && rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
-  const lv = symbol ? getLevels(symbol) : {};
+  const lv = symbol ? getLevels(symbol) : { lv: [] };
   if(!last) return [];
   const lines = [];
-  if(lv.stop != null) lines.push(`SL $${lv.stop.toFixed(2)} (${fmtPct(lv.stop, last)})`);
+  if(lv.entry != null) lines.push(`EN $${lv.entry.toFixed(2)} (${fmtPct(lv.entry, last)})`);
+  if(lv.stop != null) lines.push(`SL $${lv.stop.toFixed(2)} (${fmtPct(lv.stop, levelBase('stop', lv, last))})`);
   if(lv.target != null){
-    let t = `TP $${lv.target.toFixed(2)} (${fmtPct(lv.target, last)})`;
-    if(lv.stop != null && lv.stop < last && lv.target > last){
-      t += ` · ${((lv.target - last) / (last - lv.stop)).toFixed(1)}R`;
+    const base = levelBase('target', lv, last);
+    let t = `TP $${lv.target.toFixed(2)} (${fmtPct(lv.target, base)})`;
+    if(lv.stop != null && lv.stop < base && lv.target > base){
+      t += ` · ${((lv.target - base) / (base - lv.stop)).toFixed(1)}R`;
     }
     lines.push(t);
   }
+  if(lv.lv.length) lines.push('LVL ' + lv.lv.map(p => `$${p.toFixed(2)}`).join(' · '));
   return lines;
 }
 
 function updateDrawInfo(){
   const el = document.getElementById('drawInfo');
   if(!el) return;
-  if(drawMode){ el.textContent = `Tap chart to set ${drawMode === 'stop' ? 'stop loss' : 'target'}`; return; }
+  if(drawMode === 'level'){ el.textContent = 'Press & release to add a level\nTap a level to remove it'; return; }
+  if(drawMode){ el.textContent = `Press, slide, release to set ${drawMode === 'stop' ? 'stop loss' : drawMode}`; return; }
   el.textContent = levelSummaryLines(activeModalSymbol).join('\n');
 }
 
-function levelTitle(kind, price, last){
-  return `${kind === 'stop' ? 'SL' : 'TP'} $${price.toFixed(2)}` + (last ? ` ${fmtPct(price, last)}` : '');
+function levelTitle(kind, price, base, fired){
+  const st = LEVEL_STYLE[kind];
+  const mark = fired ? '✓ ' : (alertsEnabled() ? '🔔 ' : '');
+  return `${mark}${st.label} $${price.toFixed(2)}` + (base ? ` ${fmtPct(price, base)}` : '');
+}
+
+function clearLevelLines(){
+  const s = activeCandleSeries;
+  if(s){
+    ['entry', 'stop', 'target'].forEach(k => { if(levelLines[k]) { try { s.removePriceLine(levelLines[k]); } catch(e){} } });
+    levelLines.lv.forEach(o => { try { s.removePriceLine(o.line); } catch(e){} });
+  }
+  levelLines = { entry:null, stop:null, target:null, lv:[] };
 }
 
 function drawLevelLines(){
   const series = activeCandleSeries;
   if(!series) return;
-  if(stopLine){ try { series.removePriceLine(stopLine); } catch(e){} stopLine = null; }
-  if(targetLine){ try { series.removePriceLine(targetLine); } catch(e){} targetLine = null; }
+  clearLevelLines();
   const symbol = activeModalSymbol;
   if(!symbol) return;
   const last = rowDataMap[symbol] ? rowDataMap[symbol].lastClose : null;
   const lv = getLevels(symbol);
-  if(lv.stop != null){
-    stopLine = series.createPriceLine({ price: lv.stop, color: '#ff8177', lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: levelTitle('stop', lv.stop, last) });
-  }
-  if(lv.target != null){
-    targetLine = series.createPriceLine({ price: lv.target, color: '#39d98a', lineWidth: 2,
-      lineStyle: LightweightCharts.LineStyle.Dashed, axisLabelVisible: true, title: levelTitle('target', lv.target, last) });
-  }
+  const mk = (kind, price, key) => {
+    const st = LEVEL_STYLE[kind];
+    return series.createPriceLine({
+      price, color: st.color, lineWidth: st.width, lineStyle: LightweightCharts.LineStyle[st.style],
+      axisLabelVisible: true, title: levelTitle(kind, price, levelBase(kind, lv, last), isLevelFired(symbol, key))
+    });
+  };
+  ['entry', 'stop', 'target'].forEach(k => { if(lv[k] != null) levelLines[k] = mk(k, lv[k], k); });
+  lv.lv.forEach(p => levelLines.lv.push({ price: p, line: mk('lvl', p, lvKey(p)) }));
   updateDrawInfo();
 }
 
@@ -1342,80 +1662,356 @@ function suggestLevels(){
   const symbol = activeModalSymbol;
   const { last, atr } = chartCtx;
   if(!symbol || !last || !atr) return false;
+  const base = getLevels(symbol).entry ?? last;
   const risk = SUGGEST_STOP_ATR * atr;
-  const round2 = v => Math.round(v * 100) / 100;
-  setLevel(symbol, 'stop', round2(last - risk));
-  setLevel(symbol, 'target', round2(last + SUGGEST_RR * risk));
+  setLevel(symbol, 'stop', round2(base - risk));
+  setLevel(symbol, 'target', round2(base + SUGGEST_RR * risk));
   return true;
 }
 
 function setupLevelDrag(container){
   if(container._levelDragBound) return;
   container._levelDragBound = true;
-  const HIT_PX = 18;
+  const HIT_PX = 18, MOVE_PX = 6;
+  let placing = null;   // draw-mode gesture: press, slide to position, release to set
 
-  const pointY = e => {
-    const t = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
-    return t.clientY - container.getBoundingClientRect().top;
+  const pointOf = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+  const pointY = e => pointOf(e).clientY - container.getBoundingClientRect().top;
+  const priceAt = y => {
+    const raw = activeCandleSeries ? activeCandleSeries.coordinateToPrice(y) : null;
+    return (raw == null || !isFinite(raw) || raw <= 0) ? null : round2(raw);
   };
-  const hitTest = y => {
+  const hitTest = (y, onlyLevels) => {
     if(!activeCandleSeries || !activeModalSymbol) return null;
     const lv = getLevels(activeModalSymbol);
+    const cands = [];
+    if(!onlyLevels) ['entry', 'stop', 'target'].forEach(k => { if(lv[k] != null) cands.push({ kind: k, price: lv[k], line: levelLines[k] }); });
+    lv.lv.forEach(p => {
+      const o = levelLines.lv.find(x => Math.abs(x.price - p) < 0.005);
+      cands.push({ kind: 'lvl', price: p, line: o ? o.line : null });
+    });
     let best = null, bestD = HIT_PX;
-    ['stop','target'].forEach(kind => {
-      if(lv[kind] == null) return;
-      const ly = activeCandleSeries.priceToCoordinate(lv[kind]);
+    cands.forEach(c => {
+      const ly = activeCandleSeries.priceToCoordinate(c.price);
       if(ly == null) return;
       const d = Math.abs(ly - y);
-      if(d <= bestD){ best = kind; bestD = d; }
+      if(d <= bestD){ best = c; bestD = d; }
     });
     return best;
   };
+  const dropPreview = () => {
+    if(placing && placing.line && activeCandleSeries){ try { activeCandleSeries.removePriceLine(placing.line); } catch(e){} }
+  };
+  const swallow = e => { e.stopPropagation(); if(e.cancelable) e.preventDefault(); };
 
   const start = e => {
-    if(drawMode || !activeChart) return;
-    if(e.touches && e.touches.length > 1) return;
+    if(!activeChart || !activeCandleSeries || !activeModalSymbol) return;
+    if(e.touches && e.touches.length > 1){ dropPreview(); placing = null; return; }   // pinch = zoom
     if(e.button !== undefined && e.button !== 0) return;
-    const kind = hitTest(pointY(e));
-    if(!kind) return;
-    levelDrag = { kind };
-    e.stopPropagation();
-    if(e.cancelable) e.preventDefault();
+    const y = pointY(e);
+
+    if(drawMode){
+      const kind = drawMode === 'level' ? 'lvl' : drawMode;
+      const st = LEVEL_STYLE[kind];
+      const price = priceAt(y);
+      if(price == null) return;
+      placing = { kind, y0: y, moved: false, price,
+                  removeHit: drawMode === 'level' ? hitTest(y, true) : null, line: null };
+      if(!placing.removeHit){
+        placing.line = activeCandleSeries.createPriceLine({
+          price, color: st.color, lineWidth: st.width, lineStyle: LightweightCharts.LineStyle[st.style],
+          axisLabelVisible: true, title: `${st.label} $${price.toFixed(2)}`
+        });
+      }
+      swallow(e);
+      return;
+    }
+
+    const hit = hitTest(y, false);
+    if(!hit) return;
+    levelDrag = { kind: hit.kind, from: hit.price, line: hit.line };
+    swallow(e);
   };
+
   const move = e => {
+    if(placing){
+      swallow(e);
+      const y = pointY(e);
+      if(Math.abs(y - placing.y0) > MOVE_PX) placing.moved = true;
+      const price = priceAt(y);
+      if(price == null || placing.removeHit) return;
+      placing.price = price;
+      const base = levelBase(placing.kind, getLevels(activeModalSymbol), chartCtx.last);
+      if(placing.line) placing.line.applyOptions({ price, title: levelTitle(placing.kind, price, base, false) });
+      const el = document.getElementById('drawInfo');
+      if(el && base) el.textContent = `${LEVEL_STYLE[placing.kind].label} $${price.toFixed(2)} (${fmtPct(price, base)})\nRelease to set`;
+      return;
+    }
     if(!levelDrag || !activeCandleSeries) return;
-    e.stopPropagation();
-    if(e.cancelable) e.preventDefault();
-    const raw = activeCandleSeries.coordinateToPrice(pointY(e));
-    if(raw == null || !isFinite(raw) || raw <= 0) return;
-    const price = Math.round(raw * 100) / 100;
+    swallow(e);
+    const price = priceAt(pointY(e));
+    if(price == null) return;
     levelDrag.price = price;
-    const line = levelDrag.kind === 'stop' ? stopLine : targetLine;
-    if(line) line.applyOptions({ price, title: levelTitle(levelDrag.kind, price, chartCtx.last) });
+    const base = levelBase(levelDrag.kind, getLevels(activeModalSymbol), chartCtx.last);
+    if(levelDrag.line) levelDrag.line.applyOptions({ price, title: levelTitle(levelDrag.kind, price, base, false) });
     const el = document.getElementById('drawInfo');
-    if(el && chartCtx.last) el.textContent = `${levelDrag.kind === 'stop' ? 'SL' : 'TP'} $${price.toFixed(2)} (${fmtPct(price, chartCtx.last)})`;
+    if(el && base) el.textContent = `${LEVEL_STYLE[levelDrag.kind].label} $${price.toFixed(2)} (${fmtPct(price, base)})`;
   };
-  const end = e => {
+
+  const finish = (e, cancelled) => {
+    if(placing){
+      e.stopPropagation();
+      const g = placing; dropPreview(); placing = null;
+      const sym = activeModalSymbol;
+      if(!cancelled && sym){
+        if(g.removeHit && !g.moved){
+          removePriceLevel(sym, g.removeHit.price);
+        } else if(!g.removeHit){
+          if(g.kind === 'lvl'){
+            if(!addPriceLevel(sym, g.price)) statusMsg(`Level not added (max ${MAX_PRICE_LEVELS} per symbol, no duplicates).`, true);
+          } else {
+            setLevel(sym, g.kind, g.price);
+            setDrawMode(null);
+          }
+        }
+      }
+      drawLevelLines();
+      if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
+      return;
+    }
     if(!levelDrag) return;
     e.stopPropagation();
     const d = levelDrag; levelDrag = null;
-    if(d.price != null && activeModalSymbol){
-      setLevel(activeModalSymbol, d.kind, d.price);
-      drawLevelLines();
-      if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
-    } else {
-      updateDrawInfo();
+    if(!cancelled && d.price != null && activeModalSymbol){
+      if(d.kind === 'lvl') movePriceLevel(activeModalSymbol, d.from, d.price);
+      else setLevel(activeModalSymbol, d.kind, d.price);
     }
+    drawLevelLines();
+    if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
   };
+  const end = e => finish(e, false);
+  const cancel = e => finish(e, true);
 
   container.addEventListener('touchstart', start, { capture: true, passive: false });
   container.addEventListener('touchmove', move, { capture: true, passive: false });
   container.addEventListener('touchend', end, { capture: true });
-  container.addEventListener('touchcancel', end, { capture: true });
+  container.addEventListener('touchcancel', cancel, { capture: true });
   container.addEventListener('mousedown', start, { capture: true });
   window.addEventListener('mousemove', move, { capture: true });
   window.addEventListener('mouseup', end, { capture: true });
 }
+
+/* ============================ PRICE ALERTS ============================
+   1) In-app: while this page is open, live prices are polled every 10s and a
+      toast + beep + vibration (+ system notification where supported) fires.
+   2) Closed-app: the same levels are synced to a small Cloudflare Worker
+      (alert-worker.js) that checks prices every minute and pushes to your
+      phone through ntfy. Levels are auto-armed the moment you set them.
+======================================================================= */
+function alertsEnabled(){ const el = document.getElementById('alertsOn'); return !!(el && el.checked); }
+function workerCfg(){
+  return {
+    url: (document.getElementById('workerUrl').value || '').trim().replace(/\/+$/, ''),
+    key: (document.getElementById('workerKey').value || '').trim()
+  };
+}
+function alertStatus(msg, isErr){
+  const el = document.getElementById('alertStatus');
+  if(!el) return;
+  el.textContent = msg; el.className = 'status' + (isErr ? ' err' : '');
+}
+
+function showToast(text, kind){
+  const wrap = document.getElementById('toastWrap');
+  const el = document.createElement('div');
+  el.className = 'toast ' + (kind || '');
+  el.textContent = text;
+  el.addEventListener('click', () => el.remove());
+  wrap.appendChild(el);
+  setTimeout(() => el.remove(), 20000);
+}
+
+let audioCtx = null;
+function primeAudio(){
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e){}
+}
+function beep(){
+  if(!audioCtx) return;
+  try {
+    const t = audioCtx.currentTime;
+    [0, 0.22].forEach(d => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880;
+      g.gain.setValueAtTime(0.0001, t + d);
+      g.gain.exponentialRampToValueAtTime(0.25, t + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t + d); o.stop(t + d + 0.2);
+    });
+  } catch(e){}
+}
+document.addEventListener('pointerdown', () => { if(alertsEnabled()) primeAudio(); }, { passive: true });
+
+function localNotify(title, body, tag){
+  showToast(body, 'alert');
+  beep();
+  try { if(navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e){}
+  try {
+    if('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, tag });
+  } catch(e){ /* mobile browsers block the constructor; toast + sound still fire */ }
+}
+
+function armAt(e, key){ return (e.arm && e.arm[key]) || e.ts || 0; }
+
+// Flat list of every alertable line (entry / stop / target / price levels) across symbols.
+function collectAlerts(){
+  const store = loadLevelsStore(), now = Date.now(), out = [];
+  Object.keys(store).forEach(sym => {
+    const e = store[sym];
+    if(!e || now - (e.ts || 0) > LEVELS_TTL_MS) return;
+    const items = [];
+    ['entry', 'stop', 'target'].forEach(k => { if(e[k] != null) items.push({ key: k, kind: k, price: e[k] }); });
+    (e.lv || []).forEach(p => items.push({ key: lvKey(p), kind: 'lvl', price: p }));
+    items.forEach(it => {
+      const at = armAt(e, it.key);
+      out.push({ id: `${sym}|${it.key}|${at}`, sym, key: it.key, kind: it.kind, price: it.price,
+                 armedAt: at, exp: (e.ts || now) + LEVELS_TTL_MS, fired: !!(e.fired && e.fired[it.key]) });
+    });
+  });
+  return out;
+}
+
+function fireLocalAlert(a, px){
+  markLevelFired(a.sym, a.key);
+  const msg = `${a.sym} touched ${LEVEL_STYLE[a.kind].name} $${a.price.toFixed(2)}` + (px != null ? ` · last $${px.toFixed(2)}` : '');
+  localNotify('Price alert', msg, a.id);
+  if(activeModalSymbol === a.sym) drawLevelLines();
+  scheduleAlertSync();
+}
+
+function inAlertHours(){
+  const now = new Date();
+  const dow = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(now);
+  if(dow === 'Sat' || dow === 'Sun') return false;
+  const p = etParts(now), m = p.hh * 60 + p.mm;
+  return m >= 240 && m < 1200;   // 4:00–20:00 ET
+}
+
+const lastPx = {};
+let pollBusy = false;
+async function pollAlerts(){
+  if(pollBusy || !alertsEnabled() || !inAlertHours()) return;
+  const h = alpacaHeaders();
+  if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']) return;
+  const active = collectAlerts().filter(a => !a.fired);
+  if(!active.length) return;
+  pollBusy = true;
+  try {
+    const feed = document.getElementById('feed').value;
+    const syms = [...new Set(active.map(a => a.sym))];
+    const snaps = {};
+    for(const c of chunk(syms, 100)) Object.assign(snaps, await fetchSnapshotsChunk(c, feed));
+    const now = Date.now();
+    active.forEach(a => {
+      const s = snaps[a.sym];
+      if(!s) return;
+      const px = (s.latestTrade && s.latestTrade.p) ?? (s.minuteBar && s.minuteBar.c) ?? null;
+      const bar = s.minuteBar, prev = lastPx[a.sym];
+      let hit = false;
+      // a 1-min bar that opened after the level was armed and spans the price
+      if(bar && Date.parse(bar.t) >= a.armedAt && bar.l <= a.price && a.price <= bar.h) hit = true;
+      // or the last two samples (both taken after arming) straddle the price
+      if(!hit && px != null && prev && prev.t >= a.armedAt && (prev.p - a.price) * (px - a.price) <= 0) hit = true;
+      if(hit) fireLocalAlert(a, px);
+    });
+    syms.forEach(sym => {
+      const s = snaps[sym];
+      const px = s && ((s.latestTrade && s.latestTrade.p) ?? (s.minuteBar && s.minuteBar.c));
+      if(px != null) lastPx[sym] = { p: px, t: now };
+    });
+  } catch(e){ /* transient network error – try again next tick */ }
+  finally { pollBusy = false; }
+}
+
+function applyRemoteFired(ids){
+  const store = loadLevelsStore(); let changed = false;
+  (ids || []).forEach(id => {
+    const [sym, key, at] = String(id).split('|');
+    const e = store[sym];
+    if(!e || String(armAt(e, key)) !== at) return;
+    e.fired = e.fired || {};
+    if(!e.fired[key]){ e.fired[key] = Date.now(); changed = true; }
+  });
+  if(changed){ saveLevelsStore(store); if(activeModalSymbol) drawLevelLines(); }
+}
+
+let syncTimer = null;
+function scheduleAlertSync(){
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(() => syncAlerts(false), 1500);
+}
+async function syncAlerts(verbose){
+  const { url, key } = workerCfg();
+  if(!url || !key){ if(verbose) alertStatus('Add the Worker URL and key first.', true); return; }
+  const all = alertsEnabled() ? collectAlerts() : [];
+  const body = {
+    feed: document.getElementById('feed').value,
+    alerts: all.map(a => ({ id: a.id, sym: a.sym, kind: a.kind, price: a.price, armedAt: a.armedAt, exp: a.exp, fired: a.fired }))
+  };
+  try {
+    const res = await fetch(url + '/sync', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if(!res.ok) throw new Error(res.status === 401 ? 'wrong Worker key' : `worker returned ${res.status}`);
+    const j = await res.json();
+    applyRemoteFired(j.fired);
+    const live = all.filter(a => !a.fired).length;
+    alertStatus(`Worker synced · ${live} live alert${live === 1 ? '' : 's'} · ${new Date().toLocaleTimeString()}`);
+  } catch(e){
+    alertStatus(`Worker sync failed: ${e.message}`, true);
+  }
+}
+
+async function enableAlertsUx(){
+  primeAudio();
+  try {
+    if('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+  } catch(e){}
+}
+
+document.getElementById('alertsOn').addEventListener('change', async () => {
+  saveStoredConfig();
+  if(alertsEnabled()) await enableAlertsUx();
+  if(activeModalSymbol) drawLevelLines();
+  scheduleAlertSync();
+});
+['workerUrl', 'workerKey'].forEach(id => document.getElementById(id).addEventListener('input', saveStoredConfig));
+document.getElementById('btnAlertSync').addEventListener('click', () => syncAlerts(true));
+document.getElementById('btnAlertTest').addEventListener('click', async () => {
+  await enableAlertsUx();
+  localNotify('Price alert', 'Test alert — in-app alerts are working', 'test');
+  const { url, key } = workerCfg();
+  if(!url || !key){ alertStatus('In-app test fired. Add a Worker URL + key to test phone push.'); return; }
+  try {
+    const res = await fetch(url + '/test', { method: 'POST', headers: { 'Authorization': 'Bearer ' + key } });
+    if(!res.ok) throw new Error(res.status === 401 ? 'wrong Worker key' : `worker returned ${res.status}`);
+    alertStatus('Test push sent — check your phone.');
+  } catch(e){
+    alertStatus(`Test push failed: ${e.message}`, true);
+  }
+});
+
+setInterval(pollAlerts, 10000);
+document.addEventListener('visibilitychange', () => {
+  if(document.visibilityState === 'visible'){ pollAlerts(); syncAlerts(false); }
+});
+setTimeout(() => syncAlerts(false), 1200);
+
 
 async function exportChartImage(){
   if(!activeChart || !activeModalSymbol) return;
@@ -1456,7 +2052,7 @@ async function exportChartImage(){
     ctx.font = `600 ${Math.round(12.5 * dpr)}px ui-monospace, Menlo, Consolas, monospace`;
     let x = pad;
     lines.forEach(t => {
-      ctx.fillStyle = t.startsWith('SL') ? '#ff8177' : '#39d98a';
+      ctx.fillStyle = t.startsWith('SL') ? '#ff8177' : t.startsWith('EN') ? '#5b8def' : t.startsWith('LVL') ? '#facc15' : '#39d98a';
       ctx.fillText(t, x, pad + lineH * 2);
       x += ctx.measureText(t).width + Math.round(16 * dpr);
     });
@@ -1513,13 +2109,15 @@ function renderChart(data){
   activeChart = chart;
 
   activeCandleSeries = chart.addCandlestickSeries({
-    upColor: '#39d98a', downColor: '#ff8177', borderVisible: false,
+    // bullish close = filled, bearish close = hollow (outline only)
+    upColor: '#39d98a', downColor: 'rgba(0,0,0,0)',
+    borderVisible: true, borderUpColor: '#39d98a', borderDownColor: '#ff8177',
     wickUpColor: '#39d98a', wickDownColor: '#ff8177',
     autoscaleInfoProvider: (original) => {
       const res = original();
       if(!res || !activeModalSymbol) return res;
       const lv = getLevels(activeModalSymbol);
-      [lv.stop, lv.target].forEach(v => {
+      [lv.entry, lv.stop, lv.target, ...lv.lv].forEach(v => {
         if(v == null) return;
         res.priceRange.minValue = Math.min(res.priceRange.minValue, v);
         res.priceRange.maxValue = Math.max(res.priceRange.maxValue, v);
@@ -1596,16 +2194,6 @@ function renderChart(data){
   }
   setupLevelDrag(container);
   drawLevelLines();
-  chart.subscribeClick(param => {
-    if(!drawMode || !param.point || !activeCandleSeries || !activeModalSymbol) return;
-    const raw = activeCandleSeries.coordinateToPrice(param.point.y);
-    if(raw == null || !isFinite(raw) || raw <= 0) return;
-    setLevel(activeModalSymbol, drawMode, Math.round(raw * 100) / 100);
-    setDrawMode(null);
-    drawLevelLines();
-    chart.priceScale('right').applyOptions({ autoScale: true });
-  });
-
   chart.timeScale().fitContent();
   watchChartSize(container);
 
@@ -1912,6 +2500,600 @@ document.getElementById('autoRefresh').addEventListener('change', (e)=>{
     }, mins*60*1000);
   }
 });
+
+/* =====================================================================
+   OPTIONS TAB — near-ITM chain for the symbols the scanner produced
+   ===================================================================== */
+const OC = (() => {
+  const $ = id => document.getElementById(id);
+  const DATA = 'https://data.alpaca.markets';
+  const OCC = /^([A-Z]{1,6})(\d{2})(\d{2})(\d{2})([CP])(\d{8})$/;
+  const LOOKBACK_DAYS = { '5Min': 6, '15Min': 12, '30Min': 20, '1Hour': 40, '1Day': 200 };
+  const EMA_COLORS = ['#c084fc', '#e0a13b', '#c9d1d1'];
+  const MAX_SYMBOLS = 30;
+  const MODE_LABEL = { top_gainers: 'Top gainers', strict_gainers: 'Strict gainers', manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers' };
+  const SETTING_IDS = ['ocSymbols', 'ocSide', 'ocSource', 'ocMinDte', 'ocMaxDte', 'ocMinVol', 'ocTopN', 'ocItmPct', 'ocOtmPct', 'ocTf', 'ocEma1', 'ocEma2', 'ocEma3', 'ocSpeed', 'ocOptFeed'];
+  const CHECK_IDS = ['ocFollow', 'ocAuto'];
+
+  const state = { contracts: [], idx: -1, playing: false, timer: null, loadToken: 0, barsCache: new Map(), dirty: false, loading: false };
+  let scan = { mode: null, all: [], shown: [], meta: {} };
+
+  /* ---------- settings ---------- */
+  function restoreSettings(){
+    try {
+      const s = JSON.parse(localStorage.getItem('oc_settings') || '{}');
+      SETTING_IDS.forEach(id => { if(s[id] !== undefined && $(id)) $(id).value = s[id]; });
+      CHECK_IDS.forEach(id => { if(s[id] !== undefined && $(id)) $(id).checked = !!s[id]; });
+    } catch(e){}
+  }
+  function saveSettings(){
+    const s = {};
+    SETTING_IDS.forEach(id => s[id] = $(id).value);
+    CHECK_IDS.forEach(id => s[id] = $(id).checked);
+    try { localStorage.setItem('oc_settings', JSON.stringify(s)); } catch(e){}
+  }
+  function setStatus(msg, isErr){ const el = $('ocStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
+  const visible = () => !$('viewOptions').hidden;
+
+  /* ---------- API (keys and stock feed come from Scanner → Settings) ---------- */
+  async function api(path, params){
+    const h = alpacaHeaders();
+    if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']){
+      showTab('scanner'); requireAlpacaKeys();
+      throw new Error('Enter your Alpaca key and secret in Scanner → Settings.');
+    }
+    const res = await fetch(`${DATA}${path}?${new URLSearchParams(params)}`, { headers: h });
+    if(!res.ok){
+      let m = ''; try { m = (await res.json()).message || ''; } catch(e){}
+      throw new Error(`${path} → ${res.status}${m ? ': ' + m : ''}`);
+    }
+    return res.json();
+  }
+
+  /* ---------- dates / symbols ---------- */
+  const etYMD = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+  function addDays(ymd, n){ const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
+  function daysBetween(a, b){
+    const x = a.split('-').map(Number), y = b.split('-').map(Number);
+    return Math.round((Date.UTC(y[0], y[1] - 1, y[2]) - Date.UTC(x[0], x[1] - 1, x[2])) / 86400000);
+  }
+  function parseOcc(sym){
+    const m = OCC.exec(sym);
+    return m ? { under: m[1], exp: `20${m[2]}-${m[3]}-${m[4]}`, type: m[5] === 'C' ? 'call' : 'put', strike: parseInt(m[6], 10) / 1000 } : null;
+  }
+  const etFmtLocal = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  function toET(t){
+    const o = {};
+    etFmtLocal.formatToParts(new Date(t)).forEach(p => { if(p.type !== 'literal') o[p.type] = p.value; });
+    return Math.floor(Date.UTC(+o.year, +o.month - 1, +o.day, +o.hour, +o.minute) / 1000);
+  }
+  const f2 = v => (v == null || isNaN(v)) ? '—' : Number(v).toFixed(2);
+  const fInt = v => (v == null || isNaN(v)) ? '—' : Number(v).toLocaleString();
+  async function pool(items, n, fn){
+    let i = 0;
+    await Promise.all(Array.from({ length: Math.min(n, items.length) }, async () => {
+      while(i < items.length){ const k = i++; await fn(items[k], k); }
+    }));
+  }
+
+  /* ---------- scanner hand-off ---------- */
+  function currentScanList(){ return (($('ocSource').value === 'passed') ? scan.shown : scan.all).slice(0, MAX_SYMBOLS); }
+  function applyScanSymbols(){
+    const list = currentScanList();
+    $('ocSymbols').value = list.join(', ');
+    $('ocSrcNote').textContent = scan.mode ? `· ${MODE_LABEL[scan.mode] || 'scan'} (${list.length})` : '';
+    state.dirty = true;
+  }
+  function setScan(mode, all, shown, meta){
+    scan = { mode, all: (all || []).slice(), shown: (shown || []).slice(), meta: meta || {} };
+    $('ocTabCount').textContent = scan.all.length ? `(${scan.all.length})` : '';
+    if($('ocFollow').checked){
+      applyScanSymbols();
+      if(visible() && $('ocAuto').checked && !state.playing) loadChain();
+    }
+  }
+  function openFor(sym){
+    $('ocFollow').checked = false;
+    $('ocSymbols').value = sym;
+    $('ocSrcNote').textContent = '· from chart';
+    saveSettings();
+    showTab('options');
+    loadChain();
+  }
+  function openScan(){   // jump here with the latest scan's symbols (used by the Prev Day tab)
+    $('ocFollow').checked = true; saveSettings();
+    if(!scan.all.length){ showTab('options'); setStatus('No scan results yet — run a scan first.', true); return; }
+    applyScanSymbols();
+    showTab('options');
+    loadChain();
+  }
+  function onShow(){
+    if(state.dirty && $('ocFollow').checked && $('ocAuto').checked && !state.loading) loadChain();
+  }
+  function onHide(){ setPlaying(false); }
+
+  /* ---------- chain loading ---------- */
+  async function fetchSpots(symbols){
+    const feed = document.getElementById('feed').value;
+    const out = {};
+    for(let i = 0; i < symbols.length; i += 50){
+      const part = symbols.slice(i, i + 50);
+      const d = await api('/v2/stocks/snapshots', { symbols: part.join(','), feed });
+      part.forEach(s => {
+        const x = d[s];
+        out[s] = x ? ((x.latestTrade && x.latestTrade.p) || (x.dailyBar && x.dailyBar.c) || (x.prevDailyBar && x.prevDailyBar.c) || null) : null;
+      });
+    }
+    return out;
+  }
+  async function fetchChain(under, side, spot, o){
+    const itm = o.itmPct / 100, otm = o.otmPct / 100;
+    const lo = side === 'call' ? spot * (1 - itm) : spot * (1 - otm);
+    const hi = side === 'call' ? spot * (1 + otm) : spot * (1 + itm);
+    const today = etYMD(new Date());
+    const snaps = {};
+    let token = null;
+    for(let page = 0; page < 6; page++){
+      const params = {
+        feed: $('ocOptFeed').value, type: side, limit: '1000',
+        expiration_date_gte: addDays(today, o.minDte), expiration_date_lte: addDays(today, o.maxDte),
+        strike_price_gte: lo.toFixed(2), strike_price_lte: hi.toFixed(2)
+      };
+      if(token) params.page_token = token;
+      const d = await api(`/v1beta1/options/snapshots/${under}`, params);
+      Object.assign(snaps, d.snapshots || {});
+      token = d.next_page_token;
+      if(!token) break;
+    }
+    return snaps;
+  }
+  async function fetchDailyVolumes(symbols){
+    const vols = {};
+    const start = new Date(Date.now() - 10 * 86400000).toISOString();
+    for(let i = 0; i < symbols.length; i += 50){
+      const part = symbols.slice(i, i + 50);
+      const d = await api('/v1beta1/options/bars', { symbols: part.join(','), timeframe: '1Day', start, limit: '10000', sort: 'asc' });
+      Object.keys(d.bars || {}).forEach(s => { const a = d.bars[s]; if(a && a.length) vols[s] = a[a.length - 1].v; });
+    }
+    return vols;
+  }
+
+  async function loadChain(){
+    if(state.loading) return;
+    const symbols = [...new Set($('ocSymbols').value.toUpperCase().split(/[\s,]+/).filter(Boolean))].slice(0, MAX_SYMBOLS);
+    if(!symbols.length){ setStatus('No symbols yet — run a scan on the Scanner tab, or type some above.', true); return; }
+    const o = {
+      minDte: Math.max(0, parseInt($('ocMinDte').value, 10) || 0),
+      maxDte: Math.max(1, parseInt($('ocMaxDte').value, 10) || 45),
+      minVol: Math.max(0, parseInt($('ocMinVol').value, 10) || 0),
+      topN: (v => isNaN(v) ? 2 : Math.max(0, v))(parseInt($('ocTopN').value, 10)),
+      itmPct: Math.max(0, parseFloat($('ocItmPct').value) || 0),
+      otmPct: Math.max(0, parseFloat($('ocOtmPct').value) || 0)
+    };
+    const side = $('ocSide').value;
+    const order = {}; symbols.forEach((s, i) => order[s] = i);
+    saveSettings();
+    setPlaying(false);
+    state.loading = true; state.dirty = false;
+    $('ocLoadBtn').disabled = true;
+    state.barsCache.clear();
+    let volWarn = '', firstErr = '', noPrice = 0, withHits = 0, done = 0;
+    const all = [];
+    try {
+      setStatus(`Fetching prices for ${symbols.length} symbols…`);
+      const spots = await fetchSpots(symbols);
+      const today = etYMD(new Date());
+      await pool(symbols, 4, async under => {
+        const spot = spots[under];
+        if(!spot){ noPrice++; done++; return; }
+        try {
+          const snaps = await fetchChain(under, side, spot, o);
+          const cands = Object.keys(snaps).map(sym => {
+            const p = parseOcc(sym);
+            if(!p || p.under !== under) return null;
+            const s = snaps[sym] || {}, q = s.latestQuote || {}, t = s.latestTrade || {};
+            const meta = scan.meta[under] || {};
+            return {
+              sym, under, spot, exp: p.exp, dte: daysBetween(today, p.exp), type: p.type, strike: p.strike,
+              itmPct: (side === 'call' ? (spot - p.strike) : (p.strike - spot)) / spot * 100,
+              bid: q.bp ?? null, ask: q.ap ?? null, last: t.p ?? null,
+              vol: (s.dailyBar && s.dailyBar.v != null) ? s.dailyBar.v : null,
+              delta: s.greeks ? s.greeks.delta : null, iv: s.impliedVolatility ?? null,
+              chg: meta.percent_change ?? null, rank: meta.rank ?? null
+            };
+          }).filter(Boolean).filter(c => c.dte >= o.minDte && c.dte <= o.maxDte);
+          const missing = cands.filter(c => c.vol == null).map(c => c.sym);
+          if(missing.length){
+            try {
+              const vols = await fetchDailyVolumes(missing);
+              cands.forEach(c => { if(c.vol == null && vols[c.sym] != null) c.vol = vols[c.sym]; });
+            } catch(e){ volWarn = ` · volume lookup failed (${e.message})`; }
+          }
+          // keep only the highest-volume contracts for this stock
+          let passed = cands.filter(c => (c.vol || 0) >= o.minVol).sort((a, b) => (b.vol || 0) - (a.vol || 0));
+          if(o.topN) passed = passed.slice(0, o.topN);
+          if(passed.length) withHits++;
+          all.push(...passed);
+        } catch(e){
+          if(!firstErr) firstErr = e.message;
+        }
+        done++;
+        setStatus(`Scanning chains… ${done}/${symbols.length}`);
+      });
+      all.sort((a, b) => order[a.under] - order[b.under] || (b.vol || 0) - (a.vol || 0));
+      state.contracts = all;
+      state.idx = -1;
+      renderTable();
+      const bits = [`${symbols.length} symbols`, `${withHits} with liquid near-ITM ${side}s`, `${all.length} contracts (${o.topN ? `top ${o.topN} by volume per stock, ` : ''}vol ≥ ${o.minVol})`];
+      if(noPrice) bits.push(`${noPrice} without a price`);
+      setStatus(bits.join(' · ') + volWarn + (firstErr ? ` · some symbols failed: ${firstErr}` : ''), !all.length && !!firstErr);
+      if(all.length){
+        $('ocFilters').open = false;
+        await select(0);
+      } else {
+        $('ocTitle').textContent = '—'; $('ocSub').textContent = ''; $('ocCounter').textContent = '0/0';
+        $('ocLegend').innerHTML = '';
+        showChartMsg('No contracts passed the filters. Try a lower minimum volume or a wider ITM depth.');
+      }
+    } catch(e){
+      setStatus(e.message, true);
+    } finally {
+      state.loading = false;
+      $('ocLoadBtn').disabled = false;
+    }
+  }
+
+  /* ---------- table ---------- */
+  function renderTable(){
+    const box = $('ocResults');
+    if(!state.contracts.length){ box.innerHTML = ''; return; }
+    const rows = state.contracts.map((c, i) => `
+      <div class="oc-tr${i === state.idx ? ' oc-sel' : ''}" data-i="${i}">
+        <div>${c.rank ? `<span style="color:var(--warn);font-size:10px;">#${c.rank}</span> ` : ''}<span class="oc-sym">${c.under}</span> ${c.exp.slice(2).replace(/-/g, '')} ${c.type === 'call' ? 'C' : 'P'} ${c.strike}</div>
+        <div style="color:${c.chg == null ? 'var(--muted)' : (c.chg >= 0 ? 'var(--pass)' : 'var(--fail)')}">${c.chg == null ? '—' : (c.chg >= 0 ? '+' : '') + c.chg.toFixed(1) + '%'}</div>
+        <div>${c.dte}</div>
+        <div class="${c.itmPct > 0 ? 'oc-itm' : ''}">${c.itmPct >= 0 ? '+' : ''}${c.itmPct.toFixed(1)}%</div>
+        <div>${f2(c.bid)}</div><div>${f2(c.ask)}</div><div>${f2(c.last)}</div>
+        <div>${fInt(c.vol)}</div><div>${f2(c.delta)}</div>
+        <div>${c.iv == null ? '—' : (c.iv * 100).toFixed(0) + '%'}</div>
+      </div>`).join('');
+    box.innerHTML = `<div class="oc-tablewrap"><div class="oc-grid">
+      <div class="oc-tr oc-head"><div>Contract</div><div>Stk%</div><div>DTE</div><div>ITM</div><div>Bid</div><div>Ask</div><div>Last</div><div>Vol</div><div>Δ</div><div>IV</div></div>
+      ${rows}</div></div>`;
+  }
+  $('ocResults').addEventListener('click', e => {
+    const tr = e.target.closest('.oc-tr[data-i]');
+    if(!tr) return;
+    select(parseInt(tr.dataset.i, 10));
+    if(state.playing) schedule();
+  });
+
+  /* ---------- chart ---------- */
+  let chart = null, candle = null, volSeries = null, emaSeries = [];
+  function ensureChart(){
+    if(chart) return;
+    const el = $('ocChart');
+    chart = LightweightCharts.createChart(el, {
+      layout: { background: { color: 'transparent' }, textColor: '#dce6e6', fontSize: 11 },
+      grid: { vertLines: { color: '#1b2426' }, horzLines: { color: '#1b2426' } },
+      timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30', rightOffset: 3, minBarSpacing: 0.5 },
+      rightPriceScale: { borderColor: '#232d30', scaleMargins: { top: 0.08, bottom: 0.22 } },
+      handleScroll: { pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false, mouseWheel: true },
+      handleScale: { pinch: true, mouseWheel: true, axisPressedMouseMove: true },
+      width: el.clientWidth || 300, height: el.clientHeight || 260
+    });
+    candle = chart.addCandlestickSeries({   // bullish close filled, bearish close hollow
+      upColor: '#39d98a', downColor: 'rgba(0,0,0,0)', borderVisible: true,
+      borderUpColor: '#39d98a', borderDownColor: '#ff8177', wickUpColor: '#39d98a', wickDownColor: '#ff8177'
+    });
+    volSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'vol', lastValueVisible: false, priceLineVisible: false });
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    emaSeries = EMA_COLORS.map((color, i) => chart.addLineSeries({
+      color, lineWidth: i === 2 ? 1 : 2,
+      lineStyle: i === 2 ? LightweightCharts.LineStyle.Dashed : LightweightCharts.LineStyle.Solid,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false
+    }));
+    if(typeof ResizeObserver !== 'undefined'){
+      new ResizeObserver(() => {
+        const w = el.clientWidth, h = el.clientHeight;
+        if(w > 0 && h > 0) chart.applyOptions({ width: w, height: h });
+        document.documentElement.style.setProperty('--ocStageH', $('ocStage').offsetHeight + 'px');
+      }).observe(el);
+    }
+  }
+  function showChartMsg(msg){ $('ocChartMsg').textContent = msg || ''; }
+  function emaOf(values, period){
+    const out = new Array(values.length).fill(null);
+    if(period < 1 || values.length < period) return out;
+    const k = 2 / (period + 1);
+    let prev = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    out[period - 1] = prev;
+    for(let i = period; i < values.length; i++){ prev = values[i] * k + prev * (1 - k); out[i] = prev; }
+    return out;
+  }
+  async function getBars(sym, tf){
+    const key = `${sym}|${tf}`;
+    if(state.barsCache.has(key)) return state.barsCache.get(key);
+    const start = new Date(Date.now() - LOOKBACK_DAYS[tf] * 86400000).toISOString();
+    const out = [];
+    let token = null;
+    for(let p = 0; p < 10; p++){
+      const params = { symbols: sym, timeframe: tf, start, limit: '10000', sort: 'asc' };
+      if(token) params.page_token = token;
+      const d = await api('/v1beta1/options/bars', params);
+      out.push(...((d.bars || {})[sym] || []));
+      token = d.next_page_token;
+      if(!token) break;
+    }
+    state.barsCache.set(key, out);
+    return out;
+  }
+  function drawChart(bars){
+    ensureChart();
+    const periods = [1, 2, 3].map(i => Math.max(0, parseInt($('ocEma' + i).value, 10) || 0));
+    let times = bars.map(b => toET(b.t));
+    const keep = times.map((t, i) => i === 0 || t > times[i - 1]);
+    bars = bars.filter((_, i) => keep[i]); times = times.filter((_, i) => keep[i]);
+    chart.applyOptions({ timeScale: { timeVisible: $('ocTf').value !== '1Day' } });
+    if(!bars.length){
+      candle.setData([]); volSeries.setData([]); emaSeries.forEach(s => s.setData([]));
+      showChartMsg('No bars for this contract in this timeframe — it may trade too thinly. Try a longer timeframe.');
+      $('ocLegend').innerHTML = '';
+      return;
+    }
+    showChartMsg('');
+    candle.setData(bars.map((b, i) => ({ time: times[i], open: b.o, high: b.h, low: b.l, close: b.c })));
+    volSeries.setData(bars.map((b, i) => ({ time: times[i], value: b.v, color: b.c >= b.o ? 'rgba(57,217,138,0.35)' : 'rgba(255,129,119,0.35)' })));
+    const closes = bars.map(b => b.c), lastVals = [];
+    emaSeries.forEach((s, i) => {
+      const p = periods[i];
+      if(!p){ s.setData([]); s.applyOptions({ visible: false }); lastVals.push(null); return; }
+      const vals = emaOf(closes, p);
+      s.applyOptions({ visible: true });
+      s.setData(vals.map((v, j) => v == null ? null : { time: times[j], value: v }).filter(Boolean));
+      lastVals.push({ p, v: [...vals].reverse().find(v => v != null) ?? null });
+    });
+    chart.timeScale().fitContent();
+    chart.priceScale('right').applyOptions({ autoScale: true });
+    let html = lastVals.map((x, i) => x ? `<span><i style="background:${EMA_COLORS[i]}"></i>EMA${x.p} ${x.v == null ? '—' : x.v.toFixed(2)}</span>` : '').join('');
+    const a = lastVals[0], b = lastVals[1];
+    if(a && b && a.v != null && b.v != null){
+      html += a.v > b.v ? `<span class="up">▲ EMA${a.p} above EMA${b.p}</span>` : `<span class="dn">▼ EMA${a.p} below EMA${b.p}</span>`;
+    }
+    $('ocLegend').innerHTML = html;
+  }
+
+  /* ---------- selection + player ---------- */
+  async function select(i){
+    const n = state.contracts.length;
+    if(!n) return;
+    i = ((i % n) + n) % n;
+    state.idx = i;
+    const c = state.contracts[i];
+    document.querySelectorAll('#ocResults .oc-tr[data-i]').forEach(tr => tr.classList.toggle('oc-sel', +tr.dataset.i === i));
+    const row = document.querySelector(`#ocResults .oc-tr[data-i="${i}"]`);
+    if(row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
+    $('ocCounter').textContent = `${i + 1}/${n}`;
+    $('ocTitle').textContent = `${c.under} ${c.exp} ${c.type === 'call' ? 'C' : 'P'} ${c.strike}`;
+    $('ocSub').textContent = [
+      c.rank ? `#${c.rank}` : null,
+      c.chg != null ? `stock ${c.chg >= 0 ? '+' : ''}${c.chg.toFixed(1)}%` : null,
+      `${c.dte} DTE`, `vol ${fInt(c.vol)}`, `${c.itmPct >= 0 ? 'ITM' : 'OTM'} ${Math.abs(c.itmPct).toFixed(1)}%`, `spot $${c.spot.toFixed(2)}`
+    ].filter(Boolean).join(' · ');
+    const token = ++state.loadToken;
+    ensureChart();
+    showChartMsg('Loading bars…');
+    try {
+      const bars = await getBars(c.sym, $('ocTf').value);
+      if(token !== state.loadToken) return;
+      drawChart(bars);
+    } catch(e){
+      if(token !== state.loadToken) return;
+      showChartMsg(e.message);
+    }
+    const nxt = state.contracts[(i + 1) % n];
+    if(nxt && nxt.sym !== c.sym) getBars(nxt.sym, $('ocTf').value).catch(() => {});
+  }
+  function schedule(){
+    clearTimeout(state.timer);
+    if(!state.playing) return;
+    state.timer = setTimeout(async () => { await select(state.idx + 1); schedule(); }, parseInt($('ocSpeed').value, 10) || 4000);
+  }
+  function setPlaying(on){
+    state.playing = on && state.contracts.length > 0;
+    const b = $('ocPlayBtn');
+    b.textContent = state.playing ? '⏸ Pause' : '▶ Play';
+    b.classList.toggle('playing', state.playing);
+    b.classList.toggle('primary', !state.playing);
+    if(state.playing) schedule(); else clearTimeout(state.timer);
+  }
+
+  /* ---------- zoom / drag ---------- */
+  function zoomBy(factor){   // factor > 1 zooms in, < 1 zooms out (anchored on the newest bar)
+    if(!chart) return;
+    const ts = chart.timeScale(), r = ts.getVisibleLogicalRange();
+    if(!r) return;
+    const span = Math.max(4, (r.to - r.from) / factor);
+    ts.setVisibleLogicalRange({ from: r.to - span, to: r.to });
+  }
+  $('ocZoomIn').addEventListener('click', () => zoomBy(1.5));
+  $('ocZoomOut').addEventListener('click', () => zoomBy(1 / 1.5));
+  $('ocZoomFit').addEventListener('click', () => {
+    if(!chart) return;
+    chart.timeScale().fitContent();
+    chart.priceScale('right').applyOptions({ autoScale: true });
+  });
+  // touching the chart pauses the player so the contract (and your zoom) doesn't change under your finger
+  ['pointerdown', 'wheel'].forEach(t => $('ocChart').addEventListener(t, () => { if(state.playing) setPlaying(false); }, { capture: true, passive: true }));
+
+  /* ---------- wiring ---------- */
+  $('ocLoadBtn').addEventListener('click', loadChain);
+  $('ocSymbols').addEventListener('keydown', e => { if(e.key === 'Enter') loadChain(); });
+  $('ocSymbols').addEventListener('input', () => { $('ocFollow').checked = false; $('ocSrcNote').textContent = '· manual'; saveSettings(); });
+  $('ocFollow').addEventListener('change', () => { if($('ocFollow').checked && scan.all.length) applyScanSymbols(); saveSettings(); });
+  $('ocSource').addEventListener('change', () => {
+    saveSettings();
+    if($('ocFollow').checked && scan.all.length){ applyScanSymbols(); if($('ocAuto').checked) loadChain(); }
+  });
+  $('ocUseScan').addEventListener('click', () => {
+    $('ocFollow').checked = true; saveSettings();
+    if(!scan.all.length){ setStatus('No scan results yet — run a scan on the Scanner tab first.', true); return; }
+    applyScanSymbols(); loadChain();
+  });
+  $('ocPlayBtn').addEventListener('click', () => setPlaying(!state.playing));
+  $('ocPrevBtn').addEventListener('click', () => { select(state.idx - 1); if(state.playing) schedule(); });
+  $('ocNextBtn').addEventListener('click', () => { select(state.idx + 1); if(state.playing) schedule(); });
+  $('ocSpeed').addEventListener('change', () => { saveSettings(); if(state.playing) schedule(); });
+  ['ocTf', 'ocEma1', 'ocEma2', 'ocEma3'].forEach(id => $(id).addEventListener('change', () => { saveSettings(); if(state.idx >= 0) select(state.idx); }));
+  ['ocSide', 'ocMinDte', 'ocMaxDte', 'ocMinVol', 'ocTopN', 'ocItmPct', 'ocOtmPct', 'ocOptFeed', 'ocAuto'].forEach(id => $(id).addEventListener('change', saveSettings));
+  document.addEventListener('keydown', e => {
+    if(!visible() || e.code !== 'Space' || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(e.target.tagName)) return;
+    e.preventDefault(); setPlaying(!state.playing);
+  });
+  document.addEventListener('visibilitychange', () => { if(document.hidden && state.playing) setPlaying(false); });
+
+  restoreSettings();
+  return { setScan, openFor, openScan, onShow, onHide };
+})();
+
+/* =====================================================================
+   PREV DAY TAB — previous session's top gainers.
+   Same chart modal (drawing tools, alerts, log trade) and same Options tab hand-off
+   as the Scanner tab's gainers.
+   ===================================================================== */
+const PD = (() => {
+  const $ = id => document.getElementById(id);
+  const EXTRA_POOL = ['CRWD', 'PANW', 'NVDA', 'AMD', 'TSLA', 'AAPL', 'META', 'MSFT', 'AMZN', 'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'MARA', 'RIOT', 'DKNG', 'HOOD', 'CVNA', 'SOFI', 'RIVN'];
+  const MIN_PRICE = 1.0;
+  let list = [], meta = {}, session = null, busy = false;
+
+  function setStatus(msg, isErr){ const el = $('pdStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
+  const shift = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
+  const fmtDate = ymd => new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  const fmtVol = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : (v >= 1e3 ? Math.round(v / 1e3) + 'K' : String(v));
+  const barDate = b => b.t.slice(0, 10);   // daily bars are stamped at midnight ET → the UTC date part is the session date
+
+  function render(rows){
+    let html = `<div class="panel"><table><thead><tr>
+      <th>Symbol</th><th>%Chg</th><th>Close</th><th>Volume</th>
+    </tr></thead><tbody>`;
+    rows.forEach((r, i) => {
+      html += `<tr>
+        <td data-label="Symbol"><span class="sym" data-index="${i}"><span class="rank">#${i + 1}</span>${r.symbol}</span></td>
+        <td data-label="% Chg"><span class="pct">+${r.pct.toFixed(2)}%</span></td>
+        <td data-label="Close">$${r.close.toFixed(2)}</td>
+        <td data-label="Volume"><span class="vol">${fmtVol(r.volume)}</span></td>
+      </tr>`;
+    });
+    if(!rows.length) html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No gainers passed the price / volume filters.</td></tr>`;
+    html += `</tbody></table></div>`;
+    $('pdResults').innerHTML = html;
+    document.querySelectorAll('#pdResults .sym').forEach(el => {
+      el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), session));
+    });
+  }
+
+  async function run(){
+    if(busy) return;
+    if(!requireAlpacaKeys()){ showTab('scanner'); return; }
+    busy = true; $('pdLoadBtn').disabled = true;
+    try {
+      const feed = $('feed').value;
+      const minVol = Math.max(0, parseInt($('pdMinVol').value, 10) || 0);
+      const topN = Math.min(50, Math.max(1, parseInt($('gainerCount').value, 10) || 10));
+      const override = $('pdDate').value;
+      const todayET = etParts(new Date()).dateStr;
+      if(override && override >= todayET){ setStatus('Pick a session date before today.', true); return; }
+
+      setStatus('Building symbol universe…');
+      const wl = $('manualList').value.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
+      let sp = [];
+      try { sp = await getSP500Tickers(); } catch(e){}
+      const universe = [...new Set([...wl, ...sp, ...EXTRA_POOL, 'SPY'])];
+
+      const base = override || todayET;
+      const start = new Date(shift(base, -14) + 'T00:00:00Z').toISOString();
+      let end = null;
+      if(override){
+        const e = new Date(shift(override, 2) + 'T00:00:00Z');
+        if(e.getTime() < Date.now() - 86400000) end = e.toISOString();
+      }
+      const barsBy = {};
+      const chunks = chunk(universe, 100);
+      let failed = 0;
+      for(let i = 0; i < chunks.length; i++){
+        setStatus(`Loading daily bars… ${i + 1}/${chunks.length}`);
+        try { Object.assign(barsBy, await fetchBars(chunks[i], '1Day', start, feed, end)); } catch(e){ failed++; }
+      }
+      if(failed === chunks.length) throw new Error('Could not load daily bars from Alpaca — check your keys and feed.');
+
+      // session = chosen date, else the latest date before today that most symbols traded on
+      let sess = override || null;
+      if(!sess){
+        const seen = {};
+        Object.values(barsBy).forEach(arr => (arr || []).forEach(b => { const d = barDate(b); if(d < todayET) seen[d] = (seen[d] || 0) + 1; }));
+        const most = Math.max(0, ...Object.values(seen));
+        const dates = Object.keys(seen).filter(d => seen[d] >= most * 0.5).sort();
+        sess = dates.length ? dates[dates.length - 1] : null;
+      }
+      if(!sess){ setStatus('No completed session found in the data.', true); return; }
+
+      const rows = [];
+      Object.keys(barsBy).forEach(sym => {
+        const bars = barsBy[sym] || [];
+        const k = bars.findIndex(b => barDate(b) === sess);
+        if(k < 1) return;
+        const c = bars[k].c, pc = bars[k - 1].c, v = bars[k].v;
+        if(!(pc > 0) || c <= MIN_PRICE || !(v > 0) || v < minVol) return;
+        rows.push({ symbol: sym, pct: (c - pc) / pc * 100, close: c, volume: v });
+      });
+      if(!rows.length && !Object.keys(barsBy).some(sym => (barsBy[sym] || []).some(b => barDate(b) === sess))){
+        setStatus(`No trading session on ${fmtDate(sess)} (weekend or market holiday).`, true);
+        return;
+      }
+      rows.sort((a, b) => b.pct - a.pct);
+      const top = rows.filter(r => r.pct > 0).slice(0, topN);
+
+      session = sess;
+      list = top.map(r => r.symbol);
+      meta = {};
+      top.forEach((r, i) => {
+        meta[r.symbol] = { rank: i + 1, percent_change: r.pct, volume: r.volume };
+        rowDataMap[r.symbol] = Object.assign(rowDataMap[r.symbol] || {}, { lastClose: r.close, mode: 'prev_day' });
+      });
+      $('pdTabCount').textContent = list.length ? `(${list.length})` : '';
+      render(top);
+      OC.setScan('prev_day', list, list, meta);
+      setStatus(`${fmtDate(sess)} · top ${top.length} of ${universe.length} symbols scanned (price > $${MIN_PRICE}, vol ≥ ${fmtVol(minVol)})`
+        + (failed ? ` · ${failed} of ${chunks.length} batches failed` : ''));
+    } catch(e){
+      setStatus(e.message, true);
+    } finally {
+      busy = false; $('pdLoadBtn').disabled = false;
+    }
+  }
+
+  $('pdLoadBtn').addEventListener('click', run);
+  $('pdOptionsBtn').addEventListener('click', () => {
+    if(!list.length){ setStatus('Load the previous-day gainers first.', true); return; }
+    OC.setScan('prev_day', list, list, meta);
+    OC.openScan();
+  });
+  return { run };
+})();
+
+function showTab(name){
+  document.querySelectorAll('#mainTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.getElementById('viewScanner').hidden = name !== 'scanner';
+  document.getElementById('viewPrevDay').hidden = name !== 'prevday';
+  document.getElementById('viewOptions').hidden = name !== 'options';
+  if(name === 'options') OC.onShow(); else OC.onHide();
+}
+document.getElementById('mainTabs').addEventListener('click', e => {
+  const b = e.target.closest('.tab');
+  if(b) showTab(b.dataset.tab);
+});
+
 </script>
 </body>
 </html>
