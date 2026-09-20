@@ -181,6 +181,18 @@
   .oc-itm{color:var(--pass);}
   .oc-empty{padding:18px;text-align:center;color:var(--muted);font-size:12.5px;}
   @media (max-width:700px){ .oc-chartwrap{height:clamp(220px,36vh,340px);} }
+  /* ---- option chart: drawing tools + export ---- */
+  .oc-tools{display:flex;gap:4px;align-items:center;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:6px;}
+  .oc-tools::-webkit-scrollbar{display:none;}
+  .oc-tools button{flex:0 0 auto;width:36px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center;color:var(--muted);}
+  .oc-tools button svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;pointer-events:none;}
+  .oc-tools button.on{color:var(--text);border-color:var(--accent);background:#182a30;}
+  .oc-tools button:disabled{opacity:.35;cursor:not-allowed;}
+  .oc-sep{flex:0 0 1px;align-self:stretch;background:var(--line);margin:4px 3px;}
+  .oc-dot{width:16px;height:16px;border-radius:50%;background:#facc15;box-shadow:0 0 0 1px var(--line);display:block;pointer-events:none;}
+  #ocDraw{position:absolute;top:0;left:0;z-index:2;pointer-events:none;touch-action:none;}
+  #ocDrawHint{position:absolute;left:8px;bottom:32px;z-index:3;pointer-events:none;font-family:var(--mono);font-size:10.5px;color:var(--text);background:rgba(11,15,16,0.82);border:1px solid var(--line);border-radius:6px;padding:3px 7px;max-width:calc(100% - 70px);}
+  #ocDrawHint:empty{display:none;}
 </style>
 </head>
 <body>
@@ -424,8 +436,29 @@
           <div class="oc-subline" id="ocSub"></div>
         </div>
       </div>
+      <div class="oc-tools" id="ocTools">
+        <button data-tool="pan" class="on" title="Pan / zoom the chart"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M12 3l-3 3M12 3l3 3M12 21l-3-3M12 21l3-3M3 12l3-3M3 12l3 3M21 12l-3-3M21 12l-3 3"/></svg></button>
+        <button data-tool="edit" title="Select, move, recolor or delete drawings"><svg viewBox="0 0 24 24"><path d="M5 3l14 7-6 2-2 6z"/></svg></button>
+        <span class="oc-sep"></span>
+        <button data-tool="hline" title="Horizontal line"><svg viewBox="0 0 24 24"><path d="M3 12h18"/><circle cx="12" cy="12" r="1.8"/></svg></button>
+        <button data-tool="line" title="Trend line"><svg viewBox="0 0 24 24"><path d="M5 19L19 5"/><circle cx="5" cy="19" r="1.8"/><circle cx="19" cy="5" r="1.8"/></svg></button>
+        <button data-tool="ray" title="Ray (extends right)"><svg viewBox="0 0 24 24"><path d="M4 19L21 4"/><path d="M15.5 4H21v5.5"/><circle cx="4" cy="19" r="1.8"/></svg></button>
+        <button data-tool="rect" title="Rectangle / zone"><svg viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+        <button data-tool="fib" title="Fib retracement"><svg viewBox="0 0 24 24"><path d="M3 4h18M3 9h18M3 15h18M3 20h18"/></svg></button>
+        <button data-tool="measure" title="Measure % move"><svg viewBox="0 0 24 24"><path d="M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4"/></svg></button>
+        <button data-tool="text" title="Text note"><svg viewBox="0 0 24 24"><path d="M5 7V4h14v3M12 4v16M9 20h6"/></svg></button>
+        <span class="oc-sep"></span>
+        <button id="ocColor" title="Drawing color (tap to cycle; recolors the selected drawing)"><i class="oc-dot"></i></button>
+        <button id="ocMagnet" class="on" title="Snap to candle open/high/low/close"><svg viewBox="0 0 24 24"><path d="M6 3v8a6 6 0 0012 0V3h-4v8a2 2 0 01-4 0V3z"/></svg></button>
+        <button id="ocUndo" title="Undo last drawing"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5M4 9h10a6 6 0 010 12h-3"/></svg></button>
+        <button id="ocDel" title="Delete selected drawing (or clear all if none selected)"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg></button>
+        <span class="oc-sep"></span>
+        <button id="ocExport" title="Save chart as image"><svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+      </div>
       <div class="oc-chartwrap">
         <div id="ocChart"></div>
+        <canvas id="ocDraw"></canvas>
+        <div id="ocDrawHint"></div>
         <div class="oc-zoom" id="ocZoom">
           <button id="ocZoomOut" title="Zoom out">−</button>
           <button id="ocZoomIn" title="Zoom in">+</button>
@@ -2608,6 +2641,7 @@ const OC = (() => {
     loadChain();
   }
   function onShow(){
+    startLoop();
     if(state.dirty && $('ocFollow').checked && $('ocAuto').checked && !state.loading) loadChain();
   }
   function onHide(){ setPlaying(false); }
@@ -2834,6 +2868,7 @@ const OC = (() => {
     let times = bars.map(b => toET(b.t));
     const keep = times.map((t, i) => i === 0 || t > times[i - 1]);
     bars = bars.filter((_, i) => keep[i]); times = times.filter((_, i) => keep[i]);
+    setData(bars, times);
     chart.applyOptions({ timeScale: { timeVisible: $('ocTf').value !== '1Day' } });
     if(!bars.length){
       candle.setData([]); volSeries.setData([]); emaSeries.forEach(s => s.setData([]));
@@ -2861,6 +2896,7 @@ const OC = (() => {
       html += a.v > b.v ? `<span class="up">▲ EMA${a.p} above EMA${b.p}</span>` : `<span class="dn">▼ EMA${a.p} below EMA${b.p}</span>`;
     }
     $('ocLegend').innerHTML = html;
+    startLoop();
   }
 
   /* ---------- selection + player ---------- */
@@ -2870,6 +2906,7 @@ const OC = (() => {
     i = ((i % n) + n) % n;
     state.idx = i;
     const c = state.contracts[i];
+    setContract(c.sym);
     document.querySelectorAll('#ocResults .oc-tr[data-i]').forEach(tr => tr.classList.toggle('oc-sel', +tr.dataset.i === i));
     const row = document.querySelector(`#ocResults .oc-tr[data-i="${i}"]`);
     if(row && row.scrollIntoView) row.scrollIntoView({ block: 'nearest' });
@@ -2925,6 +2962,463 @@ const OC = (() => {
   });
   // touching the chart pauses the player so the contract (and your zoom) doesn't change under your finger
   ['pointerdown', 'wheel'].forEach(t => $('ocChart').addEventListener(t, () => { if(state.playing) setPlaying(false); }, { capture: true, passive: true }));
+
+
+  /* ---------- drawing tools + image export ----------
+     Drawings are anchored to (time, option price), so they follow pan/zoom, survive timeframe
+     changes, and are remembered per contract (localStorage 'oc_draw_v1'). */
+  const DRAW_KEY = 'oc_draw_v1', DRAW_PREF_KEY = 'oc_draw_prefs';
+  const DRAW_COLORS = ['#facc15', '#5b8def', '#39d98a', '#ff8177', '#e6edf0', '#c084fc'];
+  const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
+  const MAX_DRAWINGS = 50;
+  const DRAW_FONT = '600 11px ui-monospace, Menlo, Consolas, monospace';
+  const TF_STEP = { '5Min': 300, '15Min': 900, '30Min': 1800, '1Hour': 3600, '1Day': 86400 };
+  const TOOL_HINT = {
+    pan: '', edit: 'Tap a drawing to select · drag to move · drag its dots to reshape',
+    hline: 'Tap or drag to place a level', line: 'Drag, or tap two points',
+    ray: 'Drag, or tap two points', rect: 'Drag, or tap two corners',
+    fib: 'Drag from swing start to swing end (or tap two points)', measure: 'Drag, or tap two points',
+    text: 'Tap where the note should go'
+  };
+  const ov = $('ocDraw'), octx = ov.getContext('2d');
+  const D = { tool: 'pan', drawings: [], sym: null, sel: null, draft: null, drag: null,
+              color: DRAW_COLORS[0], magnet: true, times: [], bars: [], step: 900,
+              box: { w: 0, h: 0 }, dpr: 1, sig: '', looping: false };
+  try {
+    const p = JSON.parse(localStorage.getItem(DRAW_PREF_KEY) || '{}');
+    if(DRAW_COLORS.includes(p.color)) D.color = p.color;
+    if(typeof p.magnet === 'boolean') D.magnet = p.magnet;
+  } catch(e){}
+  const savePrefs = () => { try { localStorage.setItem(DRAW_PREF_KEY, JSON.stringify({ color: D.color, magnet: D.magnet })); } catch(e){} };
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+
+  /* --- storage --- */
+  function readStore(){ try { return JSON.parse(localStorage.getItem(DRAW_KEY)) || {}; } catch(e){ return {}; } }
+  function persist(){
+    if(!D.sym) return;
+    const s = readStore();
+    if(D.drawings.length) s[D.sym] = { ts: Date.now(), items: D.drawings }; else delete s[D.sym];
+    const today = etYMD(new Date());
+    Object.keys(s).forEach(k => {   // forget expired contracts / stale entries
+      const p = parseOcc(k);
+      if((p && p.exp < addDays(today, -7)) || Date.now() - ((s[k] && s[k].ts) || 0) > 45 * 86400000) delete s[k];
+    });
+    Object.keys(s).sort((a, b) => s[b].ts - s[a].ts).slice(60).forEach(k => delete s[k]);
+    try { localStorage.setItem(DRAW_KEY, JSON.stringify(s)); } catch(e){}
+  }
+  function setContract(sym){
+    if(D.sym === sym) return;
+    D.sym = sym; D.sel = null; D.draft = null; D.drag = null;
+    D.times = []; D.bars = [];
+    const e = readStore()[sym];
+    D.drawings = (e && Array.isArray(e.items)) ? e.items.filter(d => d && d.type && Array.isArray(d.pts) && d.pts.length) : [];
+    updateToolbar(); D.sig = '';
+  }
+  function setData(bars, times){
+    D.bars = bars; D.times = times;
+    const diffs = [];
+    for(let i = 1; i < times.length; i++) diffs.push(times[i] - times[i - 1]);
+    diffs.sort((a, b) => a - b);
+    D.step = diffs.length ? Math.max(1, diffs[diffs.length >> 1]) : (TF_STEP[$('ocTf').value] || 900);
+    D.sig = '';
+  }
+
+  /* --- time <-> logical index (piecewise linear, extrapolates past both ends) --- */
+  function T2L(t){
+    const a = D.times, n = a.length;
+    if(!n) return null;
+    if(t <= a[0]) return (t - a[0]) / D.step;
+    if(t >= a[n - 1]) return n - 1 + (t - a[n - 1]) / D.step;
+    let lo = 0, hi = n - 1;
+    while(hi - lo > 1){ const m = (lo + hi) >> 1; if(a[m] <= t) lo = m; else hi = m; }
+    return lo + (t - a[lo]) / (a[hi] - a[lo]);
+  }
+  function L2T(L){
+    const a = D.times, n = a.length;
+    if(!n) return null;
+    if(L <= 0) return a[0] + L * D.step;
+    if(L >= n - 1) return a[n - 1] + (L - (n - 1)) * D.step;
+    const i = Math.floor(L);
+    return a[i] + (a[i + 1] - a[i]) * (L - i);
+  }
+
+  /* --- geometry --- */
+  function plotBox(){
+    const el = $('ocChart');
+    let pw = 52, th = 26;
+    try { pw = chart.priceScale('right').width(); th = chart.timeScale().height(); } catch(e){}
+    return { w: Math.max(0, el.clientWidth - pw), h: Math.max(0, el.clientHeight - th) };
+  }
+  function toXY(pt){
+    const L = T2L(pt.t);
+    if(L == null) return null;
+    const x = chart.timeScale().logicalToCoordinate(L), y = candle.priceToCoordinate(pt.p);
+    return (x == null || y == null) ? null : { x, y };
+  }
+  function rayEnd(a, b, w, h){
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
+    if(len < 0.5) return b;
+    const k = (w + h) * 4 / len;
+    return { x: a.x + dx * k, y: a.y + dy * k };
+  }
+  function segDist(px, py, ax, ay, bx, by){
+    const dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy;
+    let t = l2 ? ((px - ax) * dx + (py - ay) * dy) / l2 : 0;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+  function ptFromEvent(e, snap){
+    if(!chart || !D.times.length) return null;
+    const r = ov.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - r.left, 0), r.width), y = Math.min(Math.max(e.clientY - r.top, 0), r.height);
+    let L = chart.timeScale().coordinateToLogical(x), P = candle.coordinateToPrice(y);
+    if(L == null || P == null) return null;
+    if(snap && D.magnet && D.bars.length){
+      const i = Math.round(L);
+      if(i >= 0 && i < D.bars.length){
+        const b = D.bars[i]; let best = null, bd = 16;
+        [b.o, b.h, b.l, b.c].forEach(v => {
+          const yy = candle.priceToCoordinate(v);
+          if(yy != null && Math.abs(yy - y) < bd){ bd = Math.abs(yy - y); best = v; }
+        });
+        if(best != null){ L = i; P = best; }
+      }
+    }
+    return { x, y, L, P, t: Math.round(L2T(L)), p: r4(P) };
+  }
+
+  /* --- rendering --- */
+  function line(c, x1, y1, x2, y2){ c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
+  function pill(c, text, x, y, color, align){
+    const pw = c.measureText(text).width + 8, ph = 16;
+    const x0 = align === 'right' ? x - pw : align === 'center' ? x - pw / 2 : x;
+    c.save();
+    c.beginPath();
+    if(c.roundRect) c.roundRect(x0, y - ph / 2, pw, ph, 4); else c.rect(x0, y - ph / 2, pw, ph);
+    c.fillStyle = 'rgba(11,15,16,0.85)'; c.fill();
+    c.globalAlpha = 0.6; c.strokeStyle = color; c.lineWidth = 1; c.setLineDash([]); c.stroke();
+    c.globalAlpha = 1; c.fillStyle = color; c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText(text, x0 + 4, y + 0.5);
+    c.restore();
+  }
+  function drawOne(c, d, w, h, selected){
+    const P = d.pts.map(toXY);
+    if(P.some(p => !p)) return;
+    const col = d.color || DRAW_COLORS[0];
+    c.font = DRAW_FONT; c.textBaseline = 'middle'; c.textAlign = 'left';
+    c.lineWidth = 1.6; c.strokeStyle = col; c.fillStyle = col; c.setLineDash([]); c.globalAlpha = d.id === 'draft' ? 0.8 : 1;
+    switch(d.type){
+      case 'hline':
+        line(c, 0, P[0].y, w, P[0].y);
+        pill(c, f2(d.pts[0].p), w - 4, P[0].y, col, 'right');
+        break;
+      case 'line': line(c, P[0].x, P[0].y, P[1].x, P[1].y); break;
+      case 'ray': { const e = rayEnd(P[0], P[1], w, h); line(c, P[0].x, P[0].y, e.x, e.y); break; }
+      case 'rect': {
+        const x = Math.min(P[0].x, P[1].x), y = Math.min(P[0].y, P[1].y);
+        const rw = Math.abs(P[1].x - P[0].x), rh = Math.abs(P[1].y - P[0].y);
+        c.save(); c.globalAlpha = 0.13; c.fillRect(x, y, rw, rh); c.restore();
+        c.strokeRect(x, y, rw, rh);
+        break; }
+      case 'fib': {
+        const pa = d.pts[0].p, pb = d.pts[1].p;
+        const x0 = Math.min(P[0].x, P[1].x), x1 = Math.max(w, x0 + 60);
+        c.save(); c.setLineDash([4, 4]); c.globalAlpha = 0.55; line(c, P[0].x, P[0].y, P[1].x, P[1].y); c.restore();
+        FIB_LEVELS.forEach(lv => {
+          const price = pb + (pa - pb) * lv, y = candle.priceToCoordinate(price);
+          if(y == null) return;
+          c.save(); c.globalAlpha = (lv === 0 || lv === 1) ? 0.95 : 0.55; c.lineWidth = 1.2; line(c, x0, y, x1, y); c.restore();
+          pill(c, `${lv} · ${f2(price)}`, x0 + 2, y - 9, col, 'left');
+        });
+        break; }
+      case 'measure': {
+        const p1 = d.pts[0].p, p2 = d.pts[1].p, up = p2 >= p1, mc = up ? '#39d98a' : '#ff8177';
+        const x = Math.min(P[0].x, P[1].x), y = Math.min(P[0].y, P[1].y);
+        const rw = Math.abs(P[1].x - P[0].x), rh = Math.abs(P[1].y - P[0].y);
+        c.strokeStyle = mc; c.fillStyle = mc;
+        c.save(); c.globalAlpha = 0.10; c.fillRect(x, y, rw, rh); c.restore();
+        c.save(); c.setLineDash([4, 3]); c.strokeRect(x, y, rw, rh); c.restore();
+        const mx = x + rw / 2, sg = P[1].y <= P[0].y ? 1 : -1;   // arrowhead barbs point back along the arrow
+        line(c, mx, P[0].y, mx, P[1].y);
+        line(c, mx - 4, P[1].y + 5 * sg, mx, P[1].y); line(c, mx + 4, P[1].y + 5 * sg, mx, P[1].y);
+        const pct = p1 ? (p2 - p1) / p1 * 100 : 0;
+        const bars = Math.round((T2L(d.pts[1].t) || 0) - (T2L(d.pts[0].t) || 0));
+        const txt = `${p2 - p1 >= 0 ? '+' : ''}${f2(p2 - p1)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%) · ${Math.abs(bars)} bars`;
+        const ly = Math.min(Math.max(up ? y - 12 : y + rh + 12, 10), h - 10);
+        pill(c, txt, Math.min(Math.max(mx, 60), w - 60), ly, mc, 'center');
+        break; }
+      case 'text':
+        pill(c, d.text || '…', P[0].x, P[0].y, col, 'left');
+        break;
+    }
+    c.globalAlpha = 1;
+    if(selected){
+      c.save(); c.setLineDash([]); c.lineWidth = 2;
+      const hp = d.type === 'hline' ? [{ x: 28, y: P[0].y }] : P;
+      hp.forEach(p => { c.beginPath(); c.arc(p.x, p.y, 6, 0, Math.PI * 2); c.fillStyle = '#0b0f10'; c.fill(); c.strokeStyle = col; c.stroke(); });
+      c.restore();
+    }
+  }
+  function render(){
+    if(!chart) return;
+    const pb = plotBox(), w = Math.round(pb.w), h = Math.round(pb.h), dp = window.devicePixelRatio || 1;
+    if(w !== D.box.w || h !== D.box.h || dp !== D.dpr){
+      ov.width = Math.max(1, Math.round(w * dp)); ov.height = Math.max(1, Math.round(h * dp));
+      ov.style.width = w + 'px'; ov.style.height = h + 'px';
+      D.box = { w, h }; D.dpr = dp;
+    }
+    octx.setTransform(dp, 0, 0, dp, 0, 0);
+    octx.clearRect(0, 0, w, h);
+    if(!D.times.length || !w || !h) return;
+    octx.save(); octx.beginPath(); octx.rect(0, 0, w, h); octx.clip();
+    D.drawings.forEach(d => drawOne(octx, d, w, h, d.id === D.sel));
+    if(D.draft) drawOne(octx, D.draft, w, h, false);
+    octx.restore();
+  }
+  // cheap change detector: redraws only when pan / zoom / price-scale / size changed
+  function tick(){
+    D.looping = false;
+    if(!visible() || !chart || !candle) return;
+    const pb = plotBox(), r = chart.timeScale().getVisibleLogicalRange();
+    const ref = D.bars.length ? D.bars[D.bars.length - 1].c : 1;
+    const y1 = candle.priceToCoordinate(ref), y2 = candle.priceToCoordinate(ref * 1.5);
+    const sig = [pb.w, pb.h, r ? r.from.toFixed(3) : '', r ? r.to.toFixed(3) : '', y1 == null ? '' : y1.toFixed(1), y2 == null ? '' : y2.toFixed(1), D.times.length, window.devicePixelRatio].join('|');
+    if(sig !== D.sig){ D.sig = sig; render(); }
+    startLoop();
+  }
+  function startLoop(){ if(D.looping) return; D.looping = true; requestAnimationFrame(tick); }
+
+  /* --- hit testing --- */
+  function hitDrawing(d, x, y, w, h, tol){
+    const P = d.pts.map(toXY);
+    if(P.some(p => !p)) return false;
+    switch(d.type){
+      case 'hline': return Math.abs(y - P[0].y) <= tol;
+      case 'line': return segDist(x, y, P[0].x, P[0].y, P[1].x, P[1].y) <= tol;
+      case 'ray': { const e = rayEnd(P[0], P[1], w, h); return segDist(x, y, P[0].x, P[0].y, e.x, e.y) <= tol; }
+      case 'rect': case 'measure': {
+        const x0 = Math.min(P[0].x, P[1].x), x1 = Math.max(P[0].x, P[1].x), y0 = Math.min(P[0].y, P[1].y), y1 = Math.max(P[0].y, P[1].y);
+        return x >= x0 - tol && x <= x1 + tol && y >= y0 - tol && y <= y1 + tol; }
+      case 'fib': {
+        const pa = d.pts[0].p, pb = d.pts[1].p, x0 = Math.min(P[0].x, P[1].x);
+        if(segDist(x, y, P[0].x, P[0].y, P[1].x, P[1].y) <= tol) return true;
+        if(x < x0 - tol) return false;
+        return FIB_LEVELS.some(lv => { const yy = candle.priceToCoordinate(pb + (pa - pb) * lv); return yy != null && Math.abs(y - yy) <= tol; }); }
+      case 'text': {
+        octx.font = DRAW_FONT;
+        const tw = octx.measureText(d.text || '…').width + 8;
+        return x >= P[0].x - tol && x <= P[0].x + tw + tol && Math.abs(y - P[0].y) <= Math.max(10, tol); }
+    }
+    return false;
+  }
+
+  /* --- toolbar --- */
+  function updateToolbar(){
+    document.querySelectorAll('#ocTools [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === D.tool));
+    $('ocMagnet').classList.toggle('on', D.magnet);
+    const sel = D.drawings.find(d => d.id === D.sel);
+    $('ocColor').firstElementChild.style.background = (sel && sel.color) || D.color;
+    $('ocUndo').disabled = !D.drawings.length;
+    $('ocDel').disabled = !D.drawings.length;
+    $('ocDrawHint').textContent = TOOL_HINT[D.tool] || '';
+  }
+  function setTool(t){
+    D.tool = t; D.draft = null; D.drag = null;
+    if(t !== 'edit') D.sel = null;
+    if(t !== 'pan') setPlaying(false);
+    ov.style.pointerEvents = t === 'pan' ? 'none' : 'auto';
+    ov.style.cursor = t === 'edit' ? 'default' : 'crosshair';
+    updateToolbar(); render();
+  }
+  function deleteSelected(){
+    if(D.sel){
+      D.drawings = D.drawings.filter(d => d.id !== D.sel);
+      D.sel = null;
+    } else if(D.drawings.length){
+      if(!confirm(`Clear all ${D.drawings.length} drawing${D.drawings.length > 1 ? 's' : ''} on this contract?`)) return;
+      D.drawings = [];
+    } else return;
+    persist(); updateToolbar(); render();
+  }
+  $('ocTools').addEventListener('click', e => {
+    const b = e.target.closest('[data-tool]');
+    if(b) setTool(b.dataset.tool === D.tool && D.tool !== 'pan' ? 'pan' : b.dataset.tool);
+  });
+  $('ocColor').addEventListener('click', () => {
+    const sel = D.drawings.find(d => d.id === D.sel);
+    const cur = (sel && sel.color) || D.color;
+    D.color = DRAW_COLORS[(DRAW_COLORS.indexOf(cur) + 1) % DRAW_COLORS.length];
+    if(sel){ sel.color = D.color; persist(); }
+    savePrefs(); updateToolbar(); render();
+  });
+  $('ocMagnet').addEventListener('click', () => { D.magnet = !D.magnet; savePrefs(); updateToolbar(); });
+  $('ocUndo').addEventListener('click', () => {
+    const d = D.drawings.pop();
+    if(d && d.id === D.sel) D.sel = null;
+    persist(); updateToolbar(); render();
+  });
+  $('ocDel').addEventListener('click', deleteSelected);
+  $('ocExport').addEventListener('click', exportImage);
+
+  /* --- pointer handling on the overlay (only receives events while a tool is active) --- */
+  function commitDraft(){
+    const d = D.draft;
+    if(!d) return;
+    delete d.stage; delete d.start; delete d.moved;
+    D.draft = null;
+    if(d.type === 'text'){
+      const txt = (prompt('Note text', '') || '').trim();
+      if(!txt){ render(); return; }
+      d.text = txt.slice(0, 60);
+    }
+    if(D.drawings.length >= MAX_DRAWINGS){ setStatus(`Drawing limit reached (${MAX_DRAWINGS}) — delete some first.`, true); render(); return; }
+    d.id = uid();
+    D.drawings.push(d);
+    persist();
+    setTool('pan');
+  }
+  function editDown(e){
+    const r = ov.getBoundingClientRect();
+    const x = Math.min(Math.max(e.clientX - r.left, 0), r.width), y = Math.min(Math.max(e.clientY - r.top, 0), r.height);
+    const tol = e.pointerType === 'mouse' ? 9 : 16;
+    let sel = D.drawings.find(d => d.id === D.sel) || null, handle = -1;
+    if(sel && sel.type !== 'hline'){
+      sel.pts.map(toXY).forEach((p, i) => { if(handle < 0 && p && Math.hypot(p.x - x, p.y - y) <= tol + 4) handle = i; });
+    }
+    if(handle < 0){
+      sel = null;
+      for(let i = D.drawings.length - 1; i >= 0; i--){
+        if(hitDrawing(D.drawings[i], x, y, D.box.w, D.box.h, tol)){ sel = D.drawings[i]; break; }
+      }
+      D.sel = sel ? sel.id : null;
+    }
+    updateToolbar();
+    const pt = ptFromEvent(e, false);
+    if(sel && pt) D.drag = { id: sel.id, handle, L0: pt.L, P0: pt.P, orig: sel.pts.map(p => ({ L: T2L(p.t), p: p.p })), changed: false };
+    render();
+  }
+  function editMove(e){
+    if(!D.drag) return;
+    const d = D.drawings.find(x => x.id === D.drag.id);
+    const pt = ptFromEvent(e, D.drag.handle >= 0);
+    if(!d || !pt) return;
+    if(D.drag.handle >= 0){
+      d.pts[D.drag.handle] = { t: pt.t, p: pt.p };
+    } else {
+      const dL = pt.L - D.drag.L0, dP = pt.P - D.drag.P0;
+      d.pts = D.drag.orig.map(o => ({ t: Math.round(L2T(o.L + dL)), p: r4(o.p + dP) }));
+    }
+    D.drag.changed = true;
+    render();
+  }
+  ov.addEventListener('pointerdown', e => {
+    if(D.tool === 'pan') return;
+    e.preventDefault();
+    setPlaying(false);
+    try { ov.setPointerCapture(e.pointerId); } catch(_){}
+    if(D.tool === 'edit'){ editDown(e); return; }
+    const pt = ptFromEvent(e, true);
+    if(!pt) return;
+    const type = D.tool, here = { t: pt.t, p: pt.p };
+    if(D.draft && D.draft.pts.length === 2 && D.draft.stage === 'wait'){   // second tap of a tap-tap drawing
+      D.draft.pts[1] = here; D.draft.stage = 'second'; render(); return;
+    }
+    const single = type === 'hline' || type === 'text';
+    D.draft = { id: 'draft', type, color: D.color, pts: single ? [here] : [here, { ...here }], stage: 'drag', start: { x: pt.x, y: pt.y }, moved: false };
+    render();
+  });
+  ov.addEventListener('pointermove', e => {
+    if(D.tool === 'edit'){ editMove(e); return; }
+    const d = D.draft;
+    if(!d) return;
+    const pt = ptFromEvent(e, true);
+    if(!pt) return;
+    if(d.pts.length === 1) d.pts[0] = { t: pt.t, p: pt.p };
+    else {
+      d.pts[1] = { t: pt.t, p: pt.p };
+      if(d.stage === 'drag' && Math.hypot(pt.x - d.start.x, pt.y - d.start.y) > 10) d.moved = true;
+    }
+    render();
+  });
+  function pointerEnd(e){
+    if(D.tool === 'edit'){
+      if(D.drag && D.drag.changed) persist();
+      D.drag = null; return;
+    }
+    const d = D.draft;
+    if(!d) return;
+    if(e.type === 'pointercancel'){ D.draft = null; render(); return; }
+    if(d.pts.length === 1) commitDraft();
+    else if(d.stage === 'drag'){ if(d.moved) commitDraft(); else d.stage = 'wait'; }
+    else if(d.stage === 'second') commitDraft();
+  }
+  ov.addEventListener('pointerup', pointerEnd);
+  ov.addEventListener('pointercancel', pointerEnd);
+  ov.addEventListener('wheel', e => { e.preventDefault(); zoomBy(e.deltaY < 0 ? 1.15 : 1 / 1.15); }, { passive: false });
+  document.addEventListener('keydown', e => {
+    if(!visible() || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+    if(e.key === 'Escape'){ if(D.draft || D.tool !== 'pan') setTool('pan'); }
+    else if((e.key === 'Delete' || e.key === 'Backspace') && D.sel){ e.preventDefault(); deleteSelected(); }
+  });
+  updateToolbar();
+
+  /* --- export the chart (candles, EMAs, volume, drawings) as a PNG with a contract header --- */
+  async function exportImage(){
+    if(!chart || state.idx < 0 || !D.times.length){ setStatus('Load a contract chart first.', true); return; }
+    const c = state.contracts[state.idx], tf = $('ocTf').value;
+    const prevSel = D.sel; D.sel = null; D.draft = null;   // no selection handles / half-drawn shapes in the picture
+    render();
+    const shot = chart.takeScreenshot();
+    const el = $('ocChart'), k = shot.width / Math.max(1, el.clientWidth);
+    const legend = [...$('ocLegend').children].map(sp => {
+      const i = sp.querySelector('i');
+      return { text: sp.textContent.trim(), color: i ? i.style.background : getComputedStyle(sp).color };
+    });
+    const ep = etParts(new Date());
+    const stamp = `${ep.dateStr} ${String(ep.hh).padStart(2, '0')}:${String(ep.mm).padStart(2, '0')} ET`;
+    const pad = Math.round(12 * k), lineH = Math.round(18 * k);
+    const headerH = pad * 2 + lineH * (legend.length ? 3 : 2);
+    const out = document.createElement('canvas');
+    out.width = shot.width; out.height = shot.height + headerH;
+    const ctx = out.getContext('2d');
+    ctx.fillStyle = (getComputedStyle(document.documentElement).getPropertyValue('--panel') || '').trim() || '#12181a';
+    ctx.fillRect(0, 0, out.width, out.height);
+    ctx.drawImage(shot, 0, headerH);
+    if(D.box.w > 0 && D.box.h > 0) ctx.drawImage(ov, 0, headerH, D.box.w * k, D.box.h * k);
+    D.sel = prevSel; render();
+
+    const mono = 'ui-monospace, Menlo, Consolas, monospace';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = '#e8f0f0'; ctx.font = `700 ${Math.round(16 * k)}px ${mono}`;
+    ctx.fillText(`${$('ocTitle').textContent}  ${tf}`, pad, pad);
+    ctx.fillStyle = '#8fa1a3'; ctx.font = `${Math.round(11.5 * k)}px ${mono}`;
+    ctx.textAlign = 'right'; ctx.fillText(stamp, out.width - pad, pad + Math.round(3 * k)); ctx.textAlign = 'left';
+    ctx.fillText($('ocSub').textContent, pad, pad + lineH);
+    if(legend.length){
+      ctx.font = `600 ${Math.round(12 * k)}px ${mono}`;
+      let x = pad;
+      legend.forEach(t => {
+        ctx.fillStyle = t.color || '#c9d1d1';
+        ctx.fillText(t.text, x, pad + lineH * 2);
+        x += ctx.measureText(t.text).width + Math.round(16 * k);
+      });
+    }
+    const name = `${c.sym}_${tf}_${ep.dateStr}.png`;
+    out.toBlob(async blob => {
+      if(!blob){ setStatus('Could not create the image.', true); return; }
+      const file = new File([blob], name, { type: 'image/png' });
+      if(isMobileView() && navigator.canShare && navigator.canShare({ files: [file] })){
+        try { await navigator.share({ files: [file], title: $('ocTitle').textContent }); return; }
+        catch(err){ if(err && err.name === 'AbortError') return; }
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }, 'image/png');
+  }
 
   /* ---------- wiring ---------- */
   $('ocLoadBtn').addEventListener('click', loadChain);
