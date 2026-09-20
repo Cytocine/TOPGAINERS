@@ -193,15 +193,40 @@
   #ocDraw{position:absolute;top:0;left:0;z-index:2;pointer-events:none;touch-action:none;}
   #ocDrawHint{position:absolute;left:8px;bottom:32px;z-index:3;pointer-events:none;font-family:var(--mono);font-size:10.5px;color:var(--text);background:rgba(11,15,16,0.82);border:1px solid var(--line);border-radius:6px;padding:3px 7px;max-width:calc(100% - 70px);}
   #ocDrawHint:empty{display:none;}
+
+  /* ---- Setups tab ---- */
+  .grade{display:inline-block;min-width:46px;text-align:center;padding:2px 8px;border-radius:4px;font-weight:700;font-size:11.5px;font-family:var(--mono);letter-spacing:0.2px;}
+  .grade.A{background:rgba(57,217,138,0.18);color:var(--pass);}
+  .grade.B{background:rgba(91,141,239,0.18);color:var(--accent);}
+  .grade.C{background:rgba(224,161,59,0.15);color:var(--warn);}
+  .grade.X{background:rgba(124,142,142,0.15);color:var(--muted);}
+  tr.su-dim td{opacity:0.55;}
+  tr.su-A td{background:rgba(57,217,138,0.05);}
+  .su-flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;font-family:var(--sans);font-weight:500;}
+  .su-f{font-size:10px;font-weight:600;padding:1px 6px;border-radius:3px;border:1px solid var(--line);color:var(--muted);white-space:nowrap;}
+  .su-f.good{color:var(--pass);border-color:rgba(57,217,138,0.35);}
+  .su-f.bad{color:var(--fail);border-color:rgba(255,129,119,0.35);}
+  .su-f.warn{color:var(--warn);border-color:rgba(224,161,59,0.35);}
+  .regime{border-left:4px solid var(--muted);padding:9px 12px;margin-bottom:10px;font-size:12px;line-height:1.5;}
+  .regime.on{border-left-color:var(--pass);}
+  .regime.off{border-left-color:var(--fail);}
+  .regime.mixed{border-left-color:var(--warn);}
+  .regime b{font-family:var(--mono);}
+  .regime .hint{color:var(--muted);margin-top:2px;}
+  .su-how{font-size:11.5px;color:var(--muted);line-height:1.55;}
+  .su-how summary{cursor:pointer;color:var(--text);font-size:12px;font-weight:600;}
+  .su-how ul{margin:6px 0 0 16px;padding:0;}
+  .su-how b{color:var(--text);}
 </style>
 </head>
 <body>
 
   <h1>GAINER SCAN &amp; EXECUTION</h1>
-  <p class="sub">Dynamic Top Gainers · Supertrend Flip Screener · Risk Bracket Calculator</p>
+  <p class="sub">Dynamic Top Gainers · Supertrend Flip Screener · Setup Grader · Risk Bracket Calculator</p>
 
   <div class="tabs" id="mainTabs">
     <button class="tab active" data-tab="scanner">Scanner</button>
+    <button class="tab" data-tab="setups">Setups<span class="tabcount" id="suTabCount"></span></button>
     <button class="tab" data-tab="prevday">Prev Day<span class="tabcount" id="pdTabCount"></span></button>
     <button class="tab" data-tab="options">Options<span class="tabcount" id="ocTabCount"></span></button>
   </div>
@@ -313,6 +338,62 @@
   </div>
 
   </div><!-- /viewScanner -->
+
+  <div id="viewSetups" hidden>
+    <div class="action-bar">
+      <div class="action-bar-left" style="align-items:flex-end;">
+        <button class="primary" id="suRunBtn">🎯 Grade setups</button>
+        <div class="field" style="flex:0 1 140px;min-width:120px;">
+          <label>Style</label>
+          <select id="suStyle">
+           <option value="overnight">Overnight hold</option>
+            <option value="day">Day trade</option>
+            
+          </select>
+        </div>
+        <div class="field" style="flex:0 1 150px;min-width:120px;">
+          <label>Universe</label>
+          <select id="suSource">
+            <option value="both">Both</option>
+            <option value="watch">Watchlist movers</option>
+            <option value="sp500">S&amp;P 500 movers</option>
+            <option value="last">Last Scanner list</option>
+          </select>
+        </div>
+        <div class="field" style="flex:0 1 80px;min-width:70px;">
+          <label>Top movers</label>
+          <input type="number" id="suTopN" value="25" min="5" max="40">
+        </div>
+        <div class="toggle-row">
+          <input type="checkbox" id="suAuto"><label for="suAuto">Auto 5m</label>
+        </div>
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:10px;">
+      <div class="field" style="flex:2 1 220px;">
+        <label>Skip list (earnings tonight, halts, anything you won't touch)</label>
+        <input type="text" id="suSkip" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="e.g. NVDA, CRM">
+      </div>
+      <div class="field" style="flex:0 1 110px;">
+        <label>Overnight size ×</label>
+        <input type="number" id="suOvnSize" value="0.5" min="0.1" max="1" step="0.1" title="Fraction of your risk budget used for overnight holds (gap risk can blow through a stop)">
+      </div>
+    </div>
+    <div class="status" id="suStatus">Pick a style, then grade the day's movers. Only A/B setups are worth taking — no trade is a valid outcome.</div>
+    <div id="suRegime" style="margin-top:10px;"></div>
+    <div id="suResults"></div>
+    <details class="panel su-how">
+      <summary>How the grade works</summary>
+      <ul>
+        <li><b>Day trade</b> rewards same-time-of-day RVOL, price above VWAP, 30m EMA9&gt;EMA21 trend, a break of the 15-min opening range / premarket high, strength vs SPY, staying near the highs, and not being stretched from VWAP (measured in daily ATRs).</li>
+        <li><b>Overnight</b> rewards a close in the top of the day's range, RVOL, a close above VWAP, a daily uptrend, a new / near 20-day high (clean air), and a healthy 0.5–2 ATR move. A 3+ ATR move is treated as blow-off risk.</li>
+        <li><b>Grades</b> are A 80+, B 65–79, C 50–64. <b>Caps</b> keep weak setups from grading high: thin volume or below VWAP caps at C; RVOL under 1.5×, a risk-off tape, fading volume, a downtrend, or a 3+ ATR run caps at B.</li>
+        <li><b>Stops / targets</b> are ATR-based with a 2R target. Size = risk budget ÷ stop distance (overnight uses the size multiplier above).</li>
+        <li>These weights are sensible defaults, not a proven edge. Log trades from the chart — the log records each grade so you can see whether A's really beat C's over time.</li>
+        <li>The app can't see earnings dates. Add any name reporting tonight/tomorrow to the skip list before an overnight hold.</li>
+      </ul>
+    </details>
+  </div><!-- /viewSetups -->
 
   <div id="viewPrevDay" hidden>
     <div class="action-bar">
@@ -515,10 +596,10 @@
               <th style="text-align:left;">Symbol</th>
               <th style="text-align:left;">Mode</th>
               <th>Price</th>
+              <th>Grade</th>
               <th>RVOL</th>
-              <th>ExtATR</th>
+              <th>Ext·ATR</th>
               <th>Gap%</th>
-              <th>VolRatio</th>
               <th>Outcome</th>
               <th style="text-align:left;">Notes</th>
               <th></th>
@@ -813,14 +894,23 @@ async function fetchSnapshotsChunk(symbols, feed){
 
 async function fetchBars(symbols, timeframe, start, feed, end){
   if(symbols.length === 0) return {};
-  const params = new URLSearchParams({
-    symbols: symbols.join(','), timeframe, start, limit: '4000', adjustment: 'raw', feed
-  });
-  if(end) params.set('end', end);
-  const res = await fetch(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: alpacaHeaders() });
-  if(!res.ok) throw new Error(`Bars fetch failed (${res.status})`);
-  const data = await res.json();
-  return data.bars || {};
+  const base = { symbols: symbols.join(','), timeframe, start, limit: '10000', adjustment: 'raw', feed };
+  if(end) base.end = end;
+  const out = {};
+  let token = null, pages = 0;
+  // Alpaca caps each response at `limit` rows TOTAL across all symbols, sorted by symbol —
+  // without following next_page_token, later symbols silently came back short or empty.
+  do {
+    const params = new URLSearchParams(base);
+    if(token) params.set('page_token', token);
+    const res = await fetch(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: alpacaHeaders() });
+    if(!res.ok) throw new Error(`Bars fetch failed (${res.status})`);
+    const data = await res.json();
+    const bars = data.bars || {};
+    Object.keys(bars).forEach(s => { out[s] = (out[s] || []).concat(bars[s]); });
+    token = data.next_page_token || null;
+  } while(token && ++pages < 40);
+  return out;
 }
 
 async function getSP500Tickers(){
@@ -878,20 +968,22 @@ async function runSupertrendFlipScan(){
       }catch(e){ continue; }
 
       sc.forEach(sym => {
-        const bars = (barsBySymbol[sym] || []).slice().sort((a,b) => new Date(a.t) - new Date(b.t));
+        const barsAll = (barsBySymbol[sym] || []).slice().sort((a,b) => new Date(a.t) - new Date(b.t));
+        const nowMs = Date.now();
+        const bars = closedBarsOnly() ? barsAll.filter(b => isClosed30(b, nowMs)) : barsAll;
         if(bars.length < stLen + 5) return;
 
         const stRes = SuperTrend(bars, stLen, stMult);
         const flipAge = barsSinceSupertrendFlip(stRes.trend);
 
         if(flipAge !== null && flipAge <= 4){
-          const lastBar = bars[bars.length - 1];
+          const liveBar = barsAll[barsAll.length - 1];
           const snap = snapshots[sym];
           const prevC = snap && snap.prevDailyBar && snap.prevDailyBar.c;
-          const pctChg = prevC ? ((lastBar.c - prevC) / prevC) * 100 : 0;
+          const pctChg = prevC ? ((liveBar.c - prevC) / prevC) * 100 : 0;
 
-          rowDataMap[sym] = { bars, lastClose: lastBar.c };
-          results.push({ symbol: sym, flipAge, pctChg, lastClose: lastBar.c });
+          rowDataMap[sym] = { bars, lastClose: liveBar.c, mode: 'st_flip' };
+          results.push({ symbol: sym, flipAge, pctChg, lastClose: liveBar.c });
         }
       });
     }
@@ -1074,6 +1166,7 @@ function logCurrentTrade(){
     symbol, mode: meta.mode || lastMode,
     price: entryPx, entry: lvNow.entry ?? null,
     stop: lvNow.stop ?? null, target: lvNow.target ?? null,
+    setup: (meta.setup && Date.now() - (meta.setup.at || 0) < 8*3600*1000) ? meta.setup : null,
     outcome: 'open', notes: ''
   };
   const log = loadTradeLog();
@@ -1089,8 +1182,15 @@ function tradeLogStats(log){
   const wins = closed.filter(t => t.outcome === 'win');
   const losses = closed.filter(t => t.outcome === 'loss');
   const winRate = closed.length ? (wins.length / closed.length * 100) : null;
+  const byGrade = {};
+  closed.forEach(t => {
+    const g = t.setup && t.setup.grade;
+    if(!g) return;
+    const e = byGrade[g] || (byGrade[g] = { w: 0, l: 0 });
+    if(t.outcome === 'win') e.w++; else e.l++;
+  });
   return {
-    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate
+    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate, byGrade
   };
 }
 
@@ -1101,7 +1201,8 @@ function renderTradeLogModal(){
   if(s.closedCount === 0){
     summaryEl.textContent = `${s.total} logged · no closed trades tagged yet`;
   } else {
-    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate)`;
+    const gr = ['A', 'B', 'C', 'X'].filter(g => s.byGrade[g]).map(g => `${g} ${s.byGrade[g].w}-${s.byGrade[g].l}`).join(' · ');
+    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate)` + (gr ? ` · by grade: ${gr}` : '');
   }
 
   const body = document.getElementById('tradeLogBody');
@@ -1109,13 +1210,17 @@ function renderTradeLogModal(){
     body.innerHTML = `<tr><td colspan="11" style="text-align:center;opacity:0.6;padding:16px;">No trades logged yet.</td></tr>`;
     return;
   }
-  body.innerHTML = log.map(t => `
+  body.innerHTML = log.map(t => { const s = t.setup || {}; return `
     <tr data-id="${t.id}">
-      <td style="text-align:left;">${t.date}</td>
-      <td style="text-align:left;font-weight:700;">${t.symbol}</td>
-      <td style="text-align:left;font-size:11px;color:var(--muted);">${t.mode || '—'}</td>
-      <td>${fmt(t.price)}</td>
-      <td>
+      <td data-label="Date" style="text-align:left;">${t.date}</td>
+      <td data-label="Symbol" style="text-align:left;font-weight:700;">${t.symbol}</td>
+      <td data-label="Mode" style="text-align:left;font-size:11px;color:var(--muted);">${t.mode || '—'}</td>
+      <td data-label="Price">${fmt(t.price)}</td>
+      <td data-label="Grade">${s.grade ? `<span class="grade ${s.grade}">${s.grade} ${s.score}</span>` : '—'}</td>
+      <td data-label="RVOL">${s.rvol != null ? fmt(s.rvol, 1) + '×' : '—'}</td>
+      <td data-label="Ext·ATR">${s.ext != null ? fmt(s.ext, 1) : '—'}</td>
+      <td data-label="Gap%">${s.gap != null ? fmt(s.gap, 1) : '—'}</td>
+      <td data-label="Outcome">
         <select class="tl-outcome" data-id="${t.id}" style="width:auto;padding:4px 6px;font-size:11px;">
           <option value="open" ${t.outcome==='open'?'selected':''}>Open</option>
           <option value="win" ${t.outcome==='win'?'selected':''}>Win</option>
@@ -1123,21 +1228,22 @@ function renderTradeLogModal(){
           <option value="breakeven" ${t.outcome==='breakeven'?'selected':''}>B/E</option>
         </select>
       </td>
-      <td style="text-align:left;">
+      <td data-label="Notes" style="text-align:left;">
         <input type="text" class="tl-notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" style="width:130px;padding:4px 6px;font-size:11px;">
       </td>
       <td><button class="tl-delete" data-id="${t.id}" style="padding:4px 8px;font-size:11px;color:var(--fail);">✕</button></td>
-    </tr>
-  `).join('');
+    </tr>`; }).join('');
 }
 
 function exportTradeLogCsv(){
   const log = loadTradeLog();
   if(log.length === 0){ statusMsg('No trades to export.', true); return; }
-  const cols = ['date','symbol','mode','price','outcome','notes'];
-  const csv = [cols.join(',')].concat(log.map(t => cols.map(c => {
-    const v = t[c];
+  const cols = ['date','symbol','mode','price','entry','stop','target','grade','score','rvol','ext_atr','gap_pct','outcome','notes'];
+  const flat = log.map(t => { const s = t.setup || {}; return Object.assign({}, t, { grade: s.grade, score: s.score, rvol: s.rvol, ext_atr: s.ext, gap_pct: s.gap }); });
+  const csv = [cols.join(',')].concat(flat.map(t => cols.map(c => {
+    let v = t[c];
     if(v === null || v === undefined) return '';
+    if(typeof v === 'number' && !Number.isInteger(v)) v = Number(v.toFixed(4));
     const s = String(v).replace(/"/g,'""');
     return /[,"\n]/.test(s) ? `"${s}"` : s;
   }).join(','))).join('\n');
@@ -2281,7 +2387,7 @@ const OC = (() => {
   const LOOKBACK_DAYS = { '5Min': 6, '15Min': 12, '30Min': 20, '1Hour': 40, '1Day': 200 };
   const EMA_COLORS = ['#c084fc', '#e0a13b', '#c9d1d1'];
   const MAX_SYMBOLS = 30;
-  const MODE_LABEL = { manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers' };
+  const MODE_LABEL = { manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers', setup: 'Graded setups' };
   const SETTING_IDS = ['ocSymbols', 'ocSide', 'ocSource', 'ocMinDte', 'ocMaxDte', 'ocMinVol', 'ocTopN', 'ocItmPct', 'ocOtmPct', 'ocTf', 'ocEma1', 'ocEma2', 'ocEma3', 'ocSpeed', 'ocOptFeed'];
   const CHECK_IDS = ['ocFollow', 'ocAuto'];
 
@@ -3170,6 +3276,453 @@ const OC = (() => {
   return { setScan, openFor, openScan, onShow, onHide };
 })();
 
+/* =====================================================================
+   SETUPS TAB — grade day-trade / overnight-hold candidates
+   Pure scoring logic sits between the SU-PURE markers (unit-testable).
+   ===================================================================== */
+const SU = (() => {
+  const $ = id => document.getElementById(id);
+  const MIN_PRICE = 2;
+  const RTH_OPEN = 570, RTH_CLOSE = 960;           // minutes since midnight ET
+  const SETTING_IDS = ['suStyle', 'suSource', 'suTopN', 'suSkip', 'suOvnSize'];
+  let busy = false, timer = null, cache = null;
+
+  /* SU-PURE-START */
+  const ET_FMT = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+  });
+  const tagCache = new Map();
+  function etTag(iso){
+    let r = tagCache.get(iso);
+    if(r) return r;
+    const p = {};
+    ET_FMT.formatToParts(new Date(iso)).forEach(x => { if(x.type !== 'literal') p[x.type] = x.value; });
+    r = { d: `${p.year}-${p.month}-${p.day}`, m: (+p.hour % 24) * 60 + (+p.minute) };
+    tagCache.set(iso, r);
+    return r;
+  }
+  const mean = a => a.reduce((s, x) => s + x, 0) / a.length;
+  function lastEma(vals, p){ const s = computeEMASeries(vals, p); return s.length ? s[s.length - 1] : null; }
+
+  // Everything the grader needs for one symbol, as of `ctx.asOf` (ET minutes) on session `ctx.S`.
+  function analyze(sym, raw5, rawD, ctx){
+    const S = ctx.S, asOf = ctx.asOf;
+    const b5 = raw5.map(b => { const t = etTag(b.t); return { o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: t.d, m: t.m }; });
+    const byDate = {};
+    b5.forEach(b => { if(b.m >= RTH_OPEN && b.m < RTH_CLOSE) (byDate[b.d] = byDate[b.d] || []).push(b); });
+    const today = (byDate[S] || []).filter(b => b.m + 5 <= asOf);
+    if(today.length < 3) return { symbol: sym, error: 'no session bars yet' };
+
+    const dHist = rawD.map(b => ({ d: b.t.slice(0, 10), h: b.h, l: b.l, c: b.c })).filter(b => b.d < S)
+      .sort((a, b) => a.d < b.d ? -1 : (a.d > b.d ? 1 : 0));
+    if(dHist.length < 22) return { symbol: sym, error: 'short daily history' };
+    const prevClose = dHist[dHist.length - 1].c;
+    const atrD = computeATR(dHist, 14);
+    if(!(atrD > 0) || !(prevClose > 0)) return { symbol: sym, error: 'no ATR' };
+
+    // --- today's session: price, range, VWAP, volume ---
+    let pv = 0, vv = 0, hi = -Infinity, lo = Infinity;
+    today.forEach(b => { pv += (b.h + b.l + b.c) / 3 * b.v; vv += b.v; if(b.h > hi) hi = b.h; if(b.l < lo) lo = b.l; });
+    const vwap = vv > 0 ? pv / vv : null;
+    const price = today[today.length - 1].c, open = today[0].o;
+
+    // --- same-time-of-day RVOL vs the last (up to) 5 sessions, same feed ---
+    const priorDates = Object.keys(byDate).filter(d => d < S).sort().slice(-5);
+    const priorCums = priorDates.map(d => byDate[d].filter(b => b.m + 5 <= asOf).reduce((s, b) => s + b.v, 0)).filter(v => v > 0);
+    const rvol = priorCums.length >= 2 ? vv / mean(priorCums) : null;
+
+    // --- 30m buckets (RTH only, closed only) for trend + volume fade ---
+    const buckets = [];
+    Object.keys(byDate).sort().forEach(d => {
+      const arr = d === S ? today : byDate[d];
+      let cur = null;
+      arr.forEach(b => {
+        const k = Math.floor((b.m - RTH_OPEN) / 30);
+        if(!cur || cur.k !== k){ cur = { d, k, o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, end: RTH_OPEN + (k + 1) * 30 }; buckets.push(cur); }
+        else { if(b.h > cur.h) cur.h = b.h; if(b.l < cur.l) cur.l = b.l; cur.c = b.c; cur.v += b.v; }
+      });
+    });
+    const full = buckets.filter(x => x.d !== S || x.end <= asOf);
+    const closes30 = full.map(x => x.c);
+    const ema9 = lastEma(closes30, 9), ema21 = lastEma(closes30, 21);
+    const trend30 = (ema9 != null && ema21 != null) ? ema9 > ema21 : null;
+    const todayB = full.filter(x => x.d === S);
+    const lastB = todayB.length ? todayB[todayB.length - 1] : null;
+
+    let recentRvol = null;
+    if(todayB.length >= 3){
+      const avgK = {};
+      full.filter(x => x.d !== S).forEach(x => { (avgK[x.k] = avgK[x.k] || []).push(x.v); });
+      const ratios = todayB.slice(-2).map(x => (avgK[x.k] && avgK[x.k].length >= 2) ? x.v / mean(avgK[x.k]) : null).filter(x => x != null);
+      if(ratios.length) recentRvol = mean(ratios);
+    }
+
+    // --- opening range / premarket high triggers ---
+    const orBars = (byDate[S] || []).filter(b => b.m < RTH_OPEN + 15 && b.m + 5 <= asOf);
+    const orh = (asOf >= RTH_OPEN + 15 && orBars.length) ? Math.max(...orBars.map(b => b.h)) : null;
+    const pmBars = b5.filter(b => b.d === S && b.m >= 240 && b.m < RTH_OPEN);
+    const pmHigh = pmBars.length ? Math.max(...pmBars.map(b => b.h)) : null;
+
+    // --- daily context (today's price stands in for today's close) ---
+    const dc = dHist.map(x => x.c).concat([price]);
+    const dEma10 = lastEma(dc, 10), dEma20 = lastEma(dc, 20);
+    const hi20 = Math.max(...dHist.slice(-20).map(x => x.h));
+    const dTrendUp = dEma10 != null && dEma20 != null && price > dEma20 && dEma10 > dEma20;
+
+    return {
+      symbol: sym, price, open, hi, lo, vwap, prevClose, atrD, rvol, recentRvol,
+      ema9, ema21, trend30, dEma10, dEma20, dTrendUp, hi20, pmHigh, orh,
+      pct: (price / prevClose - 1) * 100,
+      gap: (open / prevClose - 1) * 100,
+      moveATR: (price - prevClose) / atrD,
+      extVwapATR: vwap != null ? (price - vwap) / atrD : null,
+      extDailyATR: dEma10 != null ? (price - dEma10) / atrD : null,
+      loc: hi > lo ? (price - lo) / (hi - lo) : 0.5,
+      aboveORH: orh != null ? price > orh : null,
+      abovePM: pmHigh != null ? price > pmHigh : null,
+      lastGreen: lastB ? lastB.c > lastB.o : null,
+      lastBucketLow: lastB ? lastB.l : null
+    };
+  }
+
+  function regimeOf(m){
+    if(!m || m.error) return { r: 'mixed', txt: 'SPY data not available yet — market gate neutral' };
+    const above = m.vwap != null && m.price > m.vwap, below = m.vwap != null && m.price < m.vwap;
+    const t = m.trend30 === true ? '30m trend up' : (m.trend30 === false ? '30m trend down' : '30m trend n/a');
+    const txt = `SPY ${m.pct >= 0 ? '+' : ''}${m.pct.toFixed(2)}% · ${above ? 'above' : (below ? 'below' : 'at')} VWAP · ${t}`;
+    if(above && m.trend30 === true && m.pct > -0.3) return { r: 'on', txt };
+    if((below && m.trend30 === false) || m.pct < -0.8) return { r: 'off', txt };
+    return { r: 'mixed', txt };
+  }
+
+  function makeScorer(){
+    let s = 0, cap = 100; const f = [];
+    return {
+      add(pts, txt, kind){ s += pts; f.push({ t: txt, k: kind }); },
+      note(txt, kind){ f.push({ t: txt, k: kind }); },
+      cap(c){ if(c < cap) cap = c; },
+      done(){
+        const score = Math.max(0, Math.min(cap, Math.round(s)));
+        const grade = score >= 80 ? 'A' : (score >= 65 ? 'B' : (score >= 50 ? 'C' : 'X'));
+        const order = { bad: 0, warn: 1, good: 2 };
+        f.sort((a, b) => order[a.k] - order[b.k]);
+        return { score, grade, flags: f };
+      }
+    };
+  }
+  const x1 = v => v.toFixed(1);
+  const CAP_C = 64, CAP_B = 79;   // highest score a capped setup can reach (max grade C / max grade B)
+
+  function scoreDay(m, reg){
+    const g = makeScorer();
+    if(m.rvol == null) g.note('RVOL n/a', 'warn');
+    else if(m.rvol >= 2) g.add(20, `RVOL ${x1(m.rvol)}×`, 'good');
+    else if(m.rvol >= 1.5) g.add(13, `RVOL ${x1(m.rvol)}×`, 'good');
+    else if(m.rvol >= 1){ g.add(5, `RVOL ${x1(m.rvol)}×`, 'warn'); g.cap(CAP_B); }
+    else { g.note(`Thin volume ${x1(m.rvol)}×`, 'bad'); g.cap(CAP_C); }
+
+    if(m.vwap != null){
+      if(m.price > m.vwap) g.add(15, 'Above VWAP', 'good');
+      else { g.note('Below VWAP', 'bad'); g.cap(CAP_C); }
+    }
+    if(m.trend30 === true){
+      if(m.price > m.ema9) g.add(10, '30m trend up', 'good');
+      else g.add(5, 'Under 30m EMA9', 'warn');
+    } else if(m.trend30 === false){ g.note('30m trend down', 'bad'); g.cap(CAP_B); }
+
+    if(m.aboveORH === true) g.add(10, 'Above opening range', 'good');
+    else if(m.aboveORH === false) g.note('Inside opening range', 'warn');
+    if(m.abovePM === true) g.add(5, 'Above PM high', 'good');
+
+    if(m.rs != null){
+      if(m.rs >= 1) g.add(10, `+${x1(m.rs)}% vs SPY`, 'good');
+      else if(m.rs >= 0.3) g.add(5, `+${x1(m.rs)}% vs SPY`, 'good');
+      else g.note('Lagging SPY', 'warn');
+    }
+    if(m.extVwapATR != null && m.extVwapATR >= 0){
+      if(m.extVwapATR <= 0.6) g.add(10, 'Near VWAP', 'good');
+      else if(m.extVwapATR <= 1.0) g.add(5, `${x1(m.extVwapATR)} ATR over VWAP`, 'warn');
+      else if(m.extVwapATR <= 1.5) g.note(`Extended ${x1(m.extVwapATR)} ATR over VWAP`, 'warn');
+      else { g.add(-10, `Chasing: ${x1(m.extVwapATR)} ATR over VWAP`, 'bad'); g.cap(CAP_C); }
+    }
+    if(m.moveATR > 3){ g.add(-10, `Already ran ${x1(m.moveATR)} ATR`, 'bad'); g.cap(CAP_B); }
+    if(m.loc >= 0.75) g.add(10, 'Holding highs', 'good');
+    else if(m.loc >= 0.6) g.add(5, 'Upper half of range', 'good');
+    else if(m.loc < 0.4) g.add(-5, 'Fading off highs', 'bad');
+
+    if(m.recentRvol != null){
+      if(m.recentRvol < 0.6){ g.add(-10, 'Volume fading', 'bad'); g.cap(CAP_B); }
+      else if(m.recentRvol >= 1) g.add(5, 'Volume holding', 'good');
+    }
+    if(m.dTrendUp) g.add(5, 'Daily uptrend', 'good');
+
+    if(reg === 'on') g.add(10, 'Market risk-on', 'good');
+    else if(reg === 'mixed') g.add(4, 'Market mixed', 'warn');
+    else { g.add(-5, 'Market risk-off', 'bad'); g.cap(CAP_B); }
+    return g.done();
+  }
+
+  function scoreOvernight(m, reg){
+    const g = makeScorer();
+    if(m.loc >= 0.85) g.add(20, 'Closing at highs', 'good');
+    else if(m.loc >= 0.7) g.add(12, 'Strong close', 'good');
+    else if(m.loc >= 0.5) g.add(4, 'Mid-range close', 'warn');
+    else { g.add(-10, 'Weak close', 'bad'); g.cap(CAP_C); }
+
+    if(m.rvol == null) g.note('RVOL n/a', 'warn');
+    else if(m.rvol >= 2) g.add(20, `RVOL ${x1(m.rvol)}×`, 'good');
+    else if(m.rvol >= 1.5) g.add(12, `RVOL ${x1(m.rvol)}×`, 'good');
+    else if(m.rvol >= 1){ g.add(5, `RVOL ${x1(m.rvol)}×`, 'warn'); g.cap(CAP_B); }
+    else { g.note(`Thin volume ${x1(m.rvol)}×`, 'bad'); g.cap(CAP_C); }
+
+    if(m.vwap != null){
+      if(m.price > m.vwap) g.add(10, 'Above VWAP', 'good');
+      else { g.note('Below VWAP', 'bad'); g.cap(CAP_C); }
+    }
+    if(m.dTrendUp) g.add(10, 'Daily uptrend', 'good');
+    else if(m.dEma20 != null && m.price > m.dEma20) g.add(5, 'Above daily EMA20', 'warn');
+    else { g.add(-5, 'Daily downtrend', 'bad'); g.cap(CAP_B); }
+
+    if(m.price >= m.hi20) g.add(10, 'New 20-day high', 'good');
+    else if(m.price >= m.hi20 * 0.97) g.add(6, 'Near 20-day high', 'good');
+
+    if(m.moveATR > 3){ g.add(-15, `Blow-off risk: ${x1(m.moveATR)} ATR move`, 'bad'); g.cap(CAP_C); }
+    else if(m.moveATR > 2) g.add(3, `Big move ${x1(m.moveATR)} ATR`, 'warn');
+    else if(m.moveATR >= 0.5) g.add(10, `Healthy ${x1(m.moveATR)} ATR move`, 'good');
+
+    if(m.extDailyATR != null){
+      if(m.extDailyATR > 3){ g.add(-10, 'Stretched from daily EMA10', 'bad'); g.cap(CAP_B); }
+      else if(m.extDailyATR <= 2) g.add(5, 'Not stretched', 'good');
+    }
+    if(m.rs != null && m.rs >= 1) g.add(5, `+${x1(m.rs)}% vs SPY`, 'good');
+    if(m.lastGreen === true && (m.recentRvol == null || m.recentRvol >= 0.8)) g.add(5, 'Bid into the close', 'good');
+
+    if(reg === 'on') g.add(10, 'Market risk-on', 'good');
+    else if(reg === 'mixed') g.add(4, 'Market mixed', 'warn');
+    else { g.add(-10, 'Market risk-off', 'bad'); g.cap(CAP_B); }
+    return g.done();
+  }
+
+  // ATR-based risk box. Day: stop under nearest support (VWAP / 30m EMA21 / last 30m low), 0.25–0.8 ATR.
+  // Overnight: stop under today's low, 0.6–1.25 ATR. Target = 2R either way.
+  function buildLevels(m, style, riskBudget, sizeMult){
+    const atr = m.atrD, price = m.price;
+    let risk;
+    if(style === 'day'){
+      const sup = [m.vwap, m.ema21, m.lastBucketLow].filter(v => v != null && v < price);
+      const struct = sup.length ? Math.max(...sup) : price - 0.5 * atr;
+      risk = Math.min(Math.max(price - struct + 0.05 * atr, 0.25 * atr), 0.8 * atr);
+    } else {
+      risk = Math.min(Math.max(price - (m.lo - 0.1 * atr), 0.6 * atr), 1.25 * atr);
+    }
+    const stop = price - risk, target = price + 2 * risk;
+    const budget = riskBudget * (style === 'overnight' ? sizeMult : 1);
+    const shares = Math.max(0, Math.floor(budget / risk));
+    return { entry: price, stop, target, risk, shares, riskPct: risk / price * 100 };
+  }
+  /* SU-PURE-END */
+
+  /* ------------------------------ UI / IO ------------------------------ */
+  function setStatus(msg, isErr){ const el = $('suStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
+  const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+  const parseSyms = s => (s || '').split(/[\s,]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+
+  function saveSettings(){
+    const o = {};
+    SETTING_IDS.forEach(id => { o[id] = $(id).value; });
+    try { localStorage.setItem('su_settings', JSON.stringify(o)); } catch(e){}
+  }
+  function restoreSettings(){
+    try {
+      const o = JSON.parse(localStorage.getItem('su_settings') || '{}');
+      SETTING_IDS.forEach(id => { if(o[id] !== undefined) $(id).value = o[id]; });
+    } catch(e){}
+  }
+
+  function timingHint(style, S, asOf, live){
+    if(!live) return style === 'overnight'
+      ? `Session ${S} is closed — grading on final prices. Re-grade 15:30–15:55 ET tomorrow for a live read.`
+      : `Session ${S} is closed — this is a review of how setups looked into the close.`;
+    const hh = String(Math.floor(asOf / 60)).padStart(2, '0') + ':' + String(asOf % 60).padStart(2, '0');
+    if(style === 'day'){
+      if(asOf < 600) return `${hh} ET — opening range is still fresh. Wait for 10:00+ for cleaner reads.`;
+      if(asOf >= 690 && asOf < 810) return `${hh} ET — midday chop. Only take A setups.`;
+      if(asOf >= 930) return `${hh} ET — too late for a new day trade. Switch to Overnight or stand aside.`;
+      return `${hh} ET — good window for entries.`;
+    }
+    if(asOf < 900) return `${hh} ET — overnight grades firm up after 15:30 ET. Scores now can change into the close.`;
+    return `${hh} ET — prime window for overnight decisions.`;
+  }
+
+  function render(rows, meta){
+    const { style, S, asOf, live, reg, regTxt, skipped, errCount } = meta;
+    const shown = rows.filter(r => r.grade === 'A' || r.grade === 'B');
+    const nA = shown.filter(r => r.grade === 'A').length, nB = shown.length - nA;
+
+    const regLabel = reg === 'on' ? 'RISK-ON' : (reg === 'off' ? 'RISK-OFF' : 'MIXED');
+    $('suRegime').innerHTML = `<div class="panel regime ${reg}"><b>Market ${regLabel}</b> — ${regTxt}<div class="hint">${timingHint(style, S, asOf, live)}</div></div>`;
+
+    let html = `<div class="panel"><table><thead><tr>
+      <th>Symbol</th><th>Grade</th><th>%Chg</th><th>RVOL</th><th>Stop</th><th>Target</th><th>Shares</th>
+    </tr></thead><tbody>`;
+    shown.forEach((r, i) => {
+      const m = r.m, L = r.lv;
+      const why = r.flags.map(f => f.t).join(' · ').replace(/"/g, '&quot;');
+      html += `<tr class="${r.grade === 'A' ? 'su-A' : ''}">
+        <td data-label="Symbol"><span class="sym" data-index="${i}">${r.symbol}</span> <span class="vol">$${L.entry.toFixed(2)}</span></td>
+        <td data-label="Grade"><span class="grade ${r.grade}" title="${why}">${r.grade} ${r.score}</span></td>
+        <td data-label="% Chg"><span class="pct" style="color:${m.pct >= 0 ? 'var(--pass)' : 'var(--fail)'};">${m.pct >= 0 ? '+' : ''}${m.pct.toFixed(1)}%</span></td>
+        <td data-label="RVOL">${m.rvol != null ? m.rvol.toFixed(1) + '×' : '—'}</td>
+        <td data-label="Stop">$${L.stop.toFixed(2)} <span class="vol">(-${L.riskPct.toFixed(1)}%)</span></td>
+        <td data-label="Target">$${L.target.toFixed(2)}</td>
+        <td data-label="Shares">${L.shares || '—'}</td>
+      </tr>`;
+    });
+    if(!shown.length){
+      html += `<tr><td colspan="7" style="text-align:center;opacity:0.7;padding:16px;">No A or B setups right now. Standing aside is a position.</td></tr>`;
+    }
+    html += `</tbody></table></div>`;
+    $('suResults').innerHTML = html;
+
+    const list = shown.map(r => r.symbol);
+    document.querySelectorAll('#suResults .sym').forEach(el => {
+      el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), null));
+    });
+
+    const ab = rows.filter(r => r.grade === 'A' || r.grade === 'B').map(r => r.symbol);
+    const metaOC = {};
+    rows.forEach((r, i) => { metaOC[r.symbol] = { rank: i + 1, percent_change: r.m.pct }; });
+    OC.setScan('setup', ab, ab, metaOC);
+    $('suTabCount').textContent = (nA + nB) ? `(${nA + nB})` : '';
+
+    let msg = `${style === 'day' ? 'Day trade' : 'Overnight'} · ${S}${live ? ' live' : ' close'} · ${nA} A · ${nB} B`;
+    if(skipped) msg += ` · ${skipped} on skip list`;
+    if(errCount) msg += ` · ${errCount} lacked data`;
+    setStatus(msg);
+  }
+
+  async function run(){
+    if(busy) return;
+    if(!requireAlpacaKeys()){ showTab('scanner'); return; }
+    busy = true; $('suRunBtn').disabled = true;
+    try {
+      saveSettings();
+      tagCache.clear();
+      const style = $('suStyle').value, source = $('suSource').value;
+      const topN = clamp(parseInt($('suTopN').value, 10) || 25, 5, 40);
+      const feed = $('feed').value;
+      const skip = new Set(parseSyms($('suSkip').value));
+
+      // 1) candidate pool
+      let pool = [], skipped = 0;
+      if(source === 'last'){
+        if(!lastSymbols.length){ setStatus('Run a scan on the Scanner tab first — this mode grades its list.', true); return; }
+        const cands = [...new Set(lastSymbols.map(s => s.toUpperCase()))];
+        pool = cands.filter(s => !skip.has(s)).slice(0, 40);
+        skipped = cands.filter(s => skip.has(s)).length;
+      } else {
+        setStatus('Ranking movers…');
+        const wl = parseSyms($('manualList').value);
+        let sp = [];
+        if(source !== 'watch'){ try { sp = await getSP500Tickers(); } catch(e){} }
+        const universe = [...new Set(source === 'sp500' ? sp : (source === 'both' ? wl.concat(sp) : wl))];
+        if(!universe.length){ setStatus('Universe is empty — add watchlist tickers in Settings.', true); return; }
+        const snaps = {};
+        let failed = 0;
+        const groups = chunk(universe, 100);
+        for(let i = 0; i < groups.length; i++){
+          setStatus(`Ranking movers… ${i + 1}/${groups.length}`);
+          try { Object.assign(snaps, await fetchSnapshotsChunk(groups[i], feed)); } catch(e){ failed++; }
+        }
+        if(failed === groups.length) throw new Error('Could not load snapshots from Alpaca — check your keys and feed.');
+        const ranked = [];
+        Object.keys(snaps).forEach(sym => {
+          const s = snaps[sym]; if(!s) return;
+          const prev = s.prevDailyBar && s.prevDailyBar.c;
+          const cur = (s.latestTrade && s.latestTrade.p) || (s.dailyBar && s.dailyBar.c);
+          if(!prev || !cur) return;
+          ranked.push({ symbol: sym, pct: (cur / prev - 1) * 100, price: cur });
+        });
+        ranked.sort((a, b) => b.pct - a.pct);
+        const eligible = ranked.filter(r => r.pct >= 0.5 && r.price >= MIN_PRICE);
+        skipped = eligible.filter(r => skip.has(r.symbol)).length;
+        pool = eligible.filter(r => !skip.has(r.symbol)).slice(0, topN).map(r => r.symbol);
+      }
+      pool = pool.filter(s => s !== 'SPY');
+      if(!pool.length){
+        $('suResults').innerHTML = ''; $('suRegime').innerHTML = '';
+        setStatus('No movers above +0.5% at $2+ right now.', true);
+        return;
+      }
+
+      // 2) bars (paginated; same feed for price + volume so RVOL is apples-to-apples)
+      const list = [...new Set(pool.concat('SPY'))];
+      setStatus(`Loading intraday + daily bars for ${list.length} symbols…`);
+      const now = Date.now();
+      const [raw5, rawD] = await Promise.all([
+        fetchBars(list, '5Min', new Date(now - 10 * 864e5).toISOString(), feed),
+        fetchBars(list, '1Day', new Date(now - 75 * 864e5).toISOString(), feed)
+      ]);
+
+      // 3) session + as-of time
+      const rthDates = arr => [...new Set(arr.map(b => etTag(b.t)).filter(t => t.m >= RTH_OPEN && t.m < RTH_CLOSE).map(t => t.d))].sort();
+      let dates = raw5.SPY ? rthDates(raw5.SPY) : [];
+      if(!dates.length) dates = rthDates(list.flatMap(s => raw5[s] || []));
+      if(!dates.length) throw new Error('No regular-session bars returned — check your keys, feed, and that the market has traded recently.');
+      const S = dates[dates.length - 1];
+      const nt = etTag(new Date(now).toISOString());
+      const live = nt.d === S && nt.m < RTH_CLOSE;
+      const asOf = live ? nt.m : RTH_CLOSE;
+      const ctx = { S, asOf };
+
+      // 4) market gate
+      const spyM = (raw5.SPY && rawD.SPY) ? analyze('SPY', raw5.SPY, rawD.SPY, ctx) : null;
+      const { r: reg, txt: regTxt } = regimeOf(spyM);
+      const spyPct = (spyM && !spyM.error) ? spyM.pct : null;
+
+      // 5) grade
+      const risk = parseFloat($('defaultRisk').value) || 50;
+      const sizeMult = clamp(parseFloat($('suOvnSize').value) || 0.5, 0.1, 1);
+      const rows = []; let errCount = 0;
+      pool.forEach(sym => {
+        if(!raw5[sym] || !rawD[sym]){ errCount++; return; }
+        const m = analyze(sym, raw5[sym], rawD[sym], ctx);
+        if(m.error){ errCount++; return; }
+        m.rs = spyPct != null ? m.pct - spyPct : null;
+        const sc = style === 'day' ? scoreDay(m, reg) : scoreOvernight(m, reg);
+        const lv = buildLevels(m, style, risk, sizeMult);
+        rows.push({ symbol: sym, m, lv, score: sc.score, grade: sc.grade, flags: sc.flags });
+        rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
+          lastClose: m.price, mode: style === 'day' ? 'setup_day' : 'setup_overnight',
+          setup: { style, grade: sc.grade, score: sc.score, rvol: m.rvol, ext: style === 'day' ? m.extVwapATR : m.moveATR, gap: m.gap, at: Date.now() }
+        });
+      });
+      rows.sort((a, b) => b.score - a.score || b.m.pct - a.m.pct);
+      if(!rows.length && spyM && spyM.error){
+        setStatus('Not enough bars yet today (need ~15 minutes of regular-session data). Try again after 9:45 ET.', true);
+        return;
+      }
+      cache = { rows, meta: { style, S, asOf, live, reg, regTxt, skipped, errCount } };
+      render(cache.rows, cache.meta);
+    } catch(e){
+      setStatus(e.message, true);
+    } finally {
+      busy = false; $('suRunBtn').disabled = false;
+    }
+  }
+
+  $('suRunBtn').addEventListener('click', run);
+  SETTING_IDS.forEach(id => { $(id).addEventListener('change', saveSettings); });
+  $('suSkip').addEventListener('input', saveSettings);
+  $('suAuto').addEventListener('change', e => {
+    if(timer){ clearInterval(timer); timer = null; }
+    if(e.target.checked) timer = setInterval(() => { if(!document.hidden && !$('viewSetups').hidden) run(); }, 5 * 60 * 1000);
+  });
+  restoreSettings();
+  return { run };
+})();
+
 const PD = (() => {
   const $ = id => document.getElementById(id);
   const EXTRA_POOL = ['CRWD', 'PANW', 'NVDA', 'AMD', 'TSLA', 'AAPL', 'META', 'MSFT', 'AMZN', 'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'MARA', 'RIOT', 'DKNG', 'HOOD', 'CVNA', 'SOFI', 'RIVN'];
@@ -3292,6 +3845,7 @@ const PD = (() => {
 function showTab(name){
   document.querySelectorAll('#mainTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.getElementById('viewScanner').hidden = name !== 'scanner';
+  document.getElementById('viewSetups').hidden = name !== 'setups';
   document.getElementById('viewPrevDay').hidden = name !== 'prevday';
   document.getElementById('viewOptions').hidden = name !== 'options';
   if(name === 'options') OC.onShow(); else OC.onHide();
