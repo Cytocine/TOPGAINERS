@@ -103,7 +103,7 @@
   .draw-btn.level.armed{background:#3a3210;border-color:#facc15;color:#facc15;}
   #toastWrap{position:fixed;left:0;right:0;top:calc(10px + env(safe-area-inset-top));z-index:200;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 10px;}
   .toast{pointer-events:auto;max-width:460px;width:100%;background:#1c2427;border:1px solid var(--line);border-left:4px solid var(--warn);color:var(--text);border-radius:8px;padding:11px 13px;font-family:var(--mono);font-size:13px;font-weight:600;box-shadow:0 6px 24px rgba(0,0,0,0.5);}
-  .toast.entry{border-left-color:#5b8def;} .toast.stop{border-left-color:var(--fail);} .toast.target{border-left-color:var(--pass);} .toast.lvl{border-left-color:#facc15;}
+  .toast.entry{border-left-color:#5b8def;} .toast.stop{border-left-color:var(--fail);} .toast.target{border-left-color:#39d98a;} .toast.lvl{border-left-color:#facc15;}
   .draw-info{flex:1;min-width:0;text-align:right;font-family:var(--mono);font-size:11px;line-height:1.3;color:var(--muted);white-space:pre-line;overflow:hidden;}
 
   /* Mobile Layout */
@@ -209,8 +209,6 @@
   <div id="viewScanner">
   <div class="action-bar">
     <div class="action-bar-left">
-      <button class="massive-btn" id="btnScanTopGainers">⚡ Top Gainers (&gt;1M Vol &amp; &gt;$1)</button>
-      <button class="strict" id="btnScanStrictGainers">🎯 Strict Gainers</button>
       <button class="primary" id="btnScanManual">Scan Watchlist</button>
       <button id="btnLoadGainers">S&amp;P 500 Gainers</button>
       <button class="massive-btn" id="btnScanStFlip" style="background:#1b3b2f;border-color:#2a5c48;color:var(--pass);">🚀 ST Flip (5 Bars)</button>
@@ -250,6 +248,13 @@
           <option value="sip">SIP</option>
         </select>
       </div>
+      <div class="field" style="flex:0 1 150px;">
+        <label>Signal bars (scanner)</label>
+        <select id="barMode">
+          <option value="closed" selected>Closed 30m bars</option>
+          <option value="live">Incl. forming bar</option>
+        </select>
+      </div>
       <div class="field" style="flex:0 1 80px;">
         <label># Gainers</label>
         <input type="number" id="gainerCount" value="10" min="1" max="30">
@@ -264,39 +269,6 @@
       <div class="field" style="flex:0 1 90px;">
         <label>ST Mult</label>
         <input type="number" id="stAtrMult" value="3" min="0.5" max="10" step="0.1">
-      </div>
-      <div class="field" style="flex:0 1 110px;">
-        <label>Strict: Ext. Cap (x ATR14)</label>
-        <input type="number" id="strictExtAtrMult" value="2.0" min="0.1" max="20" step="0.1">
-      </div>
-      <div class="field" style="flex:0 1 100px;">
-        <label>Strict: Max Gap (%)</label>
-        <input type="number" id="strictGapCap" value="40" min="1" max="500" step="1">
-      </div>
-      <div class="field" style="flex:0 1 110px;">
-        <label>Strict: Min Vol Hold Ratio</label>
-        <input type="number" id="strictVolRatio" value="0.4" min="0" max="1" step="0.05">
-      </div>
-      <div class="field" style="flex:0 1 90px;">
-        <label>Strict: Min RVOL</label>
-        <input type="number" id="strictMinRvol" value="1.5" min="0" max="20" step="0.1">
-      </div>
-    </div>
-    <div class="row">
-      <div class="field" style="flex:0 1 130px;">
-        <label>Strict: Min Mins After Open</label>
-        <input type="number" id="strictMinMinutes" value="10" min="0" max="390" step="5">
-      </div>
-      <div class="field" style="flex:0 1 130px;">
-        <label>Strict: Max Mins After Open</label>
-        <input type="number" id="strictMaxMinutes" value="360" min="0" max="390" step="5">
-      </div>
-      <div class="field" style="flex:0 1 160px;">
-        <label>Strict: Market Gate (SPY)</label>
-        <div class="toggle-row" style="margin-top:6px;">
-          <input type="checkbox" id="strictMarketGate" checked>
-          <label for="strictMarketGate">Require SPY&gt;VWAP &amp; EMA9</label>
-        </div>
       </div>
     </div>
     <div class="divider"></div>
@@ -566,7 +538,7 @@ const ALPACA_BASE = 'https://data.alpaca.markets';
 const WIKI_SP500_URL = 'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies&format=json&prop=text&origin=*';
 
 let autoTimer = null;
-let lastMode = 'top_gainers';
+let lastMode = 'manual';
 let lastSymbols = [];
 let sp500Cache = null;
 let rowDataMap = {};
@@ -574,14 +546,15 @@ let activeChart = null;
 let activeCandleSeries = null;
 let activeModalSymbol = null;
 let activeSymbolIndex = -1;
-let modalList = [];      // symbols the chart modal steps through (◀ ▶)
-let chartAsOf = null;    // 'YYYY-MM-DD' session the modal chart starts from (Prev Day tab), else null = latest
+let modalList = [];
+let chartAsOf = null;
 let activeCloudRedraw = null;
 
 function restoreStoredConfig(){
   const k = localStorage.getItem('alpaca_api_key');
   const s = localStorage.getItem('alpaca_api_secret');
   const f = localStorage.getItem('alpaca_feed');
+  const bm = localStorage.getItem('alpaca_bar_mode');
   const list = localStorage.getItem('alpaca_manual_list');
   const risk = localStorage.getItem('alpaca_default_risk');
   const stLen = localStorage.getItem('st_atr_length');
@@ -594,6 +567,7 @@ function restoreStoredConfig(){
   if(k) document.getElementById('apiKey').value = k;
   if(s) document.getElementById('apiSecret').value = s;
   if(f) document.getElementById('feed').value = f;
+  if(bm) document.getElementById('barMode').value = bm;
   if(list) document.getElementById('manualList').value = list;
   if(risk) document.getElementById('defaultRisk').value = risk;
   if(stLen) {
@@ -609,6 +583,7 @@ function saveStoredConfig(){
   localStorage.setItem('alpaca_api_key', document.getElementById('apiKey').value.trim());
   localStorage.setItem('alpaca_api_secret', document.getElementById('apiSecret').value.trim());
   localStorage.setItem('alpaca_feed', document.getElementById('feed').value);
+  localStorage.setItem('alpaca_bar_mode', document.getElementById('barMode').value);
   localStorage.setItem('alpaca_manual_list', document.getElementById('manualList').value.trim());
   localStorage.setItem('alpaca_default_risk', document.getElementById('defaultRisk').value.trim());
   localStorage.setItem('st_atr_length', document.getElementById('stAtrLength').value);
@@ -621,6 +596,7 @@ function saveStoredConfig(){
 document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
 document.getElementById('apiSecret').addEventListener('input', saveStoredConfig);
 document.getElementById('feed').addEventListener('change', saveStoredConfig);
+document.getElementById('barMode').addEventListener('change', saveStoredConfig);
 document.getElementById('manualList').addEventListener('input', saveStoredConfig);
 document.getElementById('defaultRisk').addEventListener('input', saveStoredConfig);
 document.getElementById('stAtrLength').addEventListener('input', (e) => {
@@ -813,14 +789,13 @@ function SuperTrend(r, period, multiplier) {
     return { st, trend, up, down };
 }
 
-// Calculate bars since trend flipped to green (1)
 function barsSinceSupertrendFlip(trend){
   const n = trend.length;
   let i = n - 1;
-  if(trend[i] !== 1) return null; // must be currently bullish
+  if(trend[i] !== 1) return null;
   let count = 0;
   while(i - 1 >= 0 && trend[i-1] === 1){ i--; count++; }
-  return count; // 0 = flipped on current bar, 1 = flipped 1 bar ago, etc.
+  return count;
 }
 
 function chunk(arr, size){
@@ -848,52 +823,6 @@ async function fetchBars(symbols, timeframe, start, feed, end){
   return data.bars || {};
 }
 
-async function fetchTopMarketGainers(targetCount) {
-  statusMsg('Querying Alpaca Movers & Market Snapshots…');
-  let candidates = [];
-
-  try {
-    const res = await fetch(`${ALPACA_BASE}/v1beta1/screener/stocks/movers?top=50`, {
-      headers: alpacaHeaders()
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      candidates = (data.gainers || []).map(g => g.symbol);
-    }
-  } catch (e) {
-    console.warn('Movers endpoint failed, expanding universe pool:', e);
-  }
-
-  if (!candidates || candidates.length === 0) {
-    statusMsg('Off-hours: Ranking gainers from broad active universe…');
-    const spTickers = await getSP500Tickers().catch(() => []);
-    const extraPool = ['CRWD', 'PANW', 'NVDA', 'AMD', 'TSLA', 'AAPL', 'META', 'MSFT', 'AMZN', 'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'MARA', 'RIOT', 'DKNG', 'HOOD', 'CVNA', 'SOFI', 'RIVN'];
-    candidates = [...new Set([...spTickers.slice(0, 80), ...extraPool])];
-  }
-
-  const feed = document.getElementById('feed').value;
-  const snaps = await fetchSnapshotsChunk(candidates, feed);
-  const filtered = [];
-
-  Object.keys(snaps).forEach(sym => {
-    const snap = snaps[sym];
-    if (!snap) return;
-
-    const price = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || (snap.prevDailyBar && snap.prevDailyBar.c) || 0;
-    const prev = (snap.prevDailyBar && snap.prevDailyBar.c) || price;
-    const volume = (snap.dailyBar && snap.dailyBar.v > 0) ? snap.dailyBar.v : ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
-    const pct = prev > 0 ? ((price - prev) / prev) * 100 : 0;
-
-    if (price > 1.0 && volume > 1000000) {
-      filtered.push({ symbol: sym, percent_change: pct, price: price, volume: volume });
-    }
-  });
-
-  filtered.sort((a, b) => b.percent_change - a.percent_change);
-  return filtered.slice(0, targetCount);
-}
-
 async function getSP500Tickers(){
   if(sp500Cache) return sp500Cache;
   const res = await fetch(WIKI_SP500_URL);
@@ -911,7 +840,6 @@ async function getSP500Tickers(){
   return tickers;
 }
 
-// ---------------- Supertrend Flip Scanner Logic ----------------
 async function runSupertrendFlipScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'st_flip';
@@ -956,7 +884,6 @@ async function runSupertrendFlipScan(){
         const stRes = SuperTrend(bars, stLen, stMult);
         const flipAge = barsSinceSupertrendFlip(stRes.trend);
 
-        // Filter: Must have flipped green within the last 5 bars (0 to 4)
         if(flipAge !== null && flipAge <= 4){
           const lastBar = bars[bars.length - 1];
           const snap = snapshots[sym];
@@ -969,7 +896,6 @@ async function runSupertrendFlipScan(){
       });
     }
 
-    // Sort by freshest flips first (0 bars ago, then 1, etc.)
     results.sort((a, b) => a.flipAge - b.flipAge);
     lastSymbols = results.map(r => r.symbol);
 
@@ -1018,27 +944,19 @@ function renderSupertrendFlipResults(rows, gainerMeta){
   });
 }
 
+const BAR30_MS = 30 * 60 * 1000;
+function closedBarsOnly(){ const el = document.getElementById('barMode'); return !el || el.value !== 'live'; }
+function isClosed30(bar, nowMs){ return new Date(bar.t).getTime() + BAR30_MS <= nowMs; }
+
 async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const symbols = symbolList.map(s => s.toUpperCase());
   const now = new Date();
+  const nowMs = now.getTime();
+  const closedOnly = closedBarsOnly();
   const tenDaysAgo = new Date(now.getTime() - 10*24*3600*1000).toISOString();
   const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
   const fortyDaysAgo = new Date(now.getTime() - 40*24*3600*1000).toISOString();
-  const todayET = etParts(now).dateStr;
-  const needsDaily = (mode === 'top_gainers' || mode === 'strict_gainers');
-  const isStrict = (mode === 'strict_gainers');
-
-  const extAtrMult = isStrict ? (parseFloat(document.getElementById('strictExtAtrMult').value) || 2.0) : null;
-  const gapCapPct = isStrict ? (parseFloat(document.getElementById('strictGapCap').value) || 40) : null;
-  const volRatioMin = isStrict ? (parseFloat(document.getElementById('strictVolRatio').value) || 0.4) : null;
-  const minRvol = isStrict ? (parseFloat(document.getElementById('strictMinRvol').value) || 1.5) : null;
-  const minMinutes = isStrict ? (parseFloat(document.getElementById('strictMinMinutes').value) || 0) : null;
-  const maxMinutes = isStrict ? (parseFloat(document.getElementById('strictMaxMinutes').value) || 390) : null;
-  const marketGateEnabled = isStrict && document.getElementById('strictMarketGate').checked;
-
-  const elapsedMinutes = isStrict ? minutesSinceOpen(now, todayET) : null;
-  const entryWindowOk = isStrict ? (elapsedMinutes === null ? false : (elapsedMinutes >= minMinutes && elapsedMinutes <= maxMinutes)) : true;
-  const marketGate = (isStrict && marketGateEnabled) ? await fetchMarketGate(feed, tenDaysAgo, oneDayAgo, todayET) : { ok: true, reason: null };
+  const needsDaily = (mode === 'manual' || mode === 'sp500');
 
   const [bars30, bars5, barsDaily] = await Promise.all([
     fetchBars(symbols, '30Min', tenDaysAgo, feed),
@@ -1047,16 +965,13 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   ]);
 
   const rows = symbols.map(sym => {
-    const b30 = (bars30[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+    const b30All = (bars30[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+    const b30 = closedOnly ? b30All.filter(b => isClosed30(b, nowMs)) : b30All;
+    const livePx = b30All.length ? b30All[b30All.length - 1].c : null;
     const b5 = (bars5[sym] || []);
     const bDaily = (barsDaily[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
-    let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null,
-      dailyClose:null, dailyEma13:null, atr14:null, vwap:null, extAtr:null, volRatio:null, rvol:null, gapPct:null,
-      dailyMagicTrend:null,
-      c1:false, c2:false, c3:false, c4:false, c5:false, c6:false, c7:false, c8:false, c9GapOk:false, c10Rvol:false, c11:false,
-      entryWindowOk, marketGateOk: marketGate.ok, marketGateReason: marketGate.reason,
-      pass:false, lastBar:null };
+    let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null, pass:false, lastBar:null };
 
     if(b30.length < 15){
       row.error = 'insufficient bars';
@@ -1064,9 +979,8 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     }
     const closes = b30.map(b => b.c);
 
-    const useFast = (mode === 'top_gainers' || mode === 'strict_gainers');
-    const fastPeriod = useFast ? 5 : 9;
-    const slowPeriod = useFast ? 13 : 21;
+    const fastPeriod = 9;
+    const slowPeriod = 21;
 
     const emaFastSeries = computeEMASeries(closes, fastPeriod);
     const emaSlowSeries = computeEMASeries(closes, slowPeriod);
@@ -1076,6 +990,7 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     const lastClose = lastBar.c;
 
     let pmHigh = null, pmLow = null;
+    const todayET = etParts(now).dateStr;
     b5.forEach(bar => {
       const p = etParts(new Date(bar.t));
       if(isPremarket(p, todayET)){
@@ -1084,112 +999,29 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
       }
     });
 
-    let dailyClose = null, dailyEma13 = null, atr14 = null, dailyMagicTrend = null;
-    if(needsDaily && bDaily.length >= 13){
-      const dCloses = bDaily.map(b => b.c);
-      const dEma13Series = computeEMASeries(dCloses, 13);
-      dailyEma13 = dEma13Series[dEma13Series.length - 1];
-      dailyClose = bDaily[bDaily.length - 1].c;
-      atr14 = computeATR(bDaily, 14);
-
-      const mtSeries = computeMagicTrendSeries(bDaily, 20, 5, 1);
-      dailyMagicTrend = mtSeries[mtSeries.length - 1];
-    }
-
     row.close = lastClose;
     row.emaFast = emaFast;
     row.emaSlow = emaSlow;
     row.pmHigh = pmHigh;
     row.lastBar = lastBar;
-    row.dailyClose = dailyClose;
-    row.dailyEma13 = dailyEma13;
-    row.atr14 = atr14;
-    row.dailyMagicTrend = dailyMagicTrend;
 
-    row.c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow;
-    row.c2 = emaFast !== null && lastClose > emaFast;
-    row.c3 = pmHigh !== null && lastClose > pmHigh;
-    row.c4 = needsDaily && dailyClose !== null && dailyEma13 !== null && dailyClose > dailyEma13;
-    row.c11 = needsDaily && dailyClose !== null && dailyMagicTrend !== null && dailyClose > dailyMagicTrend;
-
-    if(isStrict){
-      if(dailyEma13 !== null && atr14 !== null && atr14 > 0){
-        row.extAtr = (lastClose - dailyEma13) / atr14;
-        row.c5 = row.extAtr <= extAtrMult;
-      } else if(dailyEma13 !== null){
-        row.c5 = true;
-      }
-
-      const { vwap } = computeSessionVWAP(b5, todayET);
-      if(vwap !== null){
-        row.vwap = vwap;
-        row.c6 = lastClose > vwap;
-      }
-
-      const regular30 = b30.filter(bar => isRegularSession(etParts(new Date(bar.t)), todayET));
-      if(regular30.length >= 4){
-        const openAvg = (regular30[0].v + regular30[1].v) / 2;
-        const recentAvg = (regular30[regular30.length-1].v + regular30[regular30.length-2].v) / 2;
-        if(openAvg > 0){
-          row.volRatio = recentAvg / openAvg;
-          row.c7 = row.volRatio >= volRatioMin;
-        }
-      } else {
-        row.c7 = true;
-      }
-
-      if(b30.length >= 2 && pmHigh !== null && emaFastSeries[emaFastSeries.length-2] != null){
-        const prevBar = b30[b30.length-2];
-        const prevEmaFast = emaFastSeries[emaFastSeries.length-2];
-        row.c8 = (prevBar.c > prevEmaFast && prevBar.c > pmHigh) && (lastClose > emaFast && lastClose > pmHigh);
-      }
-
-      const meta = gainerMeta && gainerMeta[sym];
-      if(meta && typeof meta.percent_change === 'number'){
-        row.gapPct = meta.percent_change;
-        row.c9GapOk = Math.abs(meta.percent_change) <= gapCapPct;
-      } else {
-        row.c9GapOk = true;
-      }
-
-      const priorDaily = bDaily.filter(b => etParts(new Date(b.t)).dateStr !== todayET);
-      const last20 = priorDaily.slice(-20);
-      if(last20.length >= 5 && elapsedMinutes !== null && elapsedMinutes > 0){
-        const avgDailyVol = last20.reduce((a,b)=>a+b.v,0) / last20.length;
-        const todaysVolSoFar = computeSessionVWAP(b5, todayET).cumVol;
-        const expectedByNow = avgDailyVol * (elapsedMinutes / 390);
-        if(expectedByNow > 0){
-          row.rvol = todaysVolSoFar / expectedByNow;
-          row.c10Rvol = row.rvol >= minRvol;
-        }
-      } else {
-        row.c10Rvol = true;
-      }
-
-      row.pass = row.c1 && row.c3 && row.c4 && row.c5 && row.c6 && row.c7 && row.c8 && row.c9GapOk && row.c10Rvol && row.c11
-        && entryWindowOk && marketGate.ok;
-    } else {
-      row.pass = needsDaily ? (row.c1 && row.c3 && row.c4) : (row.c1 && row.c3);
-    }
+    const c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow;
+    const c3 = pmHigh !== null && lastClose > pmHigh;
+    row.pass = c1 && c3;
 
     rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
-      pmHigh, pmLow, lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, dailyClose, dailyEma13, dailyMagicTrend,
-      atr14, extAtr: row.extAtr, vwap: row.vwap, volRatio: row.volRatio, rvol: row.rvol, gapPct: row.gapPct,
-      elapsedMinutes, mode
+      pmHigh, pmLow, lastClose: livePx != null ? livePx : lastClose, signalClose: lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, mode
     });
     return row;
   });
 
-  rows.marketGateReason = marketGate.reason;
-  rows.entryWindowOk = entryWindowOk;
-  rows.elapsedMinutes = elapsedMinutes;
   return rows;
 }
 
 function render(rows, gainerMeta, showAll){
   const list = lastSymbols.slice();
   document.getElementById('legend').style.display = 'flex';
-  const displayRows = showAll ? rows : rows.filter(r => r.pass);
+  const displayRows = showAll ? rows : rows;
   OC.setScan(lastMode, lastSymbols, displayRows.map(r => r.symbol), gainerMeta);
   let html = `<div class="panel"><table><thead><tr>
     <th>Symbol</th><th>%Chg</th>
@@ -1200,16 +1032,15 @@ function render(rows, gainerMeta, showAll){
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
     const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
     const realIdx = list.indexOf(r.symbol);
-    const breakoutTag = showAll ? ` <span title="Passes breakout conditions" style="color:${r.pass ? 'var(--pass)' : 'var(--muted)'};font-size:11px;">${r.pass ? '✓' : '·'}</span>` : '';
 
     html += `<tr>
-      <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span>${breakoutTag}</td>
+      <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span></td>
       <td data-label="% Chg">${pctTag}</td>
     </tr>`;
   });
 
   if(displayRows.length === 0){
-    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">${showAll ? 'No gainer data available.' : 'No symbols passed all criteria.'}</td></tr>`;
+    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">No gainer data available.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
@@ -1242,10 +1073,6 @@ function logCurrentTrade(){
     date: etParts(new Date()).dateStr,
     symbol, mode: meta.mode || lastMode,
     price: entryPx, entry: lvNow.entry ?? null,
-    rvol: meta.rvol ?? null, extAtr: meta.extAtr ?? null, gapPct: meta.gapPct ?? null,
-    volRatio: meta.volRatio ?? null, vwap: meta.vwap ?? null,
-    dailyEma13: meta.dailyEma13 ?? null, atr14: meta.atr14 ?? null,
-    elapsedMinutes: meta.elapsedMinutes ?? null,
     stop: lvNow.stop ?? null, target: lvNow.target ?? null,
     outcome: 'open', notes: ''
   };
@@ -1262,15 +1089,8 @@ function tradeLogStats(log){
   const wins = closed.filter(t => t.outcome === 'win');
   const losses = closed.filter(t => t.outcome === 'loss');
   const winRate = closed.length ? (wins.length / closed.length * 100) : null;
-  const avg = (arr, key) => {
-    const vals = arr.map(t => t[key]).filter(v => typeof v === 'number' && !isNaN(v));
-    return vals.length ? vals.reduce((a,b)=>a+b,0) / vals.length : null;
-  };
   return {
-    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate,
-    avgRvolWin: avg(wins,'rvol'), avgRvolLoss: avg(losses,'rvol'),
-    avgExtAtrWin: avg(wins,'extAtr'), avgExtAtrLoss: avg(losses,'extAtr'),
-    avgGapWin: avg(wins,'gapPct'), avgGapLoss: avg(losses,'gapPct')
+    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate
   };
 }
 
@@ -1295,10 +1115,6 @@ function renderTradeLogModal(){
       <td style="text-align:left;font-weight:700;">${t.symbol}</td>
       <td style="text-align:left;font-size:11px;color:var(--muted);">${t.mode || '—'}</td>
       <td>${fmt(t.price)}</td>
-      <td>${fmt(t.rvol)}</td>
-      <td>${fmt(t.extAtr)}</td>
-      <td>${fmt(t.gapPct,1)}</td>
-      <td>${fmt(t.volRatio)}</td>
       <td>
         <select class="tl-outcome" data-id="${t.id}" style="width:auto;padding:4px 6px;font-size:11px;">
           <option value="open" ${t.outcome==='open'?'selected':''}>Open</option>
@@ -1318,7 +1134,7 @@ function renderTradeLogModal(){
 function exportTradeLogCsv(){
   const log = loadTradeLog();
   if(log.length === 0){ statusMsg('No trades to export.', true); return; }
-  const cols = ['date','symbol','mode','price','rvol','extAtr','gapPct','volRatio','elapsedMinutes','outcome','notes'];
+  const cols = ['date','symbol','mode','price','outcome','notes'];
   const csv = [cols.join(',')].concat(log.map(t => cols.map(c => {
     const v = t[c];
     if(v === null || v === undefined) return '';
@@ -1472,12 +1288,10 @@ async function updateModalChart(){
     const barParts = allBars.map(b => etParts(new Date(b.t)));
     const barDates = barParts.map(p => p.dateStr);
     const allDates = [...new Set(barDates)];
-    // Prev Day tab: start on the chosen session and show it plus the next one; otherwise the latest sessions
     const asOfIdx = asOf ? allDates.indexOf(asOf) : -1;
     const keepDates = asOfIdx >= 0 ? allDates.slice(asOfIdx, asOfIdx + CHART_TRADING_DAYS) : allDates.slice(-CHART_TRADING_DAYS);
     let startIdx = barDates.findIndex(d => keepDates.includes(d));
     if(startIdx === -1) startIdx = 0;
-    // when charting from a past session, stop after the last kept day instead of running to today
     const stopIdx = asOfIdx >= 0 ? barDates.lastIndexOf(keepDates[keepDates.length - 1]) + 1 : allBars.length;
 
     const rth = {};
@@ -1526,7 +1340,7 @@ async function updateModalChart(){
 const LEVELS_KEY = 'chartLevels_v1';
 const LEVELS_TTL_MS = 3*24*3600*1000;
 const MAX_PRICE_LEVELS = 8;
-let drawMode = null;   // 'entry' | 'stop' | 'target' | 'level' | null
+let drawMode = null;
 let levelLines = { entry:null, stop:null, target:null, lv:[] };
 const SUGGEST_STOP_ATR = 1.5;
 const SUGGEST_RR = 2;
@@ -1559,7 +1373,6 @@ function isLevelFired(symbol, key){
   const e = levelsEntry(symbol);
   return !!(e && e.fired && e.fired[key]);
 }
-// Every edit goes through here so arm-time / fired flags / worker sync stay consistent.
 function mutateLevels(symbol, fn){
   const store = loadLevelsStore();
   let e = store[symbol];
@@ -1573,7 +1386,7 @@ function mutateLevels(symbol, fn){
   saveLevelsStore(store);
   scheduleAlertSync();
 }
-function setLevel(symbol, key, price){   // key: entry | stop | target
+function setLevel(symbol, key, price){
   mutateLevels(symbol, e => { e[key] = price; e.arm[key] = Date.now(); delete e.fired[key]; });
 }
 function addPriceLevel(symbol, price){
@@ -1624,7 +1437,6 @@ function setDrawMode(mode){
 function fmtPct(price, last){
   return `${price >= last ? '+' : ''}${((price - last) / last * 100).toFixed(1)}%`;
 }
-// SL/TP % and R are measured from the entry when one is set, otherwise from the last price.
 function levelBase(kind, lv, last){
   return (kind === 'stop' || kind === 'target') && lv.entry != null ? lv.entry : last;
 }
@@ -1706,7 +1518,7 @@ function setupLevelDrag(container){
   if(container._levelDragBound) return;
   container._levelDragBound = true;
   const HIT_PX = 18, MOVE_PX = 6;
-  let placing = null;   // draw-mode gesture: press, slide to position, release to set
+  let placing = null;
 
   const pointOf = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
   const pointY = e => pointOf(e).clientY - container.getBoundingClientRect().top;
@@ -1739,7 +1551,7 @@ function setupLevelDrag(container){
 
   const start = e => {
     if(!activeChart || !activeCandleSeries || !activeModalSymbol) return;
-    if(e.touches && e.touches.length > 1){ dropPreview(); placing = null; return; }   // pinch = zoom
+    if(e.touches && e.touches.length > 1){ dropPreview(); placing = null; return; }
     if(e.button !== undefined && e.button !== 0) return;
     const y = pointY(e);
 
@@ -1834,13 +1646,6 @@ function setupLevelDrag(container){
   window.addEventListener('mouseup', end, { capture: true });
 }
 
-/* ============================ PRICE ALERTS ============================
-   1) In-app: while this page is open, live prices are polled every 10s and a
-      toast + beep + vibration (+ system notification where supported) fires.
-   2) Closed-app: the same levels are synced to a small Cloudflare Worker
-      (alert-worker.js) that checks prices every minute and pushes to your
-      phone through ntfy. Levels are auto-armed the moment you set them.
-======================================================================= */
 function alertsEnabled(){ const el = document.getElementById('alertsOn'); return !!(el && el.checked); }
 function workerCfg(){
   return {
@@ -1894,12 +1699,11 @@ function localNotify(title, body, tag){
   try { if(navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch(e){}
   try {
     if('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, tag });
-  } catch(e){ /* mobile browsers block the constructor; toast + sound still fire */ }
+  } catch(e){}
 }
 
 function armAt(e, key){ return (e.arm && e.arm[key]) || e.ts || 0; }
 
-// Flat list of every alertable line (entry / stop / target / price levels) across symbols.
 function collectAlerts(){
   const store = loadLevelsStore(), now = Date.now(), out = [];
   Object.keys(store).forEach(sym => {
@@ -1930,7 +1734,7 @@ function inAlertHours(){
   const dow = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' }).format(now);
   if(dow === 'Sat' || dow === 'Sun') return false;
   const p = etParts(now), m = p.hh * 60 + p.mm;
-  return m >= 240 && m < 1200;   // 4:00–20:00 ET
+  return m >= 240 && m < 1200;
 }
 
 const lastPx = {};
@@ -1954,9 +1758,7 @@ async function pollAlerts(){
       const px = (s.latestTrade && s.latestTrade.p) ?? (s.minuteBar && s.minuteBar.c) ?? null;
       const bar = s.minuteBar, prev = lastPx[a.sym];
       let hit = false;
-      // a 1-min bar that opened after the level was armed and spans the price
       if(bar && Date.parse(bar.t) >= a.armedAt && bar.l <= a.price && a.price <= bar.h) hit = true;
-      // or the last two samples (both taken after arming) straddle the price
       if(!hit && px != null && prev && prev.t >= a.armedAt && (prev.p - a.price) * (px - a.price) <= 0) hit = true;
       if(hit) fireLocalAlert(a, px);
     });
@@ -1965,7 +1767,7 @@ async function pollAlerts(){
       const px = s && ((s.latestTrade && s.latestTrade.p) ?? (s.minuteBar && s.minuteBar.c));
       if(px != null) lastPx[sym] = { p: px, t: now };
     });
-  } catch(e){ /* transient network error – try again next tick */ }
+  } catch(e){}
   finally { pollBusy = false; }
 }
 
@@ -2044,7 +1846,6 @@ document.addEventListener('visibilitychange', () => {
   if(document.visibilityState === 'visible'){ pollAlerts(); syncAlerts(false); }
 });
 setTimeout(() => syncAlerts(false), 1200);
-
 
 async function exportChartImage(){
   if(!activeChart || !activeModalSymbol) return;
@@ -2142,7 +1943,6 @@ function renderChart(data){
   activeChart = chart;
 
   activeCandleSeries = chart.addCandlestickSeries({
-    // bullish close = filled, bearish close = hollow (outline only)
     upColor: '#39d98a', downColor: 'rgba(0,0,0,0)',
     borderVisible: true, borderUpColor: '#39d98a', borderDownColor: '#ff8177',
     wickUpColor: '#39d98a', wickDownColor: '#ff8177',
@@ -2359,74 +2159,6 @@ window.addEventListener('resize', () => {
   }
 });
 
-async function runTopGainerScan(){
-  if(!requireAlpacaKeys()) return;
-  lastMode = 'top_gainers';
-  const btn = document.getElementById('btnScanTopGainers');
-  btn.disabled = true;
-  statusMsg('Loading top gainers (>1M Vol, >$1)…');
-  try{
-    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
-    const gainers = await fetchTopMarketGainers(count);
-    
-    if(gainers.length === 0){
-      statusMsg('No market gainers passed Price > $1 and Volume > 1M.', true);
-      btn.disabled = false;
-      return;
-    }
-
-    const gainerMeta = {};
-    gainers.forEach((g, idx) => {
-      gainerMeta[g.symbol] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
-    });
-    lastSymbols = gainers.map(g => g.symbol);
-
-    statusMsg(`Scanning 30m EMA5>EMA13 & PM Breakout for top ${lastSymbols.length} gainers…`);
-    const feed = document.getElementById('feed').value;
-    const rows = await evaluateSymbols(lastSymbols, feed, 'top_gainers');
-    render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all criteria`);
-  }catch(e){
-    statusMsg(e.message, true);
-  }finally{
-    btn.disabled = false;
-  }
-}
-
-async function runStrictGainerScan(){
-  if(!requireAlpacaKeys()) return;
-  lastMode = 'strict_gainers';
-  const btn = document.getElementById('btnScanStrictGainers');
-  btn.disabled = true;
-  statusMsg('Loading top gainers for strict scan (>1M Vol, >$1)…');
-  try{
-    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
-    const gainers = await fetchTopMarketGainers(count);
-
-    if(gainers.length === 0){
-      statusMsg('No market gainers passed Price > $1 and Volume > 1M.', true);
-      btn.disabled = false;
-      return;
-    }
-
-    const gainerMeta = {};
-    gainers.forEach((g, idx) => {
-      gainerMeta[g.symbol] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume };
-    });
-    lastSymbols = gainers.map(g => g.symbol);
-
-    statusMsg(`Running strict filters on ${lastSymbols.length} gainers…`);
-    const feed = document.getElementById('feed').value;
-    const rows = await evaluateSymbols(lastSymbols, feed, 'strict_gainers', gainerMeta);
-    render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} passed all strict criteria`);
-  }catch(e){
-    statusMsg(e.message, true);
-  }finally{
-    btn.disabled = false;
-  }
-}
-
 async function runManualScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'manual';
@@ -2436,30 +2168,39 @@ async function runManualScan(){
 
   const btn = document.getElementById('btnScanManual');
   btn.disabled = true;
-  statusMsg(`Pricing watchlist…`);
+  statusMsg(`Scanning watchlist for top gainers...`);
   try{
     const feed = document.getElementById('feed').value;
-    const snaps = await fetchSnapshotsChunk(symbols, feed);
+    const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
+    
+    const chunks = chunk(symbols, 100);
     const gainers = [];
-    Object.keys(snaps).forEach(sym => {
-      const snap = snaps[sym];
-      if(!snap) return;
-      const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
-      const prev = snap.prevDailyBar ? snap.prevDailyBar.c : cur;
-      const vol = (snap.dailyBar && snap.dailyBar.v) || 0;
-      const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
-      gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
-    });
+    
+    for(const ch of chunks){
+      const snaps = await fetchSnapshotsChunk(ch, feed);
+      Object.keys(snaps).forEach(sym => {
+        const snap = snaps[sym];
+        if(!snap) return;
+        const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
+        const prev = snap.prevDailyBar ? snap.prevDailyBar.c : cur;
+        const vol = (snap.dailyBar && snap.dailyBar.v) || ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
+        const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+        gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
+      });
+    }
+    
     gainers.sort((a,b) => b.percent_change - a.percent_change);
-    const topGainers = gainers.slice(0, 5);
+    const topGainers = gainers.slice(0, count);
 
     const gainerMeta = {};
-    topGainers.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
+    topGainers.forEach((g, idx) => { 
+      gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; 
+    });
     lastSymbols = topGainers.map(g => g.symbol);
 
-    const rows = await evaluateSymbols(lastSymbols, feed, 'manual');
-    render(rows, gainerMeta);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${rows.filter(r=>r.pass).length} breakout hits`);
+    const rows = await evaluateSymbols(lastSymbols, feed, 'manual', gainerMeta);
+    render(rows, gainerMeta, true);
+    statusMsg(`Updated ${new Date().toLocaleTimeString()} · Top gainer from watchlist: ${topGainers[0]?.symbol || 'None'} (+${topGainers[0]?.percent_change.toFixed(2)}%)`);
   }catch(e){
     statusMsg(e.message, true);
   }finally{
@@ -2504,7 +2245,7 @@ async function runGainerScan(){
     top.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
     lastSymbols = top.map(g => g.symbol);
 
-    const rows = await evaluateSymbols(lastSymbols, feed, 'sp500');
+    const rows = await evaluateSymbols(lastSymbols, feed, 'sp500', gainerMeta);
     render(rows, gainerMeta, true);
     statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${top.length} S&P 500 gainers`);
   }catch(e){
@@ -2514,8 +2255,6 @@ async function runGainerScan(){
   }
 }
 
-document.getElementById('btnScanTopGainers').addEventListener('click', runTopGainerScan);
-document.getElementById('btnScanStrictGainers').addEventListener('click', runStrictGainerScan);
 document.getElementById('btnScanManual').addEventListener('click', runManualScan);
 document.getElementById('btnLoadGainers').addEventListener('click', runGainerScan);
 document.getElementById('btnScanStFlip').addEventListener('click', runSupertrendFlipScan);
@@ -2525,9 +2264,7 @@ document.getElementById('autoRefresh').addEventListener('change', (e)=>{
   if(e.target.checked){
     const mins = parseInt(document.getElementById('refreshMins').value, 10);
     autoTimer = setInterval(()=>{
-      if(lastMode === 'top_gainers') runTopGainerScan();
-      else if(lastMode === 'strict_gainers') runStrictGainerScan();
-      else if(lastMode === 'manual') runManualScan();
+      if(lastMode === 'manual') runManualScan();
       else if(lastMode === 'st_flip') runSupertrendFlipScan();
       else runGainerScan();
     }, mins*60*1000);
@@ -2544,19 +2281,26 @@ const OC = (() => {
   const LOOKBACK_DAYS = { '5Min': 6, '15Min': 12, '30Min': 20, '1Hour': 40, '1Day': 200 };
   const EMA_COLORS = ['#c084fc', '#e0a13b', '#c9d1d1'];
   const MAX_SYMBOLS = 30;
-  const MODE_LABEL = { top_gainers: 'Top gainers', strict_gainers: 'Strict gainers', manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers' };
+  const MODE_LABEL = { manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers' };
   const SETTING_IDS = ['ocSymbols', 'ocSide', 'ocSource', 'ocMinDte', 'ocMaxDte', 'ocMinVol', 'ocTopN', 'ocItmPct', 'ocOtmPct', 'ocTf', 'ocEma1', 'ocEma2', 'ocEma3', 'ocSpeed', 'ocOptFeed'];
   const CHECK_IDS = ['ocFollow', 'ocAuto'];
 
   const state = { contracts: [], idx: -1, playing: false, timer: null, loadToken: 0, barsCache: new Map(), dirty: false, loading: false };
   let scan = { mode: null, all: [], shown: [], meta: {} };
 
-  /* ---------- settings ---------- */
   function restoreSettings(){
     try {
       const s = JSON.parse(localStorage.getItem('oc_settings') || '{}');
       SETTING_IDS.forEach(id => { if(s[id] !== undefined && $(id)) $(id).value = s[id]; });
-      CHECK_IDS.forEach(id => { if(s[id] !== undefined && $(id)) $(id).checked = !!s[id]; });
+      CHECK_IDS.forEach(id => {
+        if($(id)){
+          if(s[id] !== undefined){
+            $(id).checked = !!s[id];
+          } else if(id === 'ocFollow' || id === 'ocAuto'){
+            $(id).checked = true; // Default to true if not explicitly saved
+          }
+        }
+      });
     } catch(e){}
   }
   function saveSettings(){
@@ -2568,7 +2312,6 @@ const OC = (() => {
   function setStatus(msg, isErr){ const el = $('ocStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
   const visible = () => !$('viewOptions').hidden;
 
-  /* ---------- API (keys and stock feed come from Scanner → Settings) ---------- */
   async function api(path, params){
     const h = alpacaHeaders();
     if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']){
@@ -2583,7 +2326,6 @@ const OC = (() => {
     return res.json();
   }
 
-  /* ---------- dates / symbols ---------- */
   const etYMD = d => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
   function addDays(ymd, n){ const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); }
   function daysBetween(a, b){
@@ -2609,7 +2351,6 @@ const OC = (() => {
     }));
   }
 
-  /* ---------- scanner hand-off ---------- */
   function currentScanList(){ return (($('ocSource').value === 'passed') ? scan.shown : scan.all).slice(0, MAX_SYMBOLS); }
   function applyScanSymbols(){
     const list = currentScanList();
@@ -2633,7 +2374,7 @@ const OC = (() => {
     showTab('options');
     loadChain();
   }
-  function openScan(){   // jump here with the latest scan's symbols (used by the Prev Day tab)
+  function openScan(){
     $('ocFollow').checked = true; saveSettings();
     if(!scan.all.length){ showTab('options'); setStatus('No scan results yet — run a scan first.', true); return; }
     applyScanSymbols();
@@ -2646,7 +2387,6 @@ const OC = (() => {
   }
   function onHide(){ setPlaying(false); }
 
-  /* ---------- chain loading ---------- */
   async function fetchSpots(symbols){
     const feed = document.getElementById('feed').value;
     const out = {};
@@ -2743,7 +2483,6 @@ const OC = (() => {
               cands.forEach(c => { if(c.vol == null && vols[c.sym] != null) c.vol = vols[c.sym]; });
             } catch(e){ volWarn = ` · volume lookup failed (${e.message})`; }
           }
-          // keep only the highest-volume contracts for this stock
           let passed = cands.filter(c => (c.vol || 0) >= o.minVol).sort((a, b) => (b.vol || 0) - (a.vol || 0));
           if(o.topN) passed = passed.slice(0, o.topN);
           if(passed.length) withHits++;
@@ -2777,7 +2516,6 @@ const OC = (() => {
     }
   }
 
-  /* ---------- table ---------- */
   function renderTable(){
     const box = $('ocResults');
     if(!state.contracts.length){ box.innerHTML = ''; return; }
@@ -2802,7 +2540,6 @@ const OC = (() => {
     if(state.playing) schedule();
   });
 
-  /* ---------- chart ---------- */
   let chart = null, candle = null, volSeries = null, emaSeries = [];
   function ensureChart(){
     if(chart) return;
@@ -2816,7 +2553,7 @@ const OC = (() => {
       handleScale: { pinch: true, mouseWheel: true, axisPressedMouseMove: true },
       width: el.clientWidth || 300, height: el.clientHeight || 260
     });
-    candle = chart.addCandlestickSeries({   // bullish close filled, bearish close hollow
+    candle = chart.addCandlestickSeries({
       upColor: '#39d98a', downColor: 'rgba(0,0,0,0)', borderVisible: true,
       borderUpColor: '#39d98a', borderDownColor: '#ff8177', wickUpColor: '#39d98a', wickDownColor: '#ff8177'
     });
@@ -2899,7 +2636,6 @@ const OC = (() => {
     startLoop();
   }
 
-  /* ---------- selection + player ---------- */
   async function select(i){
     const n = state.contracts.length;
     if(!n) return;
@@ -2945,8 +2681,7 @@ const OC = (() => {
     if(state.playing) schedule(); else clearTimeout(state.timer);
   }
 
-  /* ---------- zoom / drag ---------- */
-  function zoomBy(factor){   // factor > 1 zooms in, < 1 zooms out (anchored on the newest bar)
+  function zoomBy(factor){
     if(!chart) return;
     const ts = chart.timeScale(), r = ts.getVisibleLogicalRange();
     if(!r) return;
@@ -2960,13 +2695,8 @@ const OC = (() => {
     chart.timeScale().fitContent();
     chart.priceScale('right').applyOptions({ autoScale: true });
   });
-  // touching the chart pauses the player so the contract (and your zoom) doesn't change under your finger
   ['pointerdown', 'wheel'].forEach(t => $('ocChart').addEventListener(t, () => { if(state.playing) setPlaying(false); }, { capture: true, passive: true }));
 
-
-  /* ---------- drawing tools + image export ----------
-     Drawings are anchored to (time, option price), so they follow pan/zoom, survive timeframe
-     changes, and are remembered per contract (localStorage 'oc_draw_v1'). */
   const DRAW_KEY = 'oc_draw_v1', DRAW_PREF_KEY = 'oc_draw_prefs';
   const DRAW_COLORS = ['#facc15', '#5b8def', '#39d98a', '#ff8177', '#e6edf0', '#c084fc'];
   const FIB_LEVELS = [0, 0.236, 0.382, 0.5, 0.618, 0.786, 1];
@@ -2993,14 +2723,13 @@ const OC = (() => {
   const uid = () => Math.random().toString(36).slice(2, 9);
   const r4 = v => Math.round(v * 1e4) / 1e4;
 
-  /* --- storage --- */
   function readStore(){ try { return JSON.parse(localStorage.getItem(DRAW_KEY)) || {}; } catch(e){ return {}; } }
   function persist(){
     if(!D.sym) return;
     const s = readStore();
     if(D.drawings.length) s[D.sym] = { ts: Date.now(), items: D.drawings }; else delete s[D.sym];
     const today = etYMD(new Date());
-    Object.keys(s).forEach(k => {   // forget expired contracts / stale entries
+    Object.keys(s).forEach(k => {
       const p = parseOcc(k);
       if((p && p.exp < addDays(today, -7)) || Date.now() - ((s[k] && s[k].ts) || 0) > 45 * 86400000) delete s[k];
     });
@@ -3024,7 +2753,6 @@ const OC = (() => {
     D.sig = '';
   }
 
-  /* --- time <-> logical index (piecewise linear, extrapolates past both ends) --- */
   function T2L(t){
     const a = D.times, n = a.length;
     if(!n) return null;
@@ -3043,7 +2771,6 @@ const OC = (() => {
     return a[i] + (a[i + 1] - a[i]) * (L - i);
   }
 
-  /* --- geometry --- */
   function plotBox(){
     const el = $('ocChart');
     let pw = 52, th = 26;
@@ -3088,7 +2815,6 @@ const OC = (() => {
     return { x, y, L, P, t: Math.round(L2T(L)), p: r4(P) };
   }
 
-  /* --- rendering --- */
   function line(c, x1, y1, x2, y2){ c.beginPath(); c.moveTo(x1, y1); c.lineTo(x2, y2); c.stroke(); }
   function pill(c, text, x, y, color, align){
     const pw = c.measureText(text).width + 8, ph = 16;
@@ -3139,7 +2865,7 @@ const OC = (() => {
         c.strokeStyle = mc; c.fillStyle = mc;
         c.save(); c.globalAlpha = 0.10; c.fillRect(x, y, rw, rh); c.restore();
         c.save(); c.setLineDash([4, 3]); c.strokeRect(x, y, rw, rh); c.restore();
-        const mx = x + rw / 2, sg = P[1].y <= P[0].y ? 1 : -1;   // arrowhead barbs point back along the arrow
+        const mx = x + rw / 2, sg = P[1].y <= P[0].y ? 1 : -1;
         line(c, mx, P[0].y, mx, P[1].y);
         line(c, mx - 4, P[1].y + 5 * sg, mx, P[1].y); line(c, mx + 4, P[1].y + 5 * sg, mx, P[1].y);
         const pct = p1 ? (p2 - p1) / p1 * 100 : 0;
@@ -3176,7 +2902,6 @@ const OC = (() => {
     if(D.draft) drawOne(octx, D.draft, w, h, false);
     octx.restore();
   }
-  // cheap change detector: redraws only when pan / zoom / price-scale / size changed
   function tick(){
     D.looping = false;
     if(!visible() || !chart || !candle) return;
@@ -3189,7 +2914,6 @@ const OC = (() => {
   }
   function startLoop(){ if(D.looping) return; D.looping = true; requestAnimationFrame(tick); }
 
-  /* --- hit testing --- */
   function hitDrawing(d, x, y, w, h, tol){
     const P = d.pts.map(toXY);
     if(P.some(p => !p)) return false;
@@ -3213,7 +2937,6 @@ const OC = (() => {
     return false;
   }
 
-  /* --- toolbar --- */
   function updateToolbar(){
     document.querySelectorAll('#ocTools [data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === D.tool));
     $('ocMagnet').classList.toggle('on', D.magnet);
@@ -3261,7 +2984,6 @@ const OC = (() => {
   $('ocDel').addEventListener('click', deleteSelected);
   $('ocExport').addEventListener('click', exportImage);
 
-  /* --- pointer handling on the overlay (only receives events while a tool is active) --- */
   function commitDraft(){
     const d = D.draft;
     if(!d) return;
@@ -3321,7 +3043,7 @@ const OC = (() => {
     const pt = ptFromEvent(e, true);
     if(!pt) return;
     const type = D.tool, here = { t: pt.t, p: pt.p };
-    if(D.draft && D.draft.pts.length === 2 && D.draft.stage === 'wait'){   // second tap of a tap-tap drawing
+    if(D.draft && D.draft.pts.length === 2 && D.draft.stage === 'wait'){
       D.draft.pts[1] = here; D.draft.stage = 'second'; render(); return;
     }
     const single = type === 'hline' || type === 'text';
@@ -3363,11 +3085,10 @@ const OC = (() => {
   });
   updateToolbar();
 
-  /* --- export the chart (candles, EMAs, volume, drawings) as a PNG with a contract header --- */
   async function exportImage(){
     if(!chart || state.idx < 0 || !D.times.length){ setStatus('Load a contract chart first.', true); return; }
     const c = state.contracts[state.idx], tf = $('ocTf').value;
-    const prevSel = D.sel; D.sel = null; D.draft = null;   // no selection handles / half-drawn shapes in the picture
+    const prevSel = D.sel; D.sel = null; D.draft = null;
     render();
     const shot = chart.takeScreenshot();
     const el = $('ocChart'), k = shot.width / Math.max(1, el.clientWidth);
@@ -3420,7 +3141,6 @@ const OC = (() => {
     }, 'image/png');
   }
 
-  /* ---------- wiring ---------- */
   $('ocLoadBtn').addEventListener('click', loadChain);
   $('ocSymbols').addEventListener('keydown', e => { if(e.key === 'Enter') loadChain(); });
   $('ocSymbols').addEventListener('input', () => { $('ocFollow').checked = false; $('ocSrcNote').textContent = '· manual'; saveSettings(); });
@@ -3450,11 +3170,6 @@ const OC = (() => {
   return { setScan, openFor, openScan, onShow, onHide };
 })();
 
-/* =====================================================================
-   PREV DAY TAB — previous session's top gainers.
-   Same chart modal (drawing tools, alerts, log trade) and same Options tab hand-off
-   as the Scanner tab's gainers.
-   ===================================================================== */
 const PD = (() => {
   const $ = id => document.getElementById(id);
   const EXTRA_POOL = ['CRWD', 'PANW', 'NVDA', 'AMD', 'TSLA', 'AAPL', 'META', 'MSFT', 'AMZN', 'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'MARA', 'RIOT', 'DKNG', 'HOOD', 'CVNA', 'SOFI', 'RIVN'];
@@ -3465,7 +3180,7 @@ const PD = (() => {
   const shift = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
   const fmtDate = ymd => new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
   const fmtVol = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : (v >= 1e3 ? Math.round(v / 1e3) + 'K' : String(v));
-  const barDate = b => b.t.slice(0, 10);   // daily bars are stamped at midnight ET → the UTC date part is the session date
+  const barDate = b => b.t.slice(0, 10);
 
   function render(rows){
     let html = `<div class="panel"><table><thead><tr>
@@ -3521,7 +3236,6 @@ const PD = (() => {
       }
       if(failed === chunks.length) throw new Error('Could not load daily bars from Alpaca — check your keys and feed.');
 
-      // session = chosen date, else the latest date before today that most symbols traded on
       let sess = override || null;
       if(!sess){
         const seen = {};
@@ -3567,8 +3281,7 @@ const PD = (() => {
     }
   }
 
-  $('pdLoadBtn').addEventListener('click', run);
-  $('pdOptionsBtn').addEventListener('click', () => {
+  $('pdLoadBtn').addEventListener('click', run);$('pdOptionsBtn').addEventListener('click', () => {
     if(!list.length){ setStatus('Load the previous-day gainers first.', true); return; }
     OC.setScan('prev_day', list, list, meta);
     OC.openScan();
