@@ -217,6 +217,42 @@
   .su-how summary{cursor:pointer;color:var(--text);font-size:12px;font-weight:600;}
   .su-how ul{margin:6px 0 0 16px;padding:0;}
   .su-how b{color:var(--text);}
+
+  /* ---- Gemini review ---- */
+  button.ai-btn{background:#1d2540;border-color:#3b4a8a;color:#9db4ff;}
+  .ai-panel{margin-top:12px;}
+  .ai-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap;}
+  .ai-title{font-weight:600;font-size:13px;}
+  .ai-sub{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.45;max-width:560px;}
+  .ai-best{border:1px solid rgba(57,217,138,0.4);background:rgba(57,217,138,0.06);border-radius:10px;padding:12px;margin-top:10px;}
+  .ai-best.none{border-color:var(--line);background:var(--panel-2);font-size:12.5px;line-height:1.5;}
+  .ai-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .ai-tag{font-size:10px;font-weight:700;letter-spacing:.6px;color:var(--pass);font-family:var(--mono);}
+  .ai-best .sym{font-size:16px;}
+  .ai-badge{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10.5px;font-weight:700;letter-spacing:.3px;font-family:var(--mono);}
+  .ai-badge.DAY{background:rgba(91,141,239,0.18);color:var(--accent);}
+  .ai-badge.OVERNIGHT{background:rgba(167,139,250,0.18);color:var(--massive);}
+  .ai-badge.PASS{background:rgba(124,142,142,0.15);color:var(--muted);}
+  .ai-conv{font-family:var(--mono);font-size:11.5px;color:var(--muted);}
+  .ai-why{font-size:12.5px;line-height:1.5;margin-top:8px;}
+  .ai-levels{font-family:var(--mono);font-size:11.5px;margin-top:8px;}
+  .ai-watch{font-size:11.5px;color:var(--muted);margin-top:6px;line-height:1.45;}
+  .ai-mkt{font-size:12px;color:var(--muted);margin:10px 0 2px;line-height:1.5;}
+  .ai-list{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+  .ai-item{border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:var(--panel-2);}
+  .ai-item.pass{opacity:0.62;}
+  .ai-grades{margin-left:auto;font-family:var(--mono);font-size:10.5px;color:var(--muted);}
+  .ai-thesis{font-size:12px;line-height:1.5;margin-top:6px;}
+  .ai-chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+  .ai-cat{font-size:11px;color:var(--muted);margin-top:6px;line-height:1.4;}
+  .ai-stale{font-size:11px;color:var(--warn);margin-top:8px;}
+  .ai-foot{font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.55;}
+  .ai-foot a{color:var(--accent);}
+  .ai-src{font-size:11px;color:var(--muted);margin-top:8px;}
+  .ai-src summary{cursor:pointer;}
+  .ai-src ul{margin:6px 0 0 16px;padding:0;}
+  .ai-src a{color:var(--accent);word-break:break-word;}
+  .ai-suggest{border:0;width:100%;height:56px;background:transparent;margin-top:6px;color-scheme:normal;}
 </style>
 </head>
 <body>
@@ -237,6 +273,7 @@
       <button class="primary" id="btnScanManual">Scan Watchlist</button>
       <button id="btnLoadGainers">S&amp;P 500 Gainers</button>
       <button class="massive-btn" id="btnScanStFlip" style="background:#1b3b2f;border-color:#2a5c48;color:var(--pass);">🚀 ST Flip (5 Bars)</button>
+      <button class="ai-btn" id="btnAIPick" title="Grade the scanner's hits, then have Gemini pick the best day trade or overnight hold">🤖 AI Pick</button>
       <button id="btnOpenTradeLog">📒 Trade Log</button>
       <div class="toggle-row">
         <input type="checkbox" id="autoRefresh">
@@ -320,6 +357,35 @@
     </div>
     <div class="status" id="alertStatus"></div>
     <div class="divider"></div>
+    <div class="row">
+      <div class="field" style="flex:1 1 220px;">
+        <label>Gemini API Key (Google AI Studio)</label>
+        <input type="password" id="geminiKey" autocomplete="off" spellcheck="false" placeholder="AIza…">
+      </div>
+      <div class="field" style="flex:0 1 210px;">
+        <label>Gemini Model</label>
+        <input type="text" id="geminiModel" list="geminiModels" value="gemini-3.5-flash" autocomplete="off" spellcheck="false">
+        <datalist id="geminiModels">
+          <option value="gemini-3.5-flash"></option>
+          <option value="gemini-3.1-pro-preview"></option>
+          <option value="gemini-3-flash-preview"></option>
+          <option value="gemini-3.1-flash-lite"></option>
+        </datalist>
+      </div>
+      <div class="field" style="flex:0 1 190px;">
+        <label>Search grounding</label>
+        <div class="toggle-row" style="margin-top:6px;">
+          <input type="checkbox" id="geminiSearch" checked>
+          <label for="geminiSearch" title="Lets Gemini look up earnings dates and fresh news for the names it is seriously considering. Google may bill grounded searches separately.">🔎 Check news / earnings</label>
+        </div>
+      </div>
+      <div class="field" style="flex:0 0 auto;min-width:0;">
+        <label>&nbsp;</label>
+        <button id="btnGeminiTest">Test</button>
+      </div>
+    </div>
+    <div class="status" id="geminiStatus"></div>
+    <div class="divider"></div>
     <div class="row" style="align-items:flex-start;">
       <div class="field" style="flex:1 1 300px;">
         <label>Watchlist Tickers</label>
@@ -346,17 +412,16 @@
         <div class="field" style="flex:0 1 140px;min-width:120px;">
           <label>Style</label>
           <select id="suStyle">
-           <option value="overnight">Overnight hold</option>
             <option value="day">Day trade</option>
-            
+            <option value="overnight">Overnight hold</option>
           </select>
         </div>
         <div class="field" style="flex:0 1 150px;min-width:120px;">
           <label>Universe</label>
           <select id="suSource">
-            <option value="both">Both</option>
             <option value="watch">Watchlist movers</option>
             <option value="sp500">S&amp;P 500 movers</option>
+            <option value="both">Both</option>
             <option value="last">Last Scanner list</option>
           </select>
         </div>
@@ -382,14 +447,62 @@
     <div class="status" id="suStatus">Pick a style, then grade the day's movers. Only A/B setups are worth taking — no trade is a valid outcome.</div>
     <div id="suRegime" style="margin-top:10px;"></div>
     <div id="suResults"></div>
+    <div class="panel ai-panel" id="suAIPanel">
+      <div class="ai-head">
+        <div>
+          <div class="ai-title">🤖 Gemini review</div>
+          <div class="ai-sub">Weighs your best-graded hits for a day trade vs an overnight hold and picks the single best one — or tells you to stand aside. Tip: on the Scanner tab, <b>AI Pick</b> does grade + review in one tap.</div>
+        </div>
+        <button class="ai-btn" id="suAIBtn">Review top setups</button>
+      </div>
+      <div class="status" id="suAIStatus">Grade setups above, then review. Uses your Gemini key from Settings.</div>
+      <div id="suAIOut"></div>
+    </div>
+    <div class="panel" style="padding:12px;margin-top:12px;">
+      <div style="font-weight:600;font-size:13px;margin-bottom:8px;">🧪 Replay — how have these grades actually performed?</div>
+      <div class="row" style="align-items:flex-end;">
+        <div class="field" style="flex:1 1 210px;min-width:170px;"><label>Test</label>
+          <select id="suReplayTest">
+            <option value="grade">Setup grades (uses Style above)</option>
+            <option value="gap">Gap above prior-day high · 10-min low stop</option>
+          </select>
+        </div>
+        <div class="field" id="suGapEntryWrap" style="flex:0 1 190px;min-width:150px;"><label>Entry</label>
+          <select id="suGapEntry">
+            <option value="at940">Buy at 9:40 ET</option>
+            <option value="break">Buy break of 10-min high</option>
+          </select>
+        </div>
+        <div class="field" id="suTargetRWrap" style="flex:0 1 90px;min-width:70px;"><label>Target R</label><input type="number" id="suTargetR" value="2" min="0.5" max="6" step="0.5"></div>
+        <div class="field" style="flex:0 1 110px;min-width:90px;"><label>Sessions back</label><input type="number" id="suReplayDays" value="10" min="3" max="30"></div>
+        <div class="field" id="suAsOfWrap" style="flex:0 1 120px;min-width:90px;"><label>As-of (ET)</label><input type="text" id="suReplayTime" placeholder="auto" autocomplete="off"></div>
+        <button id="suReplayBtn">Run replay</button>
+      </div>
+      <div class="row" id="suGapFilters" style="align-items:flex-end;margin-top:8px;">
+        <div class="field" style="flex:0 1 110px;min-width:90px;"><label>Min gap over high %</label><input type="number" id="suFMinGap" value="0" min="0" step="0.5"></div>
+        <div class="field" style="flex:0 1 110px;min-width:90px;"><label>Min 10-min RVOL ×</label><input type="number" id="suFMinRvol" value="0" min="0" step="0.5"></div>
+        <div class="field" style="flex:0 1 110px;min-width:90px;"><label>Min stop dist %</label><input type="number" id="suFMinRisk" value="0" min="0" step="0.25"></div>
+        <div class="field" style="flex:1 1 200px;min-width:170px;"><label>Sessions shown</label>
+          <select id="suSplit">
+            <option value="all">All sessions</option>
+            <option value="first">First half — tune filters here</option>
+            <option value="second">Second half — verify here</option>
+          </select>
+        </div>
+      </div>
+      <div class="status" id="suReplayStatus" style="margin-top:8px;">Uses the Style and Universe above. Day trade: top opening gappers graded at 10:30 ET. Overnight: top gainers graded at 15:45 ET, held to the next close. Every trade uses the same stop / 2R target the app shows.</div>
+      <div id="suReplayOut"></div>
+    </div>
     <details class="panel su-how">
       <summary>How the grade works</summary>
       <ul>
         <li><b>Day trade</b> rewards same-time-of-day RVOL, price above VWAP, 30m EMA9&gt;EMA21 trend, a break of the 15-min opening range / premarket high, strength vs SPY, staying near the highs, and not being stretched from VWAP (measured in daily ATRs).</li>
         <li><b>Overnight</b> rewards a close in the top of the day's range, RVOL, a close above VWAP, a daily uptrend, a new / near 20-day high (clean air), and a healthy 0.5–2 ATR move. A 3+ ATR move is treated as blow-off risk.</li>
         <li><b>Grades</b> are A 80+, B 65–79, C 50–64. <b>Caps</b> keep weak setups from grading high: thin volume or below VWAP caps at C; RVOL under 1.5×, a risk-off tape, fading volume, a downtrend, or a 3+ ATR run caps at B.</li>
+        <li><b>Sector strength</b> (S&amp;P 500 names only): the sector's ETF ranks vs SPY today. Top-3 sectors above VWAP add 5 points, bottom-3 sectors subtract 5.</li>
         <li><b>Stops / targets</b> are ATR-based with a 2R target. Size = risk budget ÷ stop distance (overnight uses the size multiplier above).</li>
         <li>These weights are sensible defaults, not a proven edge. Log trades from the chart — the log records each grade so you can see whether A's really beat C's over time.</li>
+        <li><b>Gemini review</b> sends up to 10 hits (C or better in either style) with their metrics and both risk boxes. It answers DAY / OVERNIGHT / PASS with a 1–10 conviction and may name one best trade — or none. It must use the app's stop and target, and with Search grounding on it also looks for earnings and news. It's an opinion on the app's own numbers, not an edge: the trade log records its verdict so you can check whether its picks earn their keep.</li>
         <li>The app can't see earnings dates. Add any name reporting tonight/tomorrow to the skip list before an overnight hold.</li>
       </ul>
     </details>
@@ -575,7 +688,7 @@
 
   <!-- Trade Log Modal -->
   <div class="modal-overlay" id="tradeLogOverlay">
-    <div class="modal" style="max-width:840px;">
+    <div class="modal" style="max-width:980px;">
       <div class="modal-header">
         <div class="modal-header-left">
           <div>
@@ -589,17 +702,17 @@
         </div>
       </div>
       <div style="overflow-x:auto;">
-        <table style="min-width:680px;">
+        <table style="min-width:860px;">
           <thead>
             <tr>
               <th style="text-align:left;">Date</th>
               <th style="text-align:left;">Symbol</th>
-              <th style="text-align:left;">Mode</th>
-              <th>Price</th>
               <th>Grade</th>
-              <th>RVOL</th>
-              <th>Ext·ATR</th>
-              <th>Gap%</th>
+              <th>Entry</th>
+              <th>Stop</th>
+              <th>Exit</th>
+              <th>R</th>
+              <th>Reason</th>
               <th>Outcome</th>
               <th style="text-align:left;">Notes</th>
               <th></th>
@@ -622,6 +735,7 @@ let autoTimer = null;
 let lastMode = 'manual';
 let lastSymbols = [];
 let sp500Cache = null;
+let sp500Sectors = {};   // ticker -> GICS sector (filled by getSP500Tickers)
 let rowDataMap = {};
 let activeChart = null;
 let activeCandleSeries = null;
@@ -645,6 +759,10 @@ function restoreStoredConfig(){
   if(wu) document.getElementById('workerUrl').value = wu;
   if(wk) document.getElementById('workerKey').value = wk;
   
+  const gk = localStorage.getItem('gemini_api_key'), gm = localStorage.getItem('gemini_model'), gs = localStorage.getItem('gemini_search');
+  if(gk) document.getElementById('geminiKey').value = gk;
+  if(gm) document.getElementById('geminiModel').value = gm;
+  if(gs !== null) document.getElementById('geminiSearch').checked = gs === '1';
   if(k) document.getElementById('apiKey').value = k;
   if(s) document.getElementById('apiSecret').value = s;
   if(f) document.getElementById('feed').value = f;
@@ -672,6 +790,9 @@ function saveStoredConfig(){
   localStorage.setItem('alerts_on', document.getElementById('alertsOn').checked ? '1' : '0');
   localStorage.setItem('alert_worker_url', document.getElementById('workerUrl').value.trim());
   localStorage.setItem('alert_worker_key', document.getElementById('workerKey').value.trim());
+  localStorage.setItem('gemini_api_key', document.getElementById('geminiKey').value.trim());
+  localStorage.setItem('gemini_model', document.getElementById('geminiModel').value.trim());
+  localStorage.setItem('gemini_search', document.getElementById('geminiSearch').checked ? '1' : '0');
 }
 
 document.getElementById('apiKey').addEventListener('input', saveStoredConfig);
@@ -698,6 +819,9 @@ document.getElementById('modalStMult').addEventListener('input', (e) => {
   saveStoredConfig();
   updateModalChart();
 });
+document.getElementById('geminiKey').addEventListener('input', saveStoredConfig);
+document.getElementById('geminiModel').addEventListener('input', saveStoredConfig);
+document.getElementById('geminiSearch').addEventListener('change', saveStoredConfig);
 restoreStoredConfig();
 
 const btnToggle = document.getElementById('btnToggleSettings');
@@ -892,7 +1016,7 @@ async function fetchSnapshotsChunk(symbols, feed){
   return res.json();
 }
 
-async function fetchBars(symbols, timeframe, start, feed, end){
+async function fetchBars(symbols, timeframe, start, feed, end, onPage){
   if(symbols.length === 0) return {};
   const base = { symbols: symbols.join(','), timeframe, start, limit: '10000', adjustment: 'raw', feed };
   if(end) base.end = end;
@@ -909,7 +1033,8 @@ async function fetchBars(symbols, timeframe, start, feed, end){
     const bars = data.bars || {};
     Object.keys(bars).forEach(s => { out[s] = (out[s] || []).concat(bars[s]); });
     token = data.next_page_token || null;
-  } while(token && ++pages < 40);
+    if(onPage) onPage(pages + 1);
+  } while(token && ++pages < 60);
   return out;
 }
 
@@ -921,10 +1046,18 @@ async function getSP500Tickers(){
   const html = data.parse && data.parse.text ? data.parse.text['*'] : null;
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const table = doc.querySelector('table#constituents') || doc.querySelector('table.wikitable');
+  let secCol = 2;
+  const heads = Array.from(table.querySelectorAll('tr th')).slice(0, 10).map(th => th.textContent.trim().toLowerCase());
+  const hi = heads.findIndex(x => x.includes('gics sector'));
+  if(hi >= 0) secCol = hi;
   const tickers = [];
   table.querySelectorAll('tbody tr').forEach(tr => {
-    const td = tr.querySelector('td');
-    if(td && td.textContent.trim()) tickers.push(td.textContent.trim());
+    const tds = tr.querySelectorAll('td');
+    if(tds.length && tds[0].textContent.trim()){
+      const sym = tds[0].textContent.trim();
+      tickers.push(sym);
+      if(tds[secCol]) sp500Sectors[sym] = tds[secCol].textContent.trim();
+    }
   });
   sp500Cache = tickers;
   return tickers;
@@ -1159,14 +1292,15 @@ function logCurrentTrade(){
   if(!meta.lastClose){ statusMsg('No price data loaded for this symbol yet.', true); return; }
 
   const lvNow = getLevels(symbol);
+  const freshSetup = (meta.setup && Date.now() - (meta.setup.at || 0) < 8*3600*1000) ? meta.setup : null;
   const entryPx = lvNow.entry ?? meta.lastClose;
   const entryObj = {
     id: `${symbol}_${Date.now()}`,
     date: etParts(new Date()).dateStr,
     symbol, mode: meta.mode || lastMode,
     price: entryPx, entry: lvNow.entry ?? null,
-    stop: lvNow.stop ?? null, target: lvNow.target ?? null,
-    setup: (meta.setup && Date.now() - (meta.setup.at || 0) < 8*3600*1000) ? meta.setup : null,
+    stop: lvNow.stop ?? (freshSetup ? freshSetup.stop : null), target: lvNow.target ?? (freshSetup ? freshSetup.target : null),
+    setup: freshSetup,
     outcome: 'open', notes: ''
   };
   const log = loadTradeLog();
@@ -1177,22 +1311,31 @@ function logCurrentTrade(){
   document.getElementById('tradeLogOverlay').classList.add('open');
 }
 
+function tradeR(t){
+  const entry = (t.entry != null) ? t.entry : t.price;
+  if(entry == null || t.stop == null || t.exit == null || !(entry > t.stop)) return null;
+  return (t.exit - entry) / (entry - t.stop);
+}
 function tradeLogStats(log){
-  const closed = log.filter(t => t.outcome === 'win' || t.outcome === 'loss');
-  const wins = closed.filter(t => t.outcome === 'win');
-  const losses = closed.filter(t => t.outcome === 'loss');
-  const winRate = closed.length ? (wins.length / closed.length * 100) : null;
+  const closed = log.filter(t => t.outcome && t.outcome !== 'open');
+  const wins = closed.filter(t => t.outcome === 'win').length;
+  const losses = closed.filter(t => t.outcome === 'loss').length;
+  const winRate = (wins + losses) ? wins / (wins + losses) * 100 : null;
   const byGrade = {};
+  let sumR = 0, nR = 0;
   closed.forEach(t => {
+    const r = tradeR(t);
+    if(r != null){ sumR += r; nR++; }
     const g = t.setup && t.setup.grade;
     if(!g) return;
-    const e = byGrade[g] || (byGrade[g] = { w: 0, l: 0 });
-    if(t.outcome === 'win') e.w++; else e.l++;
+    const e = byGrade[g] || (byGrade[g] = { w: 0, l: 0, sumR: 0, nR: 0 });
+    if(t.outcome === 'win') e.w++; else if(t.outcome === 'loss') e.l++;
+    if(r != null){ e.sumR += r; e.nR++; }
   });
-  return {
-    total: log.length, closedCount: closed.length, winCount: wins.length, lossCount: losses.length, winRate, byGrade
-  };
+  return { total: log.length, closedCount: closed.length, winCount: wins, lossCount: losses, winRate,
+    avgR: nR ? sumR / nR : null, totalR: sumR, nR, byGrade };
 }
+function rTxt(v){ return v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + 'R'; }
 
 function renderTradeLogModal(){
   const log = loadTradeLog();
@@ -1201,8 +1344,13 @@ function renderTradeLogModal(){
   if(s.closedCount === 0){
     summaryEl.textContent = `${s.total} logged · no closed trades tagged yet`;
   } else {
-    const gr = ['A', 'B', 'C', 'X'].filter(g => s.byGrade[g]).map(g => `${g} ${s.byGrade[g].w}-${s.byGrade[g].l}`).join(' · ');
-    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L (${fmt(s.winRate,0)}% win rate)` + (gr ? ` · by grade: ${gr}` : '');
+    const gr = ['A', 'B', 'C', 'X'].filter(g => s.byGrade[g]).map(g => {
+      const e = s.byGrade[g];
+      return `${g} ${e.w}-${e.l}` + (e.nR ? ` ${rTxt(e.sumR / e.nR)}` : '');
+    }).join(' · ');
+    summaryEl.textContent = `${s.total} logged · ${s.winCount}W/${s.lossCount}L` + (s.winRate != null ? ` (${fmt(s.winRate,0)}%)` : '')
+      + (s.nR ? ` · avg ${rTxt(s.avgR)} · total ${rTxt(s.totalR)} (${s.nR} with R)` : ' · add stop + exit prices to see R')
+      + (gr ? ` · by grade: ${gr}` : '');
   }
 
   const body = document.getElementById('tradeLogBody');
@@ -1210,16 +1358,26 @@ function renderTradeLogModal(){
     body.innerHTML = `<tr><td colspan="11" style="text-align:center;opacity:0.6;padding:16px;">No trades logged yet.</td></tr>`;
     return;
   }
-  body.innerHTML = log.map(t => { const s = t.setup || {}; return `
+  const num = (id, cls, v, w) => `<input type="number" step="any" class="${cls}" data-id="${id}" value="${v != null ? v : ''}" style="width:${w||68}px;padding:4px 6px;font-size:11px;">`;
+  body.innerHTML = log.map(t => {
+    const s = t.setup || {};
+    const r = tradeR(t);
+    const why = [s.style, s.rvol != null ? 'RVOL ' + fmt(s.rvol, 1) + '×' : '', s.gap != null ? 'gap ' + fmt(s.gap, 1) + '%' : ''].filter(Boolean).join(' · ');
+    const opt = (v, l) => `<option value="${v}" ${t.exitReason === v ? 'selected' : ''}>${l}</option>`;
+    return `
     <tr data-id="${t.id}">
       <td data-label="Date" style="text-align:left;">${t.date}</td>
-      <td data-label="Symbol" style="text-align:left;font-weight:700;">${t.symbol}</td>
-      <td data-label="Mode" style="text-align:left;font-size:11px;color:var(--muted);">${t.mode || '—'}</td>
-      <td data-label="Price">${fmt(t.price)}</td>
-      <td data-label="Grade">${s.grade ? `<span class="grade ${s.grade}">${s.grade} ${s.score}</span>` : '—'}</td>
-      <td data-label="RVOL">${s.rvol != null ? fmt(s.rvol, 1) + '×' : '—'}</td>
-      <td data-label="Ext·ATR">${s.ext != null ? fmt(s.ext, 1) : '—'}</td>
-      <td data-label="Gap%">${s.gap != null ? fmt(s.gap, 1) : '—'}</td>
+      <td data-label="Symbol" style="text-align:left;font-weight:700;" title="${(t.mode || '').replace(/"/g,'')}">${t.symbol}</td>
+      <td data-label="Grade">${s.grade ? `<span class="grade ${s.grade}" title="${why}">${s.grade} ${s.score}</span>${s.ai ? ` <span class="vol" title="Gemini said ${s.ai.verdict}, conviction ${s.ai.conv}/10 (${s.ai.model})">🤖 ${s.ai.verdict === 'DAY' ? 'DAY ' + s.ai.conv : (s.ai.verdict === 'OVERNIGHT' ? 'OVN ' + s.ai.conv : 'PASS')}</span>` : ''}` : '—'}</td>
+      <td data-label="Entry">${num(t.id, 'tl-entry', (t.entry != null ? t.entry : t.price) != null ? Number((t.entry != null ? t.entry : t.price).toFixed(2)) : null)}</td>
+      <td data-label="Stop">${num(t.id, 'tl-stop', t.stop != null ? Number(t.stop.toFixed(2)) : null)}</td>
+      <td data-label="Exit">${num(t.id, 'tl-exit', t.exit != null ? Number(t.exit.toFixed(2)) : null)}</td>
+      <td data-label="R" ${r != null ? `style="color:${r >= 0 ? 'var(--pass)' : 'var(--fail)'};font-weight:700;"` : ''}>${rTxt(r)}</td>
+      <td data-label="Reason">
+        <select class="tl-reason" data-id="${t.id}" style="width:auto;padding:4px 6px;font-size:11px;">
+          <option value="" ${!t.exitReason ? 'selected' : ''}>—</option>${opt('target','Target')}${opt('stop','Stop')}${opt('time','Time')}${opt('manual','Manual')}
+        </select>
+      </td>
       <td data-label="Outcome">
         <select class="tl-outcome" data-id="${t.id}" style="width:auto;padding:4px 6px;font-size:11px;">
           <option value="open" ${t.outcome==='open'?'selected':''}>Open</option>
@@ -1229,7 +1387,7 @@ function renderTradeLogModal(){
         </select>
       </td>
       <td data-label="Notes" style="text-align:left;">
-        <input type="text" class="tl-notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" style="width:130px;padding:4px 6px;font-size:11px;">
+        <input type="text" class="tl-notes" data-id="${t.id}" value="${(t.notes||'').replace(/"/g,'&quot;')}" style="width:110px;padding:4px 6px;font-size:11px;">
       </td>
       <td><button class="tl-delete" data-id="${t.id}" style="padding:4px 8px;font-size:11px;color:var(--fail);">✕</button></td>
     </tr>`; }).join('');
@@ -1238,8 +1396,8 @@ function renderTradeLogModal(){
 function exportTradeLogCsv(){
   const log = loadTradeLog();
   if(log.length === 0){ statusMsg('No trades to export.', true); return; }
-  const cols = ['date','symbol','mode','price','entry','stop','target','grade','score','rvol','ext_atr','gap_pct','outcome','notes'];
-  const flat = log.map(t => { const s = t.setup || {}; return Object.assign({}, t, { grade: s.grade, score: s.score, rvol: s.rvol, ext_atr: s.ext, gap_pct: s.gap }); });
+  const cols = ['date','symbol','mode','price','entry','stop','target','exit','exit_reason','r','grade','score','rvol','ext_atr','gap_pct','ai_verdict','ai_conv','outcome','notes'];
+  const flat = log.map(t => { const s = t.setup || {}; return Object.assign({}, t, { exit_reason: t.exitReason, r: tradeR(t), grade: s.grade, score: s.score, rvol: s.rvol, ext_atr: s.ext, gap_pct: s.gap, ai_verdict: s.ai ? s.ai.verdict : '', ai_conv: s.ai ? s.ai.conv : '' }); });
   const csv = [cols.join(',')].concat(flat.map(t => cols.map(c => {
     let v = t[c];
     if(v === null || v === undefined) return '';
@@ -1298,8 +1456,27 @@ document.getElementById('tradeLogBody').addEventListener('change', (e) => {
   const log = loadTradeLog();
   const rec = log.find(t => t.id === id);
   if(!rec) return;
-  if(e.target.classList.contains('tl-outcome')) rec.outcome = e.target.value;
-  if(e.target.classList.contains('tl-notes')) rec.notes = e.target.value;
+  const c = e.target.classList;
+  const numVal = () => { const v = parseFloat(e.target.value); return isNaN(v) ? null : v; };
+  if(c.contains('tl-outcome')) rec.outcome = e.target.value;
+  if(c.contains('tl-notes')) rec.notes = e.target.value;
+  if(c.contains('tl-reason')) rec.exitReason = e.target.value;
+  if(c.contains('tl-entry')){ rec.entry = numVal(); }
+  if(c.contains('tl-stop')){ rec.stop = numVal(); }
+  if(c.contains('tl-exit')){
+    rec.exit = numVal();
+    if(rec.exit != null){
+      const r = tradeR(rec), ent = (rec.entry != null) ? rec.entry : rec.price;
+      if(rec.outcome === 'open'){
+        if(r != null) rec.outcome = r >= 0.1 ? 'win' : (r <= -0.1 ? 'loss' : 'breakeven');
+        else if(ent) rec.outcome = rec.exit > ent * 1.001 ? 'win' : (rec.exit < ent * 0.999 ? 'loss' : 'breakeven');
+      }
+      if(!rec.exitReason){
+        if(rec.target != null && rec.exit >= rec.target) rec.exitReason = 'target';
+        else if(rec.stop != null && rec.exit <= rec.stop) rec.exitReason = 'stop';
+      }
+    }
+  }
   saveTradeLog(log);
   renderTradeLogModal();
 });
@@ -3284,7 +3461,7 @@ const SU = (() => {
   const $ = id => document.getElementById(id);
   const MIN_PRICE = 2;
   const RTH_OPEN = 570, RTH_CLOSE = 960;           // minutes since midnight ET
-  const SETTING_IDS = ['suStyle', 'suSource', 'suTopN', 'suSkip', 'suOvnSize'];
+  const SETTING_IDS = ['suStyle', 'suSource', 'suTopN', 'suSkip', 'suOvnSize', 'suReplayTest', 'suGapEntry', 'suTargetR', 'suFMinGap', 'suFMinRvol', 'suFMinRisk', 'suSplit'];
   let busy = false, timer = null, cache = null;
 
   /* SU-PURE-START */
@@ -3334,7 +3511,7 @@ const SU = (() => {
 
     // --- 30m buckets (RTH only, closed only) for trend + volume fade ---
     const buckets = [];
-    Object.keys(byDate).sort().forEach(d => {
+    Object.keys(byDate).filter(d => d <= S).sort().forEach(d => {   // never look past the session being graded
       const arr = d === S ? today : byDate[d];
       let cur = null;
       arr.forEach(b => {
@@ -3414,7 +3591,7 @@ const SU = (() => {
   const x1 = v => v.toFixed(1);
   const CAP_C = 64, CAP_B = 79;   // highest score a capped setup can reach (max grade C / max grade B)
 
-  function scoreDay(m, reg){
+  function scoreDay(m, reg, sec){
     const g = makeScorer();
     if(m.rvol == null) g.note('RVOL n/a', 'warn');
     else if(m.rvol >= 2) g.add(20, `RVOL ${x1(m.rvol)}×`, 'good');
@@ -3457,13 +3634,17 @@ const SU = (() => {
     }
     if(m.dTrendUp) g.add(5, 'Daily uptrend', 'good');
 
+    if(sec){
+      if(sec.state === 'lead') g.add(5, `Leading sector ${sec.etf}`, 'good');
+      else if(sec.state === 'lag') g.add(-5, `Lagging sector ${sec.etf}`, 'bad');
+    }
     if(reg === 'on') g.add(10, 'Market risk-on', 'good');
     else if(reg === 'mixed') g.add(4, 'Market mixed', 'warn');
     else { g.add(-5, 'Market risk-off', 'bad'); g.cap(CAP_B); }
     return g.done();
   }
 
-  function scoreOvernight(m, reg){
+  function scoreOvernight(m, reg, sec){
     const g = makeScorer();
     if(m.loc >= 0.85) g.add(20, 'Closing at highs', 'good');
     else if(m.loc >= 0.7) g.add(12, 'Strong close', 'good');
@@ -3498,6 +3679,10 @@ const SU = (() => {
     if(m.rs != null && m.rs >= 1) g.add(5, `+${x1(m.rs)}% vs SPY`, 'good');
     if(m.lastGreen === true && (m.recentRvol == null || m.recentRvol >= 0.8)) g.add(5, 'Bid into the close', 'good');
 
+    if(sec){
+      if(sec.state === 'lead') g.add(5, `Leading sector ${sec.etf}`, 'good');
+      else if(sec.state === 'lag') g.add(-5, `Lagging sector ${sec.etf}`, 'bad');
+    }
     if(reg === 'on') g.add(10, 'Market risk-on', 'good');
     else if(reg === 'mixed') g.add(4, 'Market mixed', 'warn');
     else { g.add(-10, 'Market risk-off', 'bad'); g.cap(CAP_B); }
@@ -3520,6 +3705,175 @@ const SU = (() => {
     const budget = riskBudget * (style === 'overnight' ? sizeMult : 1);
     const shares = Math.max(0, Math.floor(budget / risk));
     return { entry: price, stop, target, risk, shares, riskPct: risk / price * 100 };
+  }
+
+  const SECTOR_ETF = {
+    'Information Technology': 'XLK', 'Financials': 'XLF', 'Energy': 'XLE', 'Health Care': 'XLV',
+    'Consumer Discretionary': 'XLY', 'Consumer Staples': 'XLP', 'Industrials': 'XLI', 'Materials': 'XLB',
+    'Utilities': 'XLU', 'Real Estate': 'XLRE', 'Communication Services': 'XLC'
+  };
+  // Rank the sector ETFs by today's move vs SPY. Top 3 (up, above VWAP) = leading; bottom 3 (down) = lagging.
+  function sectorTable(etfMs, spyPct){
+    const arr = [];
+    Object.keys(etfMs).forEach(e => {
+      const m = etfMs[e];
+      if(!m || m.error || spyPct == null) return;
+      arr.push({ etf: e, rs: m.pct - spyPct, above: m.vwap != null && m.price > m.vwap });
+    });
+    arr.sort((a, b) => b.rs - a.rs);
+    const ok = arr.length >= 6;
+    arr.forEach((x, i) => {
+      x.rank = i + 1;
+      x.state = !ok ? null : ((i < 3 && x.rs > 0.1 && x.above) ? 'lead' : ((i >= arr.length - 3 && x.rs < -0.1) ? 'lag' : null));
+    });
+    const byEtf = {}; arr.forEach(x => { byEtf[x.etf] = x; });
+    return { byEtf, list: arr };
+  }
+  function secLineOf(list){
+    if(list.length < 6) return '';
+    const f = x => `${x.etf} ${x.rs >= 0 ? '+' : ''}${x.rs.toFixed(1)}`;
+    return `Sectors vs SPY — ▲ ${list.slice(0, 3).map(f).join(' · ')}   ▼ ${list.slice(-3).reverse().map(f).join(' · ')}`;
+  }
+
+  // ---- replay helpers ----
+  // Long-only trade walk. Stop is tested before target inside a bar (conservative); gaps fill at the open.
+  function walkTrade(lv, bars){
+    if(!bars || !bars.length) return null;
+    const { entry, stop, target, risk } = lv;
+    for(let i = 0; i < bars.length; i++){
+      const b = bars[i];
+      if(b.o <= stop) return { R: (b.o - entry) / risk, why: 'stop' };
+      if(b.o >= target) return { R: (b.o - entry) / risk, why: 'target' };
+      if(b.l <= stop) return { R: -1, why: 'stop' };
+      if(b.h >= target) return { R: (target - entry) / risk, why: 'target' };
+    }
+    return { R: (bars[bars.length - 1].c - entry) / risk, why: 'time' };
+  }
+  // Candles after entry. Day: rest of session D. Overnight: rest of D + the whole next session.
+  function forwardBars(raw5, D, asOf, style, entry){
+    const rth = [];
+    raw5.forEach(b => {
+      const t = etTag(b.t);
+      if(t.m >= RTH_OPEN && t.m < RTH_CLOSE) rth.push({ o: b.o, h: b.h, l: b.l, c: b.c, d: t.d, m: t.m });
+    });
+    const dayBars = rth.filter(b => b.d === D && b.m >= asOf);
+    if(style === 'day') return { bars: dayBars, gap: null };
+    const nd = [...new Set(rth.map(b => b.d))].sort().find(d => d > D);
+    if(!nd) return null;
+    const nextBars = rth.filter(b => b.d === nd);
+    if(!nextBars.length) return null;
+    return { bars: dayBars.concat(nextBars), gap: (nextBars[0].o / entry - 1) * 100 };
+  }
+  // Candidates knowable at the as-of time without lookahead: day = opening gap, overnight = day's gain into the close.
+  function pickPool(dailyBySym, D, style, topN){
+    const out = [];
+    Object.keys(dailyBySym).forEach(sym => {
+      const a = dailyBySym[sym];
+      const i = a.findIndex(b => b.d === D);
+      if(i < 1) return;
+      const prev = a[i - 1].c, px = style === 'day' ? a[i].o : a[i].c;
+      const pct = (px / prev - 1) * 100;
+      if(prev > 0 && px >= MIN_PRICE && pct >= 0.5) out.push({ sym, pct });
+    });
+    out.sort((x, y) => y.pct - x.pct);
+    return out.slice(0, topN).map(x => x.sym);
+  }
+  function featureList(m, reg, sec){
+    return {
+      'RVOL ≥ 1.5×': m.rvol != null && m.rvol >= 1.5,
+      'Above VWAP': m.vwap != null && m.price > m.vwap,
+      '30m trend up': m.trend30 === true,
+      'Above opening range': m.aboveORH === true,
+      'Beats SPY by 0.3%+': m.rs != null && m.rs >= 0.3,
+      'Holding highs (top 25% of range)': m.loc >= 0.75,
+      'Near VWAP (≤ 0.6 ATR)': m.extVwapATR != null && m.extVwapATR >= 0 && m.extVwapATR <= 0.6,
+      'Daily uptrend': !!m.dTrendUp,
+      'Within 3% of 20-day high': m.price >= m.hi20 * 0.97,
+      'Ran 3+ ATR already': m.moveATR > 3,
+      'Leading sector': !!(sec && sec.state === 'lead'),
+      'Lagging sector': !!(sec && sec.state === 'lag'),
+      'Market risk-on': reg === 'on'
+    };
+  }
+  function aggregate(rows){
+    const n = rows.length;
+    if(!n) return null;
+    const Rs = rows.map(r => r.R), gaps = rows.filter(r => r.gap != null).map(r => r.gap);
+    return {
+      n, win: Rs.filter(x => x > 0).length / n * 100, avgR: mean(Rs), totR: Rs.reduce((a, b) => a + b, 0),
+      tgt: rows.filter(r => r.why === 'target').length / n * 100, stp: rows.filter(r => r.why === 'stop').length / n * 100,
+      gap: gaps.length ? mean(gaps) : null
+    };
+  }
+  function featureStats(trades, minN){
+    if(!trades.length) return [];
+    const out = [];
+    Object.keys(trades[0].feats).forEach(k => {
+      const w = trades.filter(t => t.feats[k]), wo = trades.filter(t => !t.feats[k]);
+      if(w.length < minN || wo.length < minN) return;
+      out.push({ k, nWith: w.length, rWith: mean(w.map(t => t.R)), nWithout: wo.length, rWithout: mean(wo.map(t => t.R)) });
+    });
+    out.forEach(x => { x.diff = x.rWith - x.rWithout; });
+    return out.sort((a, b) => b.diff - a.diff);
+  }
+  // ---- "gap above prior-day high" test ----
+  // Candidates: opened above yesterday's high (knowable at 9:30), ranked by how far above.
+  function pickGapHigh(dailyBySym, D, topN){
+    const out = [];
+    Object.keys(dailyBySym).forEach(sym => {
+      const a = dailyBySym[sym];
+      const i = a.findIndex(b => b.d === D);
+      if(i < 1) return;
+      const ph = a[i - 1].h, o = a[i].o;
+      if(ph > 0 && o >= MIN_PRICE && o > ph) out.push({ sym, g: (o / ph - 1) * 100, prevHigh: ph });
+    });
+    out.sort((x, y) => y.g - x.g);
+    return out.slice(0, topN);
+  }
+  // Everything about one stock-day that the gap test needs, in a compact form (so filters / targets can be re-run instantly).
+  function prepGapDay(raw5, D){
+    const rth = [];
+    raw5.forEach(b => {
+      const t = etTag(b.t);
+      if(t.d <= D && t.m >= RTH_OPEN && t.m < RTH_CLOSE) rth.push({ o: b.o, h: b.h, l: b.l, c: b.c, v: b.v, d: t.d, m: t.m });
+    });
+    const day = rth.filter(b => b.d === D);
+    const orB = day.filter(b => b.m < RTH_OPEN + 10), after = day.filter(b => b.m >= RTH_OPEN + 10);
+    if(!orB.length || !after.length) return { skip: 'nodata' };
+    const volOR = orB.reduce((s, b) => s + b.v, 0);
+    const pv = [...new Set(rth.filter(b => b.d < D).map(b => b.d))].sort().slice(-5)
+      .map(d => rth.filter(b => b.d === d && b.m < RTH_OPEN + 10).reduce((s, b) => s + b.v, 0)).filter(v => v > 0);
+    return {
+      orh: Math.max(...orB.map(b => b.h)), orl: Math.min(...orB.map(b => b.l)),
+      rvol10: pv.length >= 2 ? volOR / mean(pv) : null,
+      after: after.map(b => ({ o: b.o, h: b.h, l: b.l, c: b.c, m: b.m }))
+    };
+  }
+  // Stop = low of the first 10 minutes (9:30-9:40). Target = targetR × risk. Held to the close if neither hits.
+  // 'at940': buy at the 9:40 bar's open.  'break': buy when price first trades above the 10-minute high.
+  function simGapPrep(p, entryMode, targetR){
+    const { orh, orl, rvol10, after } = p;
+    if(entryMode === 'break'){
+      const k = after.findIndex(b => b.h >= orh);
+      if(k < 0) return { skip: 'notrigger' };
+      const eb = after[k], entry = Math.max(orh, eb.o), risk = entry - orl;
+      if(!(risk > entry * 0.0005)) return { skip: 'tiny' };
+      const lv = { entry, stop: orl, target: entry + targetR * risk, risk };
+      const meta = { entry, orh, orl, risk, riskPct: risk / entry * 100, rvol10 };
+      if(eb.l <= orl) return Object.assign(meta, { R: -1, why: 'stop' });      // both in one bar: assume the worst
+      const walk = after.slice(k + 1);
+      if(!walk.length) return Object.assign(meta, { R: (eb.c - entry) / risk, why: 'time' });
+      return Object.assign(meta, walkTrade(lv, walk));
+    }
+    if(after[0].m > RTH_OPEN + 15) return { skip: 'nodata' };
+    const entry = after[0].o, risk = entry - orl;
+    if(!(risk > entry * 0.0005)) return { skip: 'tiny' };
+    const lv = { entry, stop: orl, target: entry + targetR * risk, risk };
+    return Object.assign({ entry, orh, orl, risk, riskPct: risk / entry * 100, rvol10 }, walkTrade(lv, after));
+  }
+  function simulateGapOR(raw5, D, entryMode, targetR){
+    const p = prepGapDay(raw5, D);
+    return p.skip ? p : simGapPrep(p, entryMode, targetR);
   }
   /* SU-PURE-END */
 
@@ -3556,12 +3910,12 @@ const SU = (() => {
   }
 
   function render(rows, meta){
-    const { style, S, asOf, live, reg, regTxt, skipped, errCount } = meta;
+    const { style, S, asOf, live, reg, regTxt, secLine, skipped, errCount } = meta;
     const shown = rows.filter(r => r.grade === 'A' || r.grade === 'B');
     const nA = shown.filter(r => r.grade === 'A').length, nB = shown.length - nA;
 
     const regLabel = reg === 'on' ? 'RISK-ON' : (reg === 'off' ? 'RISK-OFF' : 'MIXED');
-    $('suRegime').innerHTML = `<div class="panel regime ${reg}"><b>Market ${regLabel}</b> — ${regTxt}<div class="hint">${timingHint(style, S, asOf, live)}</div></div>`;
+    $('suRegime').innerHTML = `<div class="panel regime ${reg}"><b>Market ${regLabel}</b> — ${regTxt}<div class="hint">${timingHint(style, S, asOf, live)}</div>${secLine ? `<div class="hint">${secLine}</div>` : ''}</div>`;
 
     let html = `<div class="panel"><table><thead><tr>
       <th>Symbol</th><th>Grade</th><th>%Chg</th><th>RVOL</th><th>Stop</th><th>Target</th><th>Shares</th>
@@ -3600,6 +3954,7 @@ const SU = (() => {
     if(skipped) msg += ` · ${skipped} on skip list`;
     if(errCount) msg += ` · ${errCount} lacked data`;
     setStatus(msg);
+    paintAIStale();
   }
 
   async function run(){
@@ -3657,7 +4012,9 @@ const SU = (() => {
       }
 
       // 2) bars (paginated; same feed for price + volume so RVOL is apples-to-apples)
-      const list = [...new Set(pool.concat('SPY'))];
+      const etfs = [...new Set(Object.values(SECTOR_ETF))];
+      if(!Object.keys(sp500Sectors).length){ try { await getSP500Tickers(); } catch(e){} }
+      const list = [...new Set(pool.concat('SPY', etfs))];
       setStatus(`Loading intraday + daily bars for ${list.length} symbols…`);
       const now = Date.now();
       const [raw5, rawD] = await Promise.all([
@@ -3680,6 +4037,9 @@ const SU = (() => {
       const spyM = (raw5.SPY && rawD.SPY) ? analyze('SPY', raw5.SPY, rawD.SPY, ctx) : null;
       const { r: reg, txt: regTxt } = regimeOf(spyM);
       const spyPct = (spyM && !spyM.error) ? spyM.pct : null;
+      const etfMs = {};
+      etfs.forEach(e => { if(raw5[e] && rawD[e]) etfMs[e] = analyze(e, raw5[e], rawD[e], ctx); });
+      const secT = sectorTable(etfMs, spyPct);
 
       // 5) grade
       const risk = parseFloat($('defaultRisk').value) || 50;
@@ -3690,12 +4050,17 @@ const SU = (() => {
         const m = analyze(sym, raw5[sym], rawD[sym], ctx);
         if(m.error){ errCount++; return; }
         m.rs = spyPct != null ? m.pct - spyPct : null;
-        const sc = style === 'day' ? scoreDay(m, reg) : scoreOvernight(m, reg);
+        const etf = SECTOR_ETF[sp500Sectors[sym]];
+        const sec = (etf && secT.byEtf[etf]) ? secT.byEtf[etf] : null;
+        const scD = scoreDay(m, reg, sec), scO = scoreOvernight(m, reg, sec);
+        const sc = style === 'day' ? scD : scO;
         const lv = buildLevels(m, style, risk, sizeMult);
-        rows.push({ symbol: sym, m, lv, score: sc.score, grade: sc.grade, flags: sc.flags });
+        // Both styles are scored for every name so Gemini can weigh day trade vs overnight hold.
+        const both = { day: Object.assign({}, scD, { lv: buildLevels(m, 'day', risk, sizeMult) }), overnight: Object.assign({}, scO, { lv: buildLevels(m, 'overnight', risk, sizeMult) }) };
+        rows.push({ symbol: sym, m, lv, score: sc.score, grade: sc.grade, flags: sc.flags, both, sector: sp500Sectors[sym] || null, secState: sec ? sec.state : null });
         rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
           lastClose: m.price, mode: style === 'day' ? 'setup_day' : 'setup_overnight',
-          setup: { style, grade: sc.grade, score: sc.score, rvol: m.rvol, ext: style === 'day' ? m.extVwapATR : m.moveATR, gap: m.gap, at: Date.now() }
+          setup: { style, grade: sc.grade, score: sc.score, rvol: m.rvol, ext: style === 'day' ? m.extVwapATR : m.moveATR, gap: m.gap, entry: lv.entry, stop: lv.stop, target: lv.target, at: Date.now() }
         });
       });
       rows.sort((a, b) => b.score - a.score || b.m.pct - a.m.pct);
@@ -3703,8 +4068,10 @@ const SU = (() => {
         setStatus('Not enough bars yet today (need ~15 minutes of regular-session data). Try again after 9:45 ET.', true);
         return;
       }
-      cache = { rows, meta: { style, S, asOf, live, reg, regTxt, skipped, errCount } };
+      if(aiState) tagLog(aiState.ai, aiState.model);   // a re-grade rebuilds each setup; keep the on-screen review attached so the trade log matches what you see
+      cache = { rows, ts: Date.now(), meta: { style, S, asOf, live, reg, regTxt, secLine: secLineOf(secT.list), skipped, errCount } };
       render(cache.rows, cache.meta);
+      return true;
     } catch(e){
       setStatus(e.message, true);
     } finally {
@@ -3712,15 +4079,689 @@ const SU = (() => {
     }
   }
 
+  /* ------------------------------ Gemini review ------------------------------ */
+  const GEM_MAX = 10;     // most hits sent per review — keeps the prompt small and the answer focused
+  const GEM_URL = 'https://generativelanguage.googleapis.com/v1beta/models/';
+  let aiState = null, aiBusy = false;
+
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const r1 = (v, d = 1) => (v == null || !isFinite(v)) ? null : +v.toFixed(d);
+  function aiStatus(msg, isErr){ const el = $('suAIStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
+  function gemCfg(){
+    return { key: ($('geminiKey').value || '').trim(), model: ($('geminiModel').value || '').trim() || 'gemini-3.5-flash', search: $('geminiSearch').checked };
+  }
+  function needKey(){
+    showTab('scanner');
+    if(!$('settingsPanel').classList.contains('open')) $('btnToggleSettings').click();
+    const g = $('geminiStatus'); g.textContent = 'Paste a Gemini API key (from Google AI Studio) here, then press Test.'; g.className = 'status err';
+    $('geminiKey').focus();
+  }
+
+  const AI_SYSTEM = [
+    'You are a disciplined, skeptical trade reviewer for one retail trader. You receive JSON with market context and up to 10 scanner hits. Decide which hit, if any, is the best LONG trade as either a DAY trade (in and out the same session) or an OVERNIGHT hold (bought into the close, sold in the next session).',
+    '',
+    'Each candidate carries raw metrics plus the app\'s own rule-based grade (A 80+, B 65-79, C 50-64, X below), flags (+ good, ~ caution, - bad) and a risk box (entry / stop / 2R target) for BOTH styles. Field guide: rvol = same-time-of-day volume vs the last 5 sessions; recentRvol = last two 30m bars vs their usual; extVwapATR = (price - VWAP) / daily ATR; moveATR = (price - prior close) / daily ATR; rangePos = 0 (day low) to 1 (day high); pctFrom20dHigh <= 0 means below the 20-day high; extDailyEma10ATR = stretch above the daily 10 EMA in ATRs; vsSpyPct = stock % change minus SPY %.',
+    '',
+    'Rules:',
+    '1. PASS is a good answer. Most sessions have zero to two worthwhile setups. Never force a pick — set "best" to null when nothing is compelling.',
+    '2. Use only numbers in the JSON. Never invent prices, levels or indicator values. Use the app\'s stop and target; do not propose different ones.',
+    '3. The grades are heuristics, not truth. You may disagree, but a candidate graded X in the style you choose needs an explicit reason, and any pick graded C in its style must have conviction 5 or lower.',
+    '4. Respect timing. Use context.timing. After about 15:30 ET there are no new day trades; overnight decisions are best made 15:30-15:55 ET. If the session is closed, treat verdicts as a plan for the next session.',
+    '5. DAY: penalize chasing (extVwapATR above about 1.2), fading recentRvol, price below VWAP, and inside-the-opening-range chop. OVERNIGHT: penalize blow-off moves (moveATR above 3), stretch from the daily 10 EMA, a weak close (low rangePos), a risk-off tape, and any known event risk. Gap risk can blow through the stop.',
+    '6. If a search tool is available, use it sparingly — only for the five or fewer names you would seriously consider taking. Look for (a) earnings or other scheduled events on or right after today\'s date, and (b) fresh catalysts or damaging headlines (offering, downgrade, halt, lawsuit, guidance cut). Earnings after today\'s close makes an overnight hold a coin flip: do not give it OVERNIGHT. Put what you found in "catalyst"; if nothing turned up, say "no catalyst found" and do not imply certainty.',
+    '7. Be concise: marketView one sentence; thesis 30 words or fewer; at most 3 risks of about 10 words each; "why" and "watchFor" one or two sentences.',
+    '',
+    'Answer with ONLY a JSON object, no prose and no code fences, in exactly this shape:',
+    '{"marketView": string, "best": null | {"symbol": string, "style": "DAY"|"OVERNIGHT", "why": string, "watchFor": string}, "reviews": [{"symbol": string, "verdict": "DAY"|"OVERNIGHT"|"PASS", "conviction": integer 0-10, "thesis": string, "risks": [string], "catalyst": string}]}',
+    '"reviews" must contain every candidate exactly once, best first. If best is not null, that symbol\'s review verdict must equal best.style. Use conviction 0 for PASS.'
+  ].join('\n');
+
+  const AI_SCHEMA = {
+    type: 'OBJECT',
+    properties: {
+      marketView: { type: 'STRING' },
+      best: { type: 'OBJECT', nullable: true, properties: { symbol: { type: 'STRING' }, style: { type: 'STRING', enum: ['DAY', 'OVERNIGHT'] }, why: { type: 'STRING' }, watchFor: { type: 'STRING' } }, required: ['symbol', 'style', 'why', 'watchFor'] },
+      reviews: { type: 'ARRAY', items: { type: 'OBJECT', properties: {
+        symbol: { type: 'STRING' }, verdict: { type: 'STRING', enum: ['DAY', 'OVERNIGHT', 'PASS'] }, conviction: { type: 'INTEGER' },
+        thesis: { type: 'STRING' }, risks: { type: 'ARRAY', items: { type: 'STRING' } }, catalyst: { type: 'STRING' } },
+        required: ['symbol', 'verdict', 'conviction', 'thesis', 'risks', 'catalyst'] } }
+    },
+    required: ['marketView', 'best', 'reviews']
+  };
+
+  function retryDelaySec(json){
+    const d = json && json.error && json.error.details;
+    if(!Array.isArray(d)) return null;
+    for(const x of d){ const m = x && typeof x.retryDelay === 'string' && /^([\d.]+)s$/.exec(x.retryDelay); if(m) return parseFloat(m[1]); }
+    return null;
+  }
+  async function gemPost(cfg, body, ms){
+    const limit = ms || 120000;
+    const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), limit);
+    try {
+      const res = await fetch(GEM_URL + encodeURIComponent(cfg.model) + ':generateContent', {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.key },
+        body: JSON.stringify(body)
+      });
+      let json = null; try { json = await res.json(); } catch(e){}
+      return { ok: res.ok, status: res.status, json };
+    } catch(e){
+      if(e.name === 'AbortError') throw new Error('Gemini took longer than ' + Math.round(limit / 1000) + 's. Try again, switch off Search grounding, or use a Flash model.');
+      throw new Error('Could not reach Gemini — check your connection. (' + e.message + ')');
+    } finally { clearTimeout(to); }
+  }
+  function gemError(r, cfg){
+    const msg = (r.json && r.json.error && r.json.error.message) || ('HTTP ' + r.status);
+    if(r.status === 400 && /api key/i.test(msg)) return 'Gemini rejected the API key — re-copy it from Google AI Studio.';
+    if(r.status === 401 || r.status === 403) return 'Gemini refused the request (' + r.status + '): ' + msg;
+    if(r.status === 404) return 'Model "' + cfg.model + '" was not found — pick another in Settings (e.g. gemini-3.5-flash).';
+    if(r.status === 429){
+      const detail = msg.replace(/\s+/g, ' ').slice(0, 240);
+      const noFree = /limit:\s*0/i.test(msg);
+      return 'Gemini rate or quota limit hit — ' + (noFree ? 'this model has no free-tier quota on your key: enable billing in AI Studio, or pick gemini-3.1-flash-lite in Settings. ' : 'the message doesn\'t say which limit. Open ai.dev/rate-limit to see it; meanwhile turn off Search grounding or try gemini-3.1-flash-lite. ') + 'Google says: ' + detail;
+    }
+    if(r.status >= 500) return 'Gemini is overloaded or down right now (' + r.status + ') — try again shortly.';
+    return 'Gemini error (' + r.status + '): ' + msg;
+  }
+  function gemText(json){
+    const c = json && json.candidates && json.candidates[0];
+    const parts = (c && c.content && c.content.parts) || [];
+    return { text: parts.filter(p => p.text && !p.thought).map(p => p.text).join('').trim(), cand: c || null, block: json && json.promptFeedback && json.promptFeedback.blockReason };
+  }
+  // Schema-locked JSON where the model supports it (also alongside Search on Gemini 3); otherwise the prompt alone enforces JSON.
+  async function gemGenerate(cfg, userText){
+    const mk = strict => {
+      const gen = { maxOutputTokens: 16000 };
+      if(strict){ gen.responseMimeType = 'application/json'; gen.responseSchema = AI_SCHEMA; }
+      const b = { systemInstruction: { parts: [{ text: AI_SYSTEM }] }, contents: [{ role: 'user', parts: [{ text: userText }] }], generationConfig: gen };
+      if(cfg.search) b.tools = [{ google_search: {} }];
+      return b;
+    };
+    let strict = true, r = await gemPost(cfg, mk(true));
+    if(!r.ok && r.status === 400 && /schema|mime|unknown name|not supported|unsupported/i.test((r.json && r.json.error && r.json.error.message) || '')){ strict = false; r = await gemPost(cfg, mk(false)); }
+    if(!r.ok && r.status === 429){   // Google often says how long to wait; if it is short, wait and retry once
+      const w = retryDelaySec(r.json);
+      if(w != null && w <= 30){ aiStatus('Rate limited — retrying in ' + Math.ceil(w) + 's…'); await new Promise(res => setTimeout(res, Math.ceil(w * 1000) + 500)); r = await gemPost(cfg, mk(strict)); }
+    }
+    if(!r.ok) throw new Error(gemError(r, cfg));
+    return r.json;
+  }
+  async function aiTest(){
+    const cfg = gemCfg(), el = $('geminiStatus');
+    const say = (m, e) => { el.textContent = m; el.className = 'status' + (e ? ' err' : ''); };
+    if(!cfg.key){ say('Paste a Gemini API key first.', true); return; }
+    say('Testing…');
+    const t0 = performance.now();
+    try {
+      const r = await gemPost(cfg, { contents: [{ role: 'user', parts: [{ text: 'Reply with the single word OK.' }] }], generationConfig: { maxOutputTokens: 256 } }, 30000);
+      if(!r.ok) throw new Error(gemError(r, cfg));
+      say('✓ Connected — ' + cfg.model + ' answered in ' + ((performance.now() - t0) / 1000).toFixed(1) + 's');
+    } catch(e){ say(e.message, true); }
+  }
+
+  function parseAIJson(text, finish){
+    const s = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    try { return JSON.parse(s); } catch(e){}
+    const a = s.indexOf('{'), b = s.lastIndexOf('}');
+    if(a >= 0 && b > a){ try { return JSON.parse(s.slice(a, b + 1)); } catch(e){} }
+    throw new Error(finish === 'MAX_TOKENS' ? 'Gemini\'s answer was cut off before it finished — try again.' : 'Gemini answered, but not in a format the app could read — try again.');
+  }
+
+  // Never trust the model's output blindly: keep only known symbols, clamp fields, and drop a "best" that contradicts its own verdict.
+  function normalizeAI(raw, cands){
+    const bySym = {}; cands.forEach(r => { bySym[r.symbol] = r; });
+    const okV = new Set(['DAY', 'OVERNIGHT', 'PASS']);
+    const seen = new Set(), reviews = [];
+    (Array.isArray(raw && raw.reviews) ? raw.reviews : []).forEach(x => {
+      const sym = String((x && x.symbol) || '').toUpperCase().trim();
+      if(!bySym[sym] || seen.has(sym)) return;
+      seen.add(sym);
+      let verdict = String(x.verdict || 'PASS').toUpperCase(); if(!okV.has(verdict)) verdict = 'PASS';
+      reviews.push({
+        symbol: sym, verdict, conviction: verdict === 'PASS' ? 0 : clamp(Math.round(+x.conviction || 0), 0, 10),
+        thesis: String(x.thesis || ''), risks: (Array.isArray(x.risks) ? x.risks : []).slice(0, 3).map(String).filter(Boolean), catalyst: String(x.catalyst || '')
+      });
+    });
+    cands.forEach(r => { if(!seen.has(r.symbol)) reviews.push({ symbol: r.symbol, verdict: 'PASS', conviction: 0, thesis: 'Gemini did not comment on this one.', risks: [], catalyst: '' }); });
+    let best = null, note = '';
+    if(raw && raw.best && raw.best.symbol){
+      const sym = String(raw.best.symbol).toUpperCase().trim(), style = String(raw.best.style || '').toUpperCase();
+      const rev = reviews.find(v => v.symbol === sym);
+      if(bySym[sym] && (style === 'DAY' || style === 'OVERNIGHT') && rev && rev.verdict === style)
+        best = { symbol: sym, style, why: String(raw.best.why || ''), watchFor: String(raw.best.watchFor || '') };
+      else note = 'Gemini\'s top pick didn\'t match its own per-name verdict, so no single pick is shown — read the reviews below.';
+    }
+    return { marketView: String((raw && raw.marketView) || ''), best, reviews, note };
+  }
+
+  function aiPick(rows){
+    return rows.map(r => ({ r, best: Math.max(r.both.day.score, r.both.overnight.score) }))
+      .filter(x => x.best >= 50)
+      .sort((a, b) => b.best - a.best || b.r.m.pct - a.r.m.pct)
+      .slice(0, GEM_MAX).map(x => x.r);
+  }
+  function aiCandidate(r){
+    const m = r.m;
+    const side = k => {
+      const b = r.both[k], L = b.lv;
+      return { grade: b.grade, score: b.score, flags: b.flags.map(f => (f.k === 'good' ? '+ ' : (f.k === 'bad' ? '- ' : '~ ')) + f.t),
+        entry: r1(L.entry, 2), stop: r1(L.stop, 2), target2R: r1(L.target, 2), stopPct: r1(L.riskPct, 2) };
+    };
+    return {
+      symbol: r.symbol, sector: r.sector || null, sectorVsSpy: r.secState === 'lead' ? 'leading' : (r.secState === 'lag' ? 'lagging' : 'neutral'),
+      price: r1(m.price, 2), changePct: r1(m.pct, 2), gapPct: r1(m.gap, 2), vsSpyPct: r1(m.rs, 2),
+      rvol: r1(m.rvol), recentRvol: r1(m.recentRvol), aboveVwap: m.vwap != null ? m.price > m.vwap : null,
+      extVwapATR: r1(m.extVwapATR), moveATR: r1(m.moveATR), rangePos: r1(m.loc, 2),
+      trend30mUp: m.trend30, dailyUptrend: m.dTrendUp, aboveOpeningRange: m.aboveORH, abovePremarketHigh: m.abovePM,
+      pctFrom20dHigh: r1((m.price / m.hi20 - 1) * 100), extDailyEma10ATR: r1(m.extDailyATR), atrPct: r1(m.atrD / m.price * 100, 2), lastBarGreen: m.lastGreen,
+      day: side('day'), overnight: side('overnight')
+    };
+  }
+  function extractGrounding(cand){
+    const gm = cand && (cand.groundingMetadata || cand.grounding_metadata);
+    if(!gm) return null;
+    const src = [], seen = new Set();
+    (gm.groundingChunks || []).forEach(c => {
+      const w = c && c.web;
+      if(w && /^https?:\/\//i.test(w.uri || '') && !seen.has(w.uri)){ seen.add(w.uri); src.push({ title: w.title || w.uri, uri: w.uri }); }
+    });
+    return { queries: gm.webSearchQueries || [], sources: src.slice(0, 12), suggest: (gm.searchEntryPoint && gm.searchEntryPoint.renderedContent) || '' };
+  }
+  // Save the verdict on the setup so the trade log can later show whether Gemini's picks paid off.
+  function tagLog(ai, model){
+    ai.reviews.forEach(v => { const d = rowDataMap[v.symbol]; if(d && d.setup) d.setup.ai = { verdict: v.verdict, conv: v.conviction, model }; });
+  }
+
+  function renderAI(){
+    const st = aiState;
+    if(!st){ $('suAIOut').innerHTML = ''; return; }
+    const { ai, cands } = st, byS = {}; cands.forEach(r => { byS[r.symbol] = r; });
+    const order = ai.reviews.slice().sort((a, b) => ((b.verdict !== 'PASS') - (a.verdict !== 'PASS')) || (b.conviction - a.conviction));
+    const list = order.map(v => v.symbol);
+    const lab = { DAY: 'DAY TRADE', OVERNIGHT: 'OVERNIGHT', PASS: 'PASS' };
+    let h = `<div class="ai-stale" hidden>⚠ The scan has been refreshed since this review — run it again for a current read.</div>`;
+
+    if(ai.best){
+      const b = ai.best, r = byS[b.symbol], rv = ai.reviews.find(v => v.symbol === b.symbol);
+      const L = r.both[b.style === 'DAY' ? 'day' : 'overnight'].lv;
+      h += `<div class="ai-best">
+        <div class="ai-top"><span class="ai-tag">BEST PICK</span><span class="sym" data-sym="${esc(b.symbol)}">${esc(b.symbol)}</span>
+          <span class="ai-badge ${b.style}">${lab[b.style]}</span><span class="ai-conv">${rv.conviction}/10</span></div>
+        <div class="ai-why">${esc(b.why)}</div>
+        <div class="ai-levels">Entry ~$${L.entry.toFixed(2)} · Stop $${L.stop.toFixed(2)} (−${L.riskPct.toFixed(1)}%) · Target $${L.target.toFixed(2)} (2R) · ${L.shares ? L.shares + ' sh' : 'size —'}${b.style === 'OVERNIGHT' ? ' · overnight size' : ''}</div>
+        ${b.watchFor ? `<div class="ai-watch">Watch for: ${esc(b.watchFor)}</div>` : ''}
+      </div>`;
+      if(ai.marketView) h += `<div class="ai-mkt">${esc(ai.marketView)}</div>`;
+    } else {
+      h += `<div class="ai-best none"><b>Stand aside.</b> ${ai.note ? esc(ai.note) : 'Gemini didn\'t find a setup worth taking right now.'}${ai.marketView ? ' ' + esc(ai.marketView) : ''}</div>`;
+    }
+
+    h += `<div class="ai-list">`;
+    order.forEach(v => {
+      const r = byS[v.symbol], g = r.both;
+      h += `<div class="ai-item ${v.verdict === 'PASS' ? 'pass' : ''}">
+        <div class="ai-top"><span class="sym" data-sym="${esc(v.symbol)}">${esc(v.symbol)}</span>
+          <span class="ai-badge ${v.verdict}">${lab[v.verdict]}</span>${v.verdict !== 'PASS' ? `<span class="ai-conv">${v.conviction}/10</span>` : ''}
+          <span class="ai-grades" title="The app's own grades">Day <span class="grade ${g.day.grade}">${g.day.grade} ${g.day.score}</span> · Ovn <span class="grade ${g.overnight.grade}">${g.overnight.grade} ${g.overnight.score}</span></span></div>
+        ${v.thesis ? `<div class="ai-thesis">${esc(v.thesis)}</div>` : ''}
+        ${v.risks.length ? `<div class="ai-chips">${v.risks.map(x => `<span class="su-f bad">${esc(x)}</span>`).join('')}</div>` : ''}
+        ${v.catalyst ? `<div class="ai-cat">📰 ${esc(v.catalyst)}</div>` : ''}
+      </div>`;
+    });
+    h += `</div>`;
+
+    const gr = ai.grounding;
+    if(gr && gr.sources.length){
+      h += `<details class="ai-src"><summary>Sources Gemini searched (${gr.sources.length})</summary><ul>${gr.sources.map(s => `<li><a href="${esc(s.uri)}" target="_blank" rel="noopener noreferrer">${esc(s.title)}</a></li>`).join('')}</ul></details>`;
+    }
+    if(gr && gr.suggest) h += `<iframe class="ai-suggest" sandbox="allow-popups allow-popups-to-escape-sandbox" srcdoc="${esc(gr.suggest)}" title="Google Search suggestions"></iframe>`;
+    h += `<div class="ai-foot">${esc(st.model)}${st.search ? ' + Google Search' : ''} · ${new Date(st.at).toLocaleTimeString()} · an AI opinion on this app's own numbers, not advice. Prices are as of the scan — re-check before acting${st.search ? ', and confirm earnings dates yourself before any overnight hold' : ' (search is off, so earnings and news were not checked)'}.</div>`;
+    $('suAIOut').innerHTML = h;
+
+    document.querySelectorAll('#suAIOut .sym').forEach(el => {
+      el.addEventListener('click', () => openModalList(list, list.indexOf(el.dataset.sym), null));
+    });
+  }
+  function paintAIStale(){
+    if(!aiState || !cache) return;
+    const el = $('suAIOut').querySelector('.ai-stale');
+    if(el) el.hidden = aiState.scanTs === cache.ts;
+  }
+
+  async function aiReview(){
+    if(aiBusy || busy) return false;
+    const cfg = gemCfg();
+    if(!cfg.key){ needKey(); return false; }
+    if(!cache || !cache.rows.length){ aiStatus('Grade setups first — there is nothing to review yet.', true); return false; }
+    const cands = aiPick(cache.rows);
+    if(!cands.length){
+      aiState = null; renderAI();
+      aiStatus('No hit grades C or better in either style, so there is nothing worth sending to Gemini. Standing aside is a position.');
+      return true;
+    }
+    aiBusy = true; $('suAIBtn').disabled = true; $('btnAIPick').disabled = true;
+    try {
+      const { style, S, asOf, live, reg, regTxt, secLine } = cache.meta;
+      const hh = String(Math.floor(asOf / 60)).padStart(2, '0') + ':' + String(asOf % 60).padStart(2, '0');
+      const payload = {
+        context: {
+          nowET: new Date().toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
+          sessionDate: S, sessionLive: live, asOfET: hh,
+          marketRegime: reg === 'on' ? 'risk-on' : (reg === 'off' ? 'risk-off' : 'mixed'), marketNote: regTxt, sectorsVsSpy: secLine || null,
+          timing: { day: timingHint('day', S, asOf, live), overnight: timingHint('overnight', S, asOf, live) },
+          overnightSizeMultiplier: clamp(parseFloat($('suOvnSize').value) || 0.5, 0.1, 1),
+          candidatesReviewed: cands.length, totalGraded: cache.rows.length
+        },
+        candidates: cands.map(aiCandidate)
+      };
+      aiStatus(`Asking ${cfg.model} to review ${cands.length} of ${cache.rows.length} graded hits${cfg.search ? ' and check news…' : '…'}`);
+      const t0 = performance.now();
+      const json = await gemGenerate(cfg, 'Review these scanner hits and answer in the required JSON shape.\n' + JSON.stringify(payload));
+      const g = gemText(json);
+      if(!g.text) throw new Error(g.block ? 'Gemini blocked the request (' + g.block + ').' : 'Gemini returned no answer' + (g.cand && g.cand.finishReason ? ' (' + g.cand.finishReason + ')' : '') + ' — try again.');
+      const ai = normalizeAI(parseAIJson(g.text, g.cand && g.cand.finishReason), cands);
+      ai.grounding = extractGrounding(g.cand);
+      aiState = { ai, cands, scanTs: cache.ts, model: cfg.model, search: cfg.search, at: Date.now() };
+      tagLog(ai, cfg.model);
+      renderAI();
+      const nTake = ai.reviews.filter(v => v.verdict !== 'PASS').length;
+      aiStatus(`Reviewed ${cands.length} hits in ${((performance.now() - t0) / 1000).toFixed(1)}s · ${nTake} worth taking · ${ai.best ? 'best: ' + ai.best.symbol + ' (' + (ai.best.style === 'DAY' ? 'day trade' : 'overnight') + ')' : 'no single best pick'}`);
+      return true;
+    } catch(e){
+      aiStatus(e.message, true);
+      return false;
+    } finally {
+      aiBusy = false; $('suAIBtn').disabled = false; $('btnAIPick').disabled = false;
+    }
+  }
+
+  // Scanner tab "AI Pick": grade exactly the scanner's hits, then review them.
+  async function reviewScanner(){
+    if(busy || aiBusy) return;
+    if(!lastSymbols.length){ statusMsg('Run a scan first — AI Pick reviews the scanner\'s hits.', true); return; }
+    if(!gemCfg().key){ needKey(); return; }
+    $('suSource').value = 'last';
+    showTab('setups');
+    aiStatus('Grading the scanner\'s hits first…');
+    const ok = await run();
+    if(ok) await aiReview();
+  }
+
+  /* ------------------------------ Replay ------------------------------ */
+  const pct1 = v => (v == null ? '—' : v.toFixed(0) + '%');
+  const sR = v => (v == null ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2) + 'R');
+  const colR = v => (v == null ? '' : `style="color:${v >= 0 ? 'var(--pass)' : 'var(--fail)'};"`);
+
+  function renderReplay(trades, meta){
+    const { style, days, asOfStr, noData } = meta;
+    const grades = [['A', 'A'], ['B', 'B'], ['C', 'C'], ['X', 'Skip']];
+    const showGap = style === 'overnight';
+    const rowHtml = (label, rows) => {
+      const a = aggregate(rows);
+      if(!a) return `<tr><td style="text-align:left;">${label}</td><td>0</td><td colspan="${showGap ? 6 : 5}" style="opacity:0.5;">—</td></tr>`;
+      return `<tr><td style="text-align:left;font-weight:600;">${label}</td><td>${a.n}</td><td>${pct1(a.win)}</td>
+        <td ${colR(a.avgR)}><b>${sR(a.avgR)}</b></td><td ${colR(a.totR)}>${sR(a.totR)}</td><td>${pct1(a.tgt)}</td><td>${pct1(a.stp)}</td>${showGap ? `<td>${a.gap == null ? '—' : (a.gap >= 0 ? '+' : '') + a.gap.toFixed(2) + '%'}</td>` : ''}</tr>`;
+    };
+    let html = `<div class="panel" style="margin-top:10px;"><table><thead><tr>
+      <th style="text-align:left;">Grade</th><th>Trades</th><th>Win%</th><th>Avg R</th><th>Total R</th><th>Hit target</th><th>Stopped</th>${showGap ? '<th>Avg gap</th>' : ''}
+    </tr></thead><tbody>`;
+    grades.forEach(([g, label]) => { html += rowHtml(`<span class="grade ${g}">${label}</span>`, trades.filter(t => t.grade === g)); });
+    html += rowHtml('A + B', trades.filter(t => t.grade === 'A' || t.grade === 'B'));
+    html += rowHtml('All candidates', trades);
+    html += `</tbody></table></div>`;
+
+    const ab = trades.filter(t => t.grade === 'A' || t.grade === 'B'), all = aggregate(trades), abA = aggregate(ab);
+    let note = `${trades.length} simulated trades over ${days.length} sessions (${days[0]} → ${days[days.length - 1]}), graded at ${asOfStr} ET`;
+    if(noData) note += ` · ${noData} skipped for missing data`;
+    if(abA && all){
+      note += `. A+B averaged ${sR(abA.avgR)} (n=${abA.n}) vs ${sR(all.avgR)} for every top mover (n=${all.n})`;
+      if(abA.n < 15) note += ' — too few A/B trades to judge yet; widen the window or universe.';
+      else if(abA.avgR - all.avgR > 0.1) note += ' — the grading is adding value on this sample.';
+      else note += " — the grading isn't beating a plain top-movers list on this sample.";
+    }
+    html += `<div class="status" style="margin-top:8px;">${note}</div>`;
+
+    const fs = featureStats(trades, 5);
+    if(fs.length){
+      html += `<details class="panel su-how" style="margin-top:8px;"><summary>What predicted winners (all candidates)</summary><table style="margin-top:8px;"><thead><tr>
+        <th style="text-align:left;">Feature</th><th>With: avg R (n)</th><th>Without: avg R (n)</th><th>Edge</th></tr></thead><tbody>`;
+      fs.forEach(x => {
+        html += `<tr><td style="text-align:left;">${x.k}</td><td ${colR(x.rWith)}>${sR(x.rWith)} (${x.nWith})</td><td ${colR(x.rWithout)}>${sR(x.rWithout)} (${x.nWithout})</td><td ${colR(x.diff)}><b>${sR(x.diff)}</b></td></tr>`;
+      });
+      html += `</tbody></table><div style="margin-top:6px;">Small samples are noisy — treat differences under ~0.3R as noise, and re-run over more sessions before changing any weights.</div></details>`;
+    }
+    if(ab.length){
+      html += `<details class="panel su-how" style="margin-top:8px;"><summary>Every A/B trade (${ab.length})</summary><table style="margin-top:8px;"><thead><tr>
+        <th style="text-align:left;">Date</th><th style="text-align:left;">Symbol</th><th>Grade</th><th>R</th><th>Exit</th>${showGap ? '<th>Gap</th>' : ''}</tr></thead><tbody>`;
+      ab.slice().sort((a, b) => a.d < b.d ? 1 : (a.d > b.d ? -1 : b.score - a.score)).slice(0, 120).forEach(t => {
+        html += `<tr><td style="text-align:left;">${t.d}</td><td style="text-align:left;font-weight:700;">${t.sym}</td><td><span class="grade ${t.grade}">${t.grade} ${t.score}</span></td><td ${colR(t.R)}>${sR(t.R)}</td><td>${t.why}</td>${showGap ? `<td>${t.gap == null ? '—' : (t.gap >= 0 ? '+' : '') + t.gap.toFixed(1) + '%'}</td>` : ''}</tr>`;
+      });
+      html += `</tbody></table></details>`;
+    }
+    html += `<div class="su-how" style="margin-top:8px;">Assumes fills at the stop / target (gaps fill at the open), stop checked before target inside a bar, no slippage or fees, and today's S&amp;P 500 members (survivorship bias). Real results will be a bit worse.</div>`;
+    $('suReplayOut').innerHTML = html;
+  }
+
+  async function runReplay(){
+    if(busy) return;
+    if(!requireAlpacaKeys()){ showTab('scanner'); return; }
+    const st = (m, err) => { const el = $('suReplayStatus'); el.textContent = m; el.className = 'status' + (err ? ' err' : ''); };
+    busy = true; $('suReplayBtn').disabled = true; $('suRunBtn').disabled = true;
+    try {
+      saveSettings(); tagCache.clear();
+      const style = $('suStyle').value, source = $('suSource').value, feed = $('feed').value;
+      const topN = clamp(parseInt($('suTopN').value, 10) || 15, 5, 15);
+      const nSess = clamp(parseInt($('suReplayDays').value, 10) || 10, 3, 15);
+      const tStr = ($('suReplayTime').value || '').trim() || (style === 'day' ? '10:30' : '15:45');
+      const mt = /^(\d{1,2}):(\d{2})$/.exec(tStr);
+      if(!mt){ st('Use HH:MM in ET, e.g. 10:30', true); return; }
+      const asOf = clamp(Math.round((+mt[1] * 60 + +mt[2]) / 5) * 5, 585, 955);
+      const asOfStr = String(Math.floor(asOf / 60)).padStart(2, '0') + ':' + String(asOf % 60).padStart(2, '0');
+
+      // universe (candidates only — SPY and sector ETFs are the gate, not trades)
+      st('Building universe…');
+      const etfs = [...new Set(Object.values(SECTOR_ETF))];
+      const gate = new Set(['SPY'].concat(etfs));
+      let sp = [];
+      if(source === 'sp500' || source === 'both' || !Object.keys(sp500Sectors).length){ try { sp = await getSP500Tickers(); } catch(e){} }
+      const wl = source === 'last' ? lastSymbols.map(s => s.toUpperCase()) : parseSyms($('manualList').value);
+      const universe = [...new Set(source === 'sp500' ? sp : (source === 'both' ? wl.concat(sp) : wl))].filter(s => !gate.has(s));
+      if(!universe.length){ st('Universe is empty — add watchlist tickers in Settings, or pick S&P 500.', true); return; }
+
+      // daily bars (pool selection + daily context)
+      const now = Date.now();
+      const dStart = new Date(now - (nSess * 1.5 + 85) * 864e5).toISOString();
+      const dailyRaw = {};
+      const groups = chunk(universe.concat('SPY', etfs), 100);
+      for(let i = 0; i < groups.length; i++){
+        st(`Loading daily bars ${i + 1}/${groups.length}…`);
+        Object.assign(dailyRaw, await fetchBars(groups[i], '1Day', dStart, feed));
+      }
+      if(!dailyRaw.SPY) throw new Error('No SPY daily data returned — check your keys and feed.');
+      const nt = etTag(new Date(now).toISOString());
+      const spyDates = dailyRaw.SPY.map(b => b.t.slice(0, 10)).sort();
+      const done = spyDates.filter(d => d < nt.d || (d === nt.d && nt.m >= 965));
+      const usable = style === 'overnight' ? done.slice(0, -1) : done;   // overnight needs a completed next session
+      const days = usable.slice(-nSess);
+      if(days.length < 3) throw new Error('Not enough completed sessions in the data.');
+
+      const dailyBySym = {};
+      universe.forEach(s => {
+        if(!dailyRaw[s]) return;
+        dailyBySym[s] = dailyRaw[s].map(b => ({ d: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c }))
+          .sort((a, b) => a.d < b.d ? -1 : (a.d > b.d ? 1 : 0));
+      });
+      const pools = {}, need = new Set();
+      days.forEach(D => { pools[D] = pickPool(dailyBySym, D, style, topN); pools[D].forEach(s => need.add(s)); });
+
+      // intraday bars for the union of picks + gate symbols (one paginated pull)
+      const list = [...need].concat('SPY', etfs);
+      const s5 = new Date(new Date(days[0] + 'T00:00:00Z').getTime() - 10 * 864e5).toISOString();
+      st(`Loading intraday bars for ${list.length} symbols…`);
+      const raw5 = await fetchBars(list, '5Min', s5, feed, null, p => st(`Loading intraday bars for ${list.length} symbols… page ${p}`));
+
+      // grade + simulate, day by day, using only what was knowable at the as-of time
+      const trades = []; let noData = 0;
+      for(let di = 0; di < days.length; di++){
+        const D = days[di];
+        st(`Grading ${D} (${di + 1}/${days.length})…`);
+        await new Promise(r => setTimeout(r, 0));   // let the status paint
+        const ctx = { S: D, asOf };
+        if(!raw5.SPY || !dailyRaw.SPY) continue;
+        const spyM = analyze('SPY', raw5.SPY, dailyRaw.SPY, ctx);
+        if(spyM.error) continue;
+        const reg = regimeOf(spyM).r;
+        const etfMs = {};
+        etfs.forEach(e => { if(raw5[e] && dailyRaw[e]) etfMs[e] = analyze(e, raw5[e], dailyRaw[e], ctx); });
+        const secT = sectorTable(etfMs, spyM.pct);
+        pools[D].forEach(sym => {
+          if(!raw5[sym] || !dailyRaw[sym]){ noData++; return; }
+          const m = analyze(sym, raw5[sym], dailyRaw[sym], ctx);
+          if(m.error){ noData++; return; }
+          m.rs = m.pct - spyM.pct;
+          const etf = SECTOR_ETF[sp500Sectors[sym]];
+          const sec = (etf && secT.byEtf[etf]) ? secT.byEtf[etf] : null;
+          const sc = style === 'day' ? scoreDay(m, reg, sec) : scoreOvernight(m, reg, sec);
+          const lv = buildLevels(m, style, 1, 1);
+          const fw = forwardBars(raw5[sym], D, asOf, style, lv.entry);
+          const out = fw ? walkTrade(lv, fw.bars) : null;
+          if(!out){ noData++; return; }
+          trades.push({ d: D, sym, grade: sc.grade, score: sc.score, R: out.R, why: out.why, gap: fw.gap, feats: featureList(m, reg, sec) });
+        });
+      }
+      if(!trades.length){ st('No gradable trades in that window — try more sessions or a wider universe.', true); $('suReplayOut').innerHTML = ''; return; }
+      st(`Replay complete — ${trades.length} trades.`);
+      renderReplay(trades, { style, days, asOfStr, noData });
+    } catch(e){
+      st(e.message, true);
+    } finally {
+      busy = false; $('suReplayBtn').disabled = false; $('suRunBtn').disabled = false;
+    }
+  }
+
+
+  let gapState = null;
+  const GAP_SWEEP = [1.5, 2, 3, 4, 5];
+
+  function gapCtl(){
+    const gs = gapState, n = gs.days.length, half = Math.floor(n / 2);
+    const split = $('suSplit').value;
+    const ds = split === 'first' ? gs.days.slice(0, half) : (split === 'second' ? gs.days.slice(half) : gs.days);
+    const num = (id, d) => { const v = parseFloat($(id).value); return isNaN(v) ? d : Math.max(0, v); };
+    return {
+      entryMode: $('suGapEntry').value, targetR: clamp(parseFloat($('suTargetR').value) || 2, 0.5, 6),
+      minGap: num('suFMinGap', 0), minRvol: num('suFMinRvol', 0), minRisk: num('suFMinRisk', 0),
+      split, days: ds, dset: new Set(ds)
+    };
+  }
+  // Re-simulate every stored stock-day with the current entry / target / filters.
+  function gapBuild(c, target){
+    const trades = [], skips = { notrigger: 0, tiny: 0, nodata: 0 };
+    let cand = 0;
+    gapState.items.forEach(it => {
+      if(!c.dset.has(it.d)) return;
+      cand++;
+      if(it.g < c.minGap) return;
+      if(c.minRvol > 0 && (it.prep.rvol10 == null || it.prep.rvol10 < c.minRvol)) return;
+      const o = simGapPrep(it.prep, c.entryMode, target);
+      if(o.skip){ skips[o.skip]++; return; }
+      if(o.riskPct < c.minRisk) return;
+      const held = o.entry > it.prevHigh, top = o.orh > o.orl ? (o.entry - o.orl) / (o.orh - o.orl) >= 0.67 : false;
+      trades.push({ d: it.d, sym: it.sym, g: it.g, rvol10: o.rvol10, riskPct: o.riskPct, spyGap: it.spyGap, entry: o.entry, orl: o.orl, R: o.R, why: o.why,
+        feats: {
+          'Gap ≥ 1% over prior high': it.g >= 1,
+          'First-10-min RVOL ≥ 1.5×': o.rvol10 != null && o.rvol10 >= 1.5,
+          'Stop within 0.7% of entry': o.riskPct <= 0.7,
+          'Gap still holding at entry': held,
+          'Opening range closes in top third': top,
+          'SPY gapped up': it.spyGap != null && it.spyGap > 0
+        } });
+    });
+    return { trades, skips, cand };
+  }
+
+  function renderGap(){
+    if(!gapState) return;
+    const c = gapCtl();
+    const main = gapBuild(c, c.targetR);
+    const sweep = GAP_SWEEP.map(t => ({ t, a: aggregate(gapBuild(c, t).trades) }));
+    renderGapReplay(main, sweep, c);
+  }
+
+  function renderGapReplay(main, sweep, c){
+    const { trades, skips, cand } = main;
+    const half = Math.floor(gapState.days.length / 2);
+    let html = '';
+    if(c.split === 'first') html += `<div class="status" style="margin-top:10px;">Tuning half: ${c.days[0]} → ${c.days[c.days.length - 1]}. Find a rule here, then switch to "Second half" and check it with the same filters.</div>`;
+    if(c.split === 'second') html += `<div class="status" style="margin-top:10px;">Verification half: ${c.days[0]} → ${c.days[c.days.length - 1]}. If a rule tuned on the first half still works here, it's more likely real. Changing filters after looking at this half makes it in-sample again.</div>`;
+    if(!trades.length){
+      $('suReplayOut').innerHTML = html + `<div class="status err" style="margin-top:8px;">No trades pass these filters in ${c.days.length} sessions${cand ? ` (${cand} gap-ups before filters)` : ''}. Loosen a filter or use more sessions.</div>`;
+      return;
+    }
+
+    // target sweep
+    html += `<div style="font-size:12px;font-weight:600;margin:10px 0 4px;">What if the target were different? <span style="font-weight:400;color:var(--muted);">(same trades, same stops)</span></div>
+      <div class="panel"><table><thead><tr>
+      <th style="text-align:left;">Target</th><th>Trades</th><th>Win%</th><th>Avg R</th><th>Total R</th><th>Hit target</th><th>Stopped</th></tr></thead><tbody>`;
+    sweep.forEach(({ t, a }) => {
+      const cur = Math.abs(t - c.targetR) < 1e-9;
+      html += a ? `<tr style="${cur ? 'font-weight:700;background:rgba(91,141,239,0.08);' : ''}"><td style="text-align:left;">${t}R${cur ? ' ◀' : ''}</td><td>${a.n}</td><td>${pct1(a.win)}</td>
+        <td ${colR(a.avgR)}><b>${sR(a.avgR)}</b></td><td ${colR(a.totR)}>${sR(a.totR)}</td><td>${pct1(a.tgt)}</td><td>${pct1(a.stp)}</td></tr>` : '';
+    });
+    html += `</tbody></table></div>`;
+
+    // breakdown at the selected target
+    const grp = [
+      ['All trades', () => true],
+      ['Gap over prior high < 0.5%', t => t.g < 0.5], ['Gap 0.5–2%', t => t.g >= 0.5 && t.g < 2], ['Gap > 2%', t => t.g >= 2],
+      ['First-10-min RVOL < 1.5×', t => t.rvol10 != null && t.rvol10 < 1.5], ['First-10-min RVOL ≥ 1.5×', t => t.rvol10 != null && t.rvol10 >= 1.5],
+      ['Stop < 0.5% away', t => t.riskPct < 0.5], ['Stop 0.5–1% away', t => t.riskPct >= 0.5 && t.riskPct < 1], ['Stop > 1% away', t => t.riskPct >= 1],
+      ['SPY gapped up', t => t.spyGap != null && t.spyGap > 0], ['SPY gapped down / flat', t => t.spyGap != null && t.spyGap <= 0]
+    ];
+    html += `<div style="font-size:12px;font-weight:600;margin:10px 0 4px;">Breakdown at ${c.targetR}R</div><div class="panel"><table><thead><tr>
+      <th style="text-align:left;">Group</th><th>Trades</th><th>Win%</th><th>Avg R</th><th>Total R</th><th>Hit target</th><th>Stopped</th>
+    </tr></thead><tbody>`;
+    grp.forEach(([label, fn], gi) => {
+      const a = aggregate(trades.filter(fn));
+      if(!a){ html += `<tr><td style="text-align:left;opacity:0.7;">${label}</td><td>0</td><td colspan="5" style="opacity:0.5;">—</td></tr>`; return; }
+      html += `<tr><td style="text-align:left;${gi === 0 ? 'font-weight:700;' : 'opacity:0.9;'}">${label}</td><td>${a.n}</td><td>${pct1(a.win)}</td>
+        <td ${colR(a.avgR)}><b>${sR(a.avgR)}</b></td><td ${colR(a.totR)}>${sR(a.totR)}</td><td>${pct1(a.tgt)}</td><td>${pct1(a.stp)}</td></tr>`;
+    });
+    html += `</tbody></table></div>`;
+
+    const a = aggregate(trades), be = 100 / (1 + c.targetR);
+    const fl = []; if(c.minGap) fl.push(`gap ≥ ${c.minGap}%`); if(c.minRvol) fl.push(`10-min RVOL ≥ ${c.minRvol}×`); if(c.minRisk) fl.push(`stop ≥ ${c.minRisk}% away`);
+    let note = `${trades.length} trades over ${c.days.length} sessions (${c.days[0]} → ${c.days[c.days.length - 1]}). Entry: ${c.entryMode === 'break' ? 'break of the 10-minute high' : '9:40 ET'}, stop at the 10-minute low, ${c.targetR}R target, otherwise sold at the close. At ${c.targetR}R you need more than ${be.toFixed(0)}% of trades to hit it to break even (yours: ${pct1(a.tgt)}).`;
+    if(fl.length) note += ` Filters: ${fl.join(' · ')} — kept ${trades.length} of ${cand} gap-ups.`;
+    const sk = []; if(skips.notrigger) sk.push(`${skips.notrigger} never broke the 10-min high`); if(skips.tiny) sk.push(`${skips.tiny} had a stop under 0.05% away`);
+    const nd = skips.nodata + (c.split === 'all' ? gapState.noData : 0); if(nd) sk.push(`${nd} lacked data`);
+    if(sk.length) note += ` Not traded: ${sk.join(', ')}.`;
+    if(trades.length < 30) note += ' Sample is small — treat as a hint, not proof.';
+    if(fl.length && c.split === 'all') note += ' Filters tuned on all sessions are in-sample — use the first/second-half split to check them.';
+    html += `<div class="status" style="margin-top:8px;">${note}</div>`;
+
+    const fs = featureStats(trades, 5);
+    if(fs.length){
+      html += `<details class="panel su-how" style="margin-top:8px;"><summary>What separated winners from losers</summary><table style="margin-top:8px;"><thead><tr>
+        <th style="text-align:left;">Feature</th><th>With: avg R (n)</th><th>Without: avg R (n)</th><th>Edge</th></tr></thead><tbody>`;
+      fs.forEach(x => {
+        html += `<tr><td style="text-align:left;">${x.k}</td><td ${colR(x.rWith)}>${sR(x.rWith)} (${x.nWith})</td><td ${colR(x.rWithout)}>${sR(x.rWithout)} (${x.nWithout})</td><td ${colR(x.diff)}><b>${sR(x.diff)}</b></td></tr>`;
+      });
+      html += `</tbody></table><div style="margin-top:6px;">Differences under ~0.3R on small samples are noise. Several of these overlap (a big gap usually has big volume), so they are not independent confirmations.</div></details>`;
+    }
+    html += `<details class="panel su-how" style="margin-top:8px;"><summary>Every trade (${trades.length})</summary><table style="margin-top:8px;"><thead><tr>
+      <th style="text-align:left;">Date</th><th style="text-align:left;">Symbol</th><th>Gap</th><th>Entry</th><th>Stop</th><th>R</th><th>Exit</th></tr></thead><tbody>`;
+    trades.slice().sort((x, y) => x.d < y.d ? 1 : (x.d > y.d ? -1 : y.g - x.g)).slice(0, 200).forEach(t => {
+      html += `<tr><td style="text-align:left;">${t.d}</td><td style="text-align:left;font-weight:700;">${t.sym}</td><td>+${t.g.toFixed(1)}%</td><td>$${t.entry.toFixed(2)}</td><td>$${t.orl.toFixed(2)} <span class="vol">(-${t.riskPct.toFixed(1)}%)</span></td><td ${colR(t.R)}>${sR(t.R)}</td><td>${t.why}</td></tr>`;
+    });
+    html += `</tbody></table></details>`;
+    html += `<div class="su-how" style="margin-top:8px;">Fills at the stop / target (gaps through them fill at the open), stop tested before target inside a bar, no slippage or fees, today's S&amp;P 500 members (survivorship bias). Each day tests only the ${gapState.topN} biggest gap-ups over the prior high.</div>`;
+    $('suReplayOut').innerHTML = html;
+  }
+
+  async function runGapReplay(){
+    if(busy) return;
+    if(!requireAlpacaKeys()){ showTab('scanner'); return; }
+    const st = (m, err) => { const el = $('suReplayStatus'); el.textContent = m; el.className = 'status' + (err ? ' err' : ''); };
+    busy = true; $('suReplayBtn').disabled = true; $('suRunBtn').disabled = true;
+    try {
+      saveSettings(); tagCache.clear();
+      const source = $('suSource').value, feed = $('feed').value;
+      const topN = clamp(parseInt($('suTopN').value, 10) || 15, 5, 25);
+      const nSess = clamp(parseInt($('suReplayDays').value, 10) || 10, 3, 30);
+
+      st('Building universe…');
+      const etfs = [...new Set(Object.values(SECTOR_ETF))];
+      const gate = new Set(['SPY'].concat(etfs));
+      let sp = [];
+      if(source === 'sp500' || source === 'both'){ try { sp = await getSP500Tickers(); } catch(e){} }
+      const wl = source === 'last' ? lastSymbols.map(s => s.toUpperCase()) : parseSyms($('manualList').value);
+      const universe = [...new Set(source === 'sp500' ? sp : (source === 'both' ? wl.concat(sp) : wl))].filter(s => !gate.has(s));
+      if(!universe.length){ st('Universe is empty — add watchlist tickers in Settings, or pick S&P 500.', true); return; }
+
+      const now = Date.now();
+      const dStart = new Date(now - (nSess * 1.5 + 30) * 864e5).toISOString();
+      const dailyRaw = {};
+      const groups = chunk(universe.concat('SPY'), 100);
+      for(let i = 0; i < groups.length; i++){
+        st(`Loading daily bars ${i + 1}/${groups.length}…`);
+        Object.assign(dailyRaw, await fetchBars(groups[i], '1Day', dStart, feed));
+      }
+      if(!dailyRaw.SPY) throw new Error('No SPY daily data returned — check your keys and feed.');
+      const nt = etTag(new Date(now).toISOString());
+      const days = dailyRaw.SPY.map(b => b.t.slice(0, 10)).sort().filter(d => d < nt.d || (d === nt.d && nt.m >= 965)).slice(-nSess);
+      if(days.length < 4) throw new Error('Not enough completed sessions in the data.');
+
+      const dailyBySym = {};
+      universe.forEach(s => {
+        if(!dailyRaw[s]) return;
+        dailyBySym[s] = dailyRaw[s].map(b => ({ d: b.t.slice(0, 10), o: b.o, h: b.h, l: b.l, c: b.c }))
+          .sort((a, b) => a.d < b.d ? -1 : (a.d > b.d ? 1 : 0));
+      });
+      const spyBy = {}; dailyRaw.SPY.forEach((b, i, arr) => { spyBy[b.t.slice(0, 10)] = i > 0 ? (b.o / arr[i - 1].c - 1) * 100 : null; });
+      const pools = {}, need = new Set();
+      days.forEach(D => { pools[D] = pickGapHigh(dailyBySym, D, topN); pools[D].forEach(x => need.add(x.sym)); });
+      if(!need.size){ st('No stock opened above its prior-day high in that window.', true); $('suReplayOut').innerHTML = ''; return; }
+
+      const list = [...need];
+      const s5 = new Date(new Date(days[0] + 'T00:00:00Z').getTime() - 10 * 864e5).toISOString();
+      st(`Loading intraday bars for ${list.length} symbols…`);
+      const raw5 = await fetchBars(list, '5Min', s5, feed, null, p => st(`Loading intraday bars for ${list.length} symbols… page ${p}`));
+
+      // compact each stock-day once; filters / targets / entry mode are then re-run instantly with no refetch
+      const items = []; let noData = 0;
+      for(let di = 0; di < days.length; di++){
+        const D = days[di];
+        st(`Preparing ${D} (${di + 1}/${days.length})…`);
+        await new Promise(r => setTimeout(r, 0));
+        pools[D].forEach(p => {
+          if(!raw5[p.sym]){ noData++; return; }
+          const prep = prepGapDay(raw5[p.sym], D);
+          if(prep.skip){ noData++; return; }
+          items.push({ d: D, sym: p.sym, g: p.g, prevHigh: p.prevHigh, spyGap: spyBy[D], prep });
+        });
+      }
+      if(!items.length){ st('No tradable gap-ups in that window — try more sessions or a wider universe.', true); $('suReplayOut').innerHTML = ''; return; }
+      gapState = { items, days, topN, noData };
+      st(`Loaded ${items.length} gap-ups over ${days.length} sessions. Change Target R, Entry, filters or the half-split below — results update instantly.`);
+      renderGap();
+    } catch(e){
+      st(e.message, true);
+    } finally {
+      busy = false; $('suReplayBtn').disabled = false; $('suRunBtn').disabled = false;
+    }
+  }
+
+  function syncReplayTest(){
+    const gap = $('suReplayTest').value === 'gap';
+    $('suGapEntryWrap').style.display = gap ? '' : 'none';
+    $('suTargetRWrap').style.display = gap ? '' : 'none';
+    $('suAsOfWrap').style.display = gap ? 'none' : '';
+    $('suGapFilters').style.display = gap ? '' : 'none';
+    $('suReplayOut').innerHTML = '';
+    $('suReplayStatus').className = 'status';
+    $('suReplayStatus').textContent = gap
+      ? 'Tests stocks that opened above the prior day’s high: stop at the low of the first 10 minutes, profit at your Target R, otherwise sold at the close. Uses the Universe above; tests the biggest gap-ups each day (up to 25). Run once, then change Target R, Entry, filters or the half-split — results update without reloading data.'
+      : 'Uses the Style and Universe above. Day trade: top opening gappers graded at 10:30 ET. Overnight: top gainers graded at 15:45 ET, held to the next close. Every trade uses the same stop / 2R target the app shows.';
+  }
+
   $('suRunBtn').addEventListener('click', run);
+  $('suAIBtn').addEventListener('click', aiReview);
   SETTING_IDS.forEach(id => { $(id).addEventListener('change', saveSettings); });
   $('suSkip').addEventListener('input', saveSettings);
   $('suAuto').addEventListener('change', e => {
     if(timer){ clearInterval(timer); timer = null; }
     if(e.target.checked) timer = setInterval(() => { if(!document.hidden && !$('viewSetups').hidden) run(); }, 5 * 60 * 1000);
   });
+  $('suReplayBtn').addEventListener('click', () => { if($('suReplayTest').value === 'gap') runGapReplay(); else runReplay(); });
+  $('suReplayTest').addEventListener('change', () => { syncReplayTest(); if($('suReplayTest').value === 'gap' && gapState) renderGap(); });
+  ['suGapEntry', 'suTargetR', 'suFMinGap', 'suFMinRvol', 'suFMinRisk', 'suSplit'].forEach(id => {
+    $(id).addEventListener('change', () => { if($('suReplayTest').value === 'gap' && gapState) renderGap(); });
+  });
   restoreSettings();
-  return { run };
+  syncReplayTest();
+  return { run, runReplay, aiReview, reviewScanner, aiTest };
 })();
 
 const PD = (() => {
@@ -3854,6 +4895,8 @@ document.getElementById('mainTabs').addEventListener('click', e => {
   const b = e.target.closest('.tab');
   if(b) showTab(b.dataset.tab);
 });
+document.getElementById('btnAIPick').addEventListener('click', () => SU.reviewScanner());
+document.getElementById('btnGeminiTest').addEventListener('click', () => SU.aiTest());
 
 </script>
 </body>
