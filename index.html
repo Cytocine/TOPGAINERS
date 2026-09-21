@@ -665,6 +665,7 @@
         <button id="btnDrawStop" class="draw-btn stop" title="Set stop loss">🛑<span class="lbl"> Stop</span></button>
         <button id="btnDrawTarget" class="draw-btn target" title="Set target">🎯<span class="lbl"> Target</span></button>
         <button id="btnDrawLevel" class="draw-btn level" title="Add price levels (tap an existing one to remove)">📏<span class="lbl"> Level</span></button>
+        <button id="btnDrawTrend" class="draw-btn" title="Draw a trend line (tap a line to remove it)">📐<span class="lbl"> Trend</span></button>
         <button id="btnDrawAuto" class="draw-btn" title="Suggest stop &amp; target from ATR">⚡<span class="lbl"> Auto</span></button>
         <button id="btnDrawClear" class="draw-btn" title="Clear lines">🗑<span class="lbl"> Clear</span></button>
         <div style="display:flex;gap:4px;align-items:center;font-size:11px;font-family:var(--mono);margin-left:4px;">
@@ -1423,6 +1424,7 @@ document.getElementById('btnOptions').addEventListener('click', () => {
 });
 document.getElementById('btnDrawEntry').addEventListener('click', () => setDrawMode(drawMode === 'entry' ? null : 'entry'));
 document.getElementById('btnDrawLevel').addEventListener('click', () => setDrawMode(drawMode === 'level' ? null : 'level'));
+document.getElementById('btnDrawTrend').addEventListener('click', () => setDrawMode(drawMode === 'trend' ? null : 'trend'));
 document.getElementById('btnDrawStop').addEventListener('click', () => setDrawMode(drawMode === 'stop' ? null : 'stop'));
 document.getElementById('btnDrawTarget').addEventListener('click', () => setDrawMode(drawMode === 'target' ? null : 'target'));
 document.getElementById('btnDrawAuto').addEventListener('click', () => {
@@ -1432,9 +1434,10 @@ document.getElementById('btnDrawAuto').addEventListener('click', () => {
   if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
 });
 document.getElementById('btnDrawClear').addEventListener('click', () => {
-  if(activeModalSymbol) clearLevels(activeModalSymbol);
+  if(activeModalSymbol){ clearLevels(activeModalSymbol); setTrendLines(activeModalSymbol, []); }
   setDrawMode(null);
   drawLevelLines();
+  drawTrendLines();
   if(activeChart) activeChart.priceScale('right').applyOptions({ autoScale: true });
 });
 document.getElementById('btnResetZoom').addEventListener('click', () => {
@@ -1503,6 +1506,7 @@ function closeModal(){
   document.getElementById('modalOverlay').classList.remove('open');
   document.body.style.overflow = '';
   levelLines = { entry:null, stop:null, target:null, lv:[] }; setDrawMode(null);
+  trendSeries = []; chartTimes = [];
   if(chartResizeObserver){ chartResizeObserver.disconnect(); chartResizeObserver = null; }
   if(activeChart){ activeChart.remove(); activeChart = null; }
   activeCandleSeries = null;
@@ -1584,13 +1588,31 @@ async function updateModalChart(){
       const r = rth[barDates[i]] || (rth[barDates[i]] = { hi: -Infinity, lo: Infinity });
       r.hi = Math.max(r.hi, b.h); r.lo = Math.min(r.lo, b.l);
     });
+    // 10-minute opening range (9:30-9:40 ET) per day. 30m bars can't resolve it, so pull 10Min bars for that view.
+    let orBars = allBars, orParts = barParts;
+    if(tf !== '10m'){
+      try{
+        const r10 = await fetchBars([symbol], '10Min', startTime, feed, endTime);
+        orBars = (r10[symbol] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+        orParts = orBars.map(b => etParts(new Date(b.t)));
+      }catch(e){ orBars = []; orParts = []; }
+    }
+    const orRange = {};
+    orBars.forEach((b, i) => {
+      const m = orParts[i].hh * 60 + orParts[i].mm;
+      if(m < 570 || m >= 580) return;
+      const r = orRange[orParts[i].dateStr] || (orRange[orParts[i].dateStr] = { hi: -Infinity, lo: Infinity });
+      r.hi = Math.max(r.hi, b.h); r.lo = Math.min(r.lo, b.l);
+    });
     const days = keepDates.map(d => {
       const di = allDates.indexOf(d);
       const prev = di > 0 ? rth[allDates[di - 1]] : null;
+      const orr = orRange[d];
       return {
         date: d, parity: di % 2,
         startIdx: barDates.indexOf(d) - startIdx, endIdx: barDates.lastIndexOf(d) - startIdx,
-        prevHigh: prev ? prev.hi : null, prevLow: prev ? prev.lo : null
+        prevHigh: prev ? prev.hi : null, prevLow: prev ? prev.lo : null,
+        orh: orr ? orr.hi : null, orl: orr ? orr.lo : null
       };
     });
 
@@ -1613,6 +1635,7 @@ async function updateModalChart(){
       atrSeries: atrFull.slice(startIdx, stopIdx),
       superTrendSt: superTrendRes.st.slice(startIdx, stopIdx),
       superTrendTrend: superTrendRes.trend.slice(startIdx, stopIdx),
+      barMins: barParts.slice(startIdx, stopIdx).map(p => p.hh * 60 + p.mm),
       days
     });
   }catch(e){
@@ -1714,6 +1737,7 @@ function setDrawMode(mode){
   document.getElementById('btnDrawStop').classList.toggle('armed', mode === 'stop');
   document.getElementById('btnDrawTarget').classList.toggle('armed', mode === 'target');
   document.getElementById('btnDrawLevel').classList.toggle('armed', mode === 'level');
+  document.getElementById('btnDrawTrend').classList.toggle('armed', mode === 'trend');
   updateDrawInfo();
 }
 
@@ -1747,6 +1771,7 @@ function updateDrawInfo(){
   const el = document.getElementById('drawInfo');
   if(!el) return;
   if(drawMode === 'level'){ el.textContent = 'Press & release to add a level\nTap a level to remove it'; return; }
+  if(drawMode === 'trend'){ el.textContent = 'Press, slide, release to draw a trend line\nTap a line to remove it'; return; }
   if(drawMode){ el.textContent = `Press, slide, release to set ${drawMode === 'stop' ? 'stop loss' : drawMode}`; return; }
   el.textContent = levelSummaryLines(activeModalSymbol).join('\n');
 }
@@ -1836,6 +1861,7 @@ function setupLevelDrag(container){
     if(!activeChart || !activeCandleSeries || !activeModalSymbol) return;
     if(e.touches && e.touches.length > 1){ dropPreview(); placing = null; return; }
     if(e.button !== undefined && e.button !== 0) return;
+    if(drawMode === 'trend') return;
     const y = pointY(e);
 
     if(drawMode){
@@ -1927,6 +1953,172 @@ function setupLevelDrag(container){
   container.addEventListener('mousedown', start, { capture: true });
   window.addEventListener('mousemove', move, { capture: true });
   window.addEventListener('mouseup', end, { capture: true });
+}
+
+// ---- Trend lines (two-point lines drawn on the modal chart, extended to the last bar) ----
+const TREND_KEY = 'chartTrendLines_v1';
+const MAX_TREND_LINES = 6;
+const TREND_COLOR = '#f1f5f9';
+let trendSeries = [];
+let chartTimes = [];
+
+function loadTrendStore(){ try { return JSON.parse(localStorage.getItem(TREND_KEY)) || {}; } catch(e){ return {}; } }
+function getTrendLines(symbol){
+  const e = loadTrendStore()[symbol];
+  return (!e || Date.now() - (e.ts || 0) > LEVELS_TTL_MS) ? [] : (e.lines || []);
+}
+function setTrendLines(symbol, lines){
+  const store = loadTrendStore();
+  if(lines.length) store[symbol] = { ts: Date.now(), lines }; else delete store[symbol];
+  try { localStorage.setItem(TREND_KEY, JSON.stringify(store)); } catch(e){}
+}
+
+// Fractional bar index for a stored anchor time (null when it is outside the bars on screen).
+function idxOfTime(t){
+  const a = chartTimes, n = a.length;
+  if(!n || t < a[0] || t > a[n - 1]) return null;
+  let lo = 0, hi = n - 1;
+  while(hi - lo > 1){ const mid = (lo + hi) >> 1; if(a[mid] <= t) lo = mid; else hi = mid; }
+  if(a[hi] <= t) return hi;
+  return lo + (t - a[lo]) / (a[hi] - a[lo]);
+}
+function trendGeom(line){
+  const i1 = idxOfTime(line.t1), i2 = idxOfTime(line.t2);
+  if(i1 === null || i2 === null || Math.abs(i2 - i1) < 0.5) return null;
+  return { i1, i2, p1: line.p1, slope: (line.p2 - line.p1) / (i2 - i1) };
+}
+
+function drawTrendLines(){
+  if(!activeChart) return;
+  trendSeries.forEach(s => { try { activeChart.removeSeries(s); } catch(e){} });
+  trendSeries = [];
+  const sym = activeModalSymbol, n = chartTimes.length;
+  if(!sym || !n) return;
+  getTrendLines(sym).forEach(line => {
+    const g = trendGeom(line);
+    if(!g) return;
+    const pts = [];
+    for(let k = Math.max(0, Math.ceil(Math.min(g.i1, g.i2) - 1e-9)); k < n; k++){
+      pts.push({ time: chartTimes[k], value: g.p1 + (k - g.i1) * g.slope });
+    }
+    if(pts.length < 2) return;
+    const s = activeChart.addLineSeries({
+      color: TREND_COLOR, lineWidth: 2, priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false, autoscaleInfoProvider: () => null
+    });
+    s.setData(pts);
+    trendSeries.push(s);
+  });
+}
+
+function setupTrendDraw(container){
+  if(container._trendBound) return;
+  container._trendBound = true;
+  const MOVE_PX = 6, HIT_PX = 14;
+  let gesture = null;
+
+  const pointOf = e => (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]) || e;
+  const localXY = e => {
+    const p = pointOf(e), r = container.getBoundingClientRect();
+    return { x: p.clientX - r.left, y: p.clientY - r.top };
+  };
+  const swallow = e => { e.stopPropagation(); if(e.cancelable) e.preventDefault(); };
+  const inPlot = (x, y) => {
+    const ts = activeChart.timeScale();
+    const w = (typeof ts.width === 'function' ? ts.width() : container.clientWidth - 60) || container.clientWidth;
+    const h = container.clientHeight - ((typeof ts.height === 'function' ? ts.height() : 26) || 26);
+    return x >= 0 && x <= w && y >= 0 && y <= h;
+  };
+  const anchorAt = (x, y) => {
+    if(!activeChart || !activeCandleSeries || !chartTimes.length) return null;
+    const L = activeChart.timeScale().coordinateToLogical(x);
+    const raw = activeCandleSeries.coordinateToPrice(y);
+    if(L == null || raw == null || !isFinite(raw) || raw <= 0) return null;
+    const i = Math.max(0, Math.min(chartTimes.length - 1, Math.round(L)));
+    return { i, t: chartTimes[i], p: Math.round(raw * 10000) / 10000 };
+  };
+  const hitTrend = (x, y) => {
+    if(!activeChart || !activeCandleSeries || !activeModalSymbol) return null;
+    const L = activeChart.timeScale().coordinateToLogical(x);
+    if(L == null) return null;
+    const lines = getTrendLines(activeModalSymbol);
+    let best = null, bestD = HIT_PX;
+    lines.forEach((line, idx) => {
+      const g = trendGeom(line);
+      if(!g || L < Math.min(g.i1, g.i2) - 0.5) return;
+      const ly = activeCandleSeries.priceToCoordinate(g.p1 + (L - g.i1) * g.slope);
+      if(ly == null) return;
+      const d = Math.abs(ly - y);
+      if(d <= bestD){ best = { idx }; bestD = d; }
+    });
+    return best;
+  };
+  const dropPreview = () => {
+    if(gesture && gesture.preview && activeChart){ try { activeChart.removeSeries(gesture.preview); } catch(e){} }
+  };
+
+  const start = e => {
+    if(drawMode !== 'trend' || !activeChart || !activeModalSymbol) return;
+    if(e.touches && e.touches.length > 1){ dropPreview(); gesture = null; return; }
+    if(e.button !== undefined && e.button !== 0) return;
+    const { x, y } = localXY(e);
+    if(!inPlot(x, y)) return;
+    const a0 = anchorAt(x, y);
+    if(!a0) return;
+    gesture = { a0, a1: a0, x0: x, y0: y, moved: false, hit: hitTrend(x, y), preview: null };
+    swallow(e);
+  };
+
+  const move = e => {
+    if(!gesture) return;
+    swallow(e);
+    const { x, y } = localXY(e);
+    if(Math.hypot(x - gesture.x0, y - gesture.y0) > MOVE_PX) gesture.moved = true;
+    if(gesture.hit || !gesture.moved) return;
+    const a1 = anchorAt(x, y);
+    if(!a1 || a1.i === gesture.a0.i) return;
+    gesture.a1 = a1;
+    if(!gesture.preview){
+      gesture.preview = activeChart.addLineSeries({
+        color: TREND_COLOR, lineWidth: 2, lineStyle: LightweightCharts.LineStyle.Dashed,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        autoscaleInfoProvider: () => null
+      });
+    }
+    const pts = [gesture.a0, a1].sort((m, n) => m.i - n.i).map(a => ({ time: a.t, value: a.p }));
+    gesture.preview.setData(pts);
+  };
+
+  const finish = (e, cancelled) => {
+    if(!gesture) return;
+    e.stopPropagation();
+    const g = gesture; dropPreview(); gesture = null;
+    const sym = activeModalSymbol;
+    if(!cancelled && sym){
+      if(g.hit && !g.moved){
+        const lines = getTrendLines(sym).slice();
+        lines.splice(g.hit.idx, 1);
+        setTrendLines(sym, lines);
+      } else if(!g.hit && g.moved && g.a1.i !== g.a0.i){
+        const lines = getTrendLines(sym).slice();
+        if(lines.length >= MAX_TREND_LINES){
+          statusMsg(`Trend line not added (max ${MAX_TREND_LINES} per symbol). Tap one to remove it.`, true);
+        } else {
+          lines.push({ t1: g.a0.t, p1: g.a0.p, t2: g.a1.t, p2: g.a1.p });
+          setTrendLines(sym, lines);
+        }
+      }
+    }
+    drawTrendLines();
+  };
+
+  container.addEventListener('touchstart', start, { capture: true, passive: false });
+  container.addEventListener('touchmove', move, { capture: true, passive: false });
+  container.addEventListener('touchend', e => finish(e, false), { capture: true });
+  container.addEventListener('touchcancel', e => finish(e, true), { capture: true });
+  container.addEventListener('mousedown', start, { capture: true });
+  window.addEventListener('mousemove', move, { capture: true });
+  window.addEventListener('mouseup', e => finish(e, false), { capture: true });
 }
 
 function alertsEnabled(){ const el = document.getElementById('alertsOn'); return !!(el && el.checked); }
@@ -2214,7 +2406,7 @@ function renderChart(data){
 
   const chart = LightweightCharts.createChart(container, {
     layout: { background: { color: 'transparent' }, textColor: '#dce6e6', fontSize: isMobileView() ? 11 : 12 },
-    grid: { vertLines: { color: '#1b2426' }, horzLines: { color: '#1b2426' } },
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
     timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30', rightOffset: 3, minBarSpacing: 0.5 },
     rightPriceScale: { borderColor: '#232d30', scaleMargins: { top: 0.08, bottom: 0.08 } },
     handleScroll: { pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false, mouseWheel: true },
@@ -2247,6 +2439,7 @@ function renderChart(data){
   })));
 
   const times = data.bars.map(b => toETTimestamp(b.t));
+  chartTimes = times; trendSeries = [];
   const buildEmaLine = (series, color, opts={}) => {
     const pts = series.map((v, i) => v === null ? null : { time: times[i], value: v }).filter(Boolean);
     if(pts.length){
@@ -2309,6 +2502,7 @@ function renderChart(data){
     chartCtx = { last: data.bars[data.bars.length - 1].c, atr: lastAtr ?? null };
   }
   setupLevelDrag(container);
+  setupTrendDraw(container);
   drawLevelLines();
   chart.timeScale().fitContent();
   watchChartSize(container);
@@ -2317,11 +2511,13 @@ function renderChart(data){
   const dayCanvas = ensureDayCanvas(container);
   const draw = () => {
     drawDayBands(dayCanvas, container, chart, times, data.days || []);
+    drawOrbCloud(dayCanvas, container, chart, times, data.days || [], data.bars.map(b => b.c), data.barMins || []);
     if(cloudCanvas) drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, data.ema5Series, data.ema13Series, times);
   };
   activeCloudRedraw = draw;
   chart.timeScale().subscribeVisibleLogicalRangeChange(draw);
   requestAnimationFrame(draw);
+  drawTrendLines();
 }
 
 function ensureDayCanvas(container){
@@ -2375,6 +2571,65 @@ function drawDayBands(canvas, container, chart, times, days){
       ctx.fillText(label, Math.max(left, 0) + 6, 6);
     }
   });
+}
+
+// 10-min opening-range (ORB) cloud: spans ORH..ORL from the open to the close of each day.
+// Per bar: close above ORH = aqua, close below ORL = magenta, otherwise gray.
+const ORB_COLORS = {
+  up:   { fill:'rgba(0,229,255,0.22)',   edge:'rgba(0,229,255,0.85)' },
+  down: { fill:'rgba(255,43,214,0.22)',  edge:'rgba(255,43,214,0.85)' },
+  mid:  { fill:'rgba(160,172,176,0.20)', edge:'rgba(160,172,176,0.75)' }
+};
+function drawOrbCloud(canvas, container, chart, times, days, closes, mins){
+  if(!activeCandleSeries) return;
+  const rect = container.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const ts = chart.timeScale();
+  const plotW = (typeof ts.width === 'function' ? ts.width() : rect.width - 60) || rect.width;
+  const plotH = rect.height - ((typeof ts.height === 'function' ? ts.height() : 26) || 26);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, plotW, plotH); ctx.clip();
+
+  days.forEach(d => {
+    if(d.orh == null || d.orl == null || d.startIdx < 0) return;
+    const idx = [];
+    for(let i = d.startIdx; i <= d.endIdx && i < times.length; i++){
+      if(mins[i] >= 570 && mins[i] < 960) idx.push(i);
+    }
+    if(!idx.length) return;
+    const yH = activeCandleSeries.priceToCoordinate(d.orh);
+    const yL = activeCandleSeries.priceToCoordinate(d.orl);
+    if(yH === null || yL === null) return;
+    const top = Math.min(yH, yL), h = Math.max(2, Math.abs(yL - yH));
+    const xs = idx.map(i => ts.timeToCoordinate(times[i]));
+
+    let firstLeft = null;
+    for(let k = 0; k < idx.length; k++){
+      if(xs[k] === null) continue;
+      const prev = (k > 0 && xs[k-1] !== null) ? xs[k-1] : null;
+      const next = (k < idx.length - 1 && xs[k+1] !== null) ? xs[k+1] : null;
+      const step = next !== null ? next - xs[k] : (prev !== null ? xs[k] - prev : 6);
+      const left = prev !== null ? (prev + xs[k]) / 2 : xs[k] - step / 2;
+      const right = next !== null ? (xs[k] + next) / 2 : xs[k] + step / 2;
+      if(firstLeft === null) firstLeft = left;
+      const c = closes[idx[k]];
+      const col = c > d.orh ? ORB_COLORS.up : c < d.orl ? ORB_COLORS.down : ORB_COLORS.mid;
+      const w = right - left + 0.5;
+      ctx.fillStyle = col.fill; ctx.fillRect(left, top, w, h);
+      ctx.fillStyle = col.edge; ctx.fillRect(left, top, w, 1); ctx.fillRect(left, top + h - 1, w, 1);
+    }
+    if(firstLeft !== null){
+      ctx.font = '9px ui-monospace, Menlo, Consolas, monospace';
+      ctx.fillStyle = 'rgba(210,225,225,0.6)';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText('ORH ' + d.orh.toFixed(2), Math.max(firstLeft, 0) + 3, top - 2);
+      ctx.textBaseline = 'top';
+      ctx.fillText('ORL ' + d.orl.toFixed(2), Math.max(firstLeft, 0) + 3, top + h + 2);
+    }
+  });
+  ctx.restore();
 }
 
 function ensureCloudCanvas(container){
