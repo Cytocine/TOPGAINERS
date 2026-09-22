@@ -534,6 +534,13 @@
   </div><!-- /viewPrevDay -->
 
 <div id="viewHitCharts" hidden>
+  <div class="draw-bar">
+    <select id="hitChartsTf" style="width:auto;padding:5px 6px;font-size:11.5px;">
+      <option value="30m" selected>30m</option>
+      <option value="10m">10m</option>
+    </select>
+    <button id="btnHitLevel" class="draw-btn level" title="Tap a chart to add a price level (tap a level to remove it)">📏<span class="lbl"> Level</span></button>
+  </div>
   <div class="status" id="hitChartsStatus">Run a scan on the Scanner, Setups, or Prev Day tab — its hits will chart here automatically.</div>
   <div class="hit-charts-grid" id="hitChartsGrid"></div>
 </div>
@@ -5162,6 +5169,7 @@ const PD = (() => {
 const MAX_HIT_CHARTS = 30;
 const HIT_CHART_ST_LEN = 10, HIT_CHART_ST_MULT = 3;
 let miniCharts = [];
+let hitLevelMode = false;
 
 function teardownMiniCharts(){
   miniCharts.forEach(m => {
@@ -5171,7 +5179,22 @@ function teardownMiniCharts(){
   miniCharts = [];
 }
 
-function renderMiniChart(container, allBarsRaw, allBars10Raw){
+function drawMiniLevels(state){
+  state.lines.forEach(o => { try { state.candles.removePriceLine(o.line); } catch(e){} });
+  state.lines = [];
+  const lv = getLevels(state.sym);
+  const mk = (kind, price) => {
+    const st = LEVEL_STYLE[kind];
+    return state.candles.createPriceLine({
+      price, color: st.color, lineWidth: st.width, lineStyle: LightweightCharts.LineStyle[st.style],
+      axisLabelVisible: true, title: `${st.label} $${price.toFixed(2)}`
+    });
+  };
+  ['entry', 'stop', 'target'].forEach(k => { if(lv[k] != null) state.lines.push({ price: lv[k], line: mk(k, lv[k]) }); });
+  lv.lv.forEach(p => state.lines.push({ price: p, line: mk('lvl', p) }));
+}
+
+function renderMiniChart(container, sym, allBarsRaw, allBars10Raw){
   const allBars = allBarsRaw.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
   if(!allBars.length){ container.textContent = 'No bar data.'; return; }
 
@@ -5285,7 +5308,24 @@ function renderMiniChart(container, allBarsRaw, allBars10Raw){
     });
     ro.observe(container);
   }
-  miniCharts.push({ chart, ro });
+
+  const state = { sym, candles, lines: [] };
+  drawMiniLevels(state);
+  container.style.cursor = hitLevelMode ? 'crosshair' : 'pointer';
+  container.addEventListener('click', e => {
+    if(!hitLevelMode) return;
+    e.stopPropagation();
+    const rect = container.getBoundingClientRect();
+    const raw = candles.coordinateToPrice(e.clientY - rect.top);
+    if(raw == null || !isFinite(raw) || raw <= 0) return;
+    const price = round2(raw);
+    const near = getLevels(sym).lv.find(p => Math.abs(p - price) <= Math.max(0.02, price * 0.0025));
+    if(near !== undefined) removePriceLevel(sym, near);
+    else if(!addPriceLevel(sym, price)) statusMsg(`Level not added (max ${MAX_PRICE_LEVELS} per symbol, no duplicates).`, true);
+    drawMiniLevels(state);
+  });
+
+  miniCharts.push({ chart, ro, sym, candles, lines: state.lines });
 }
 
 let hitChartsToken = 0;
@@ -5320,6 +5360,7 @@ async function renderHitCharts(){
   });
 
   try{
+    const tf = document.getElementById('hitChartsTf').value;
     const feed = document.getElementById('feed').value;
     const start = new Date(Date.now() - 18*24*3600*1000).toISOString();
     const [bars30, bars10] = await Promise.all([
@@ -5328,10 +5369,10 @@ async function renderHitCharts(){
     ]);
     if(myToken !== hitChartsToken) return;
     cards.forEach(({ sym, body }) => {
-      try { renderMiniChart(body, bars30[sym] || [], bars10[sym] || []); }
+      try { renderMiniChart(body, sym, (tf === '10m' ? bars10[sym] : bars30[sym]) || [], bars10[sym] || []); }
       catch(e){ body.textContent = 'Chart error: ' + e.message; }
     });
-    status.textContent = `${symbols.length} hit chart${symbols.length === 1 ? '' : 's'} · 30m · tap a chart to open the full view`;
+    status.textContent = `${symbols.length} hit chart${symbols.length === 1 ? '' : 's'} · ${tf} · tap a chart to open the full view · 📏 Level to tap-add a price level`;
   }catch(e){
     if(myToken === hitChartsToken) status.textContent = `Error loading charts: ${e.message}`;
   }
@@ -5347,6 +5388,12 @@ function showTab(name){
   if(name === 'options') OC.onShow(); else OC.onHide();
   if(name === 'hitcharts') renderHitCharts();
 }
+document.getElementById('hitChartsTf').addEventListener('change', () => { if(!document.getElementById('viewHitCharts').hidden) renderHitCharts(); });
+document.getElementById('btnHitLevel').addEventListener('click', () => {
+  hitLevelMode = !hitLevelMode;
+  document.getElementById('btnHitLevel').classList.toggle('armed', hitLevelMode);
+  document.querySelectorAll('.hit-chart-body').forEach(el => { el.style.cursor = hitLevelMode ? 'crosshair' : 'pointer'; });
+});
 document.getElementById('mainTabs').addEventListener('click', e => {
   const b = e.target.closest('.tab');
   if(b) showTab(b.dataset.tab);
