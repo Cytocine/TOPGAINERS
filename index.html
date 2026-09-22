@@ -94,6 +94,11 @@
   .modal-footer{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;}
   .modal-footer button{white-space:nowrap;}
   .chart-container{width:100%;height:270px;margin-bottom:10px;position:relative;}
+  .hit-charts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;}
+  .hit-chart-card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;cursor:pointer;}
+  .hit-chart-card:hover{border-color:var(--accent);}
+  .hit-chart-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;margin-bottom:6px;}
+  .hit-chart-body{width:100%;height:190px;position:relative;}
   #cloudCanvas,#dayCanvas{position:absolute;top:0;left:0;pointer-events:none;}
   .draw-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;flex-wrap:wrap;}
   .draw-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;}
@@ -265,6 +270,7 @@
     <button class="tab" data-tab="setups">Setups<span class="tabcount" id="suTabCount"></span></button>
     <button class="tab" data-tab="prevday">Prev Day<span class="tabcount" id="pdTabCount"></span></button>
     <button class="tab" data-tab="options">Options<span class="tabcount" id="ocTabCount"></span></button>
+    <button class="tab" data-tab="hitcharts">Charts<span class="tabcount" id="hcTabCount"></span></button>
   </div>
 
   <div id="viewScanner">
@@ -526,6 +532,11 @@
     <div class="status" id="pdStatus">Press the button to rank the last completed session's top gainers. Tap a symbol for the chart; the Options tab follows this list.</div>
     <div id="pdResults" style="margin-top:10px;"></div>
   </div><!-- /viewPrevDay -->
+
+<div id="viewHitCharts" hidden>
+  <div class="status" id="hitChartsStatus">Run a scan on the Scanner, Setups, or Prev Day tab — its hits will chart here automatically.</div>
+  <div class="hit-charts-grid" id="hitChartsGrid"></div>
+</div>
 
 <div id="viewOptions" hidden>
   <div class="panel">
@@ -2511,7 +2522,7 @@ function renderChart(data){
   const dayCanvas = ensureDayCanvas(container);
   const draw = () => {
     drawDayBands(dayCanvas, container, chart, times, data.days || []);
-    drawOrbCloud(dayCanvas, container, chart, times, data.days || [], data.bars.map(b => b.c), data.barMins || []);
+    drawOrbCloud(dayCanvas, container, chart, times, data.days || [], data.bars.map(b => b.c), data.barMins || [], activeCandleSeries);
     if(cloudCanvas) drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, data.ema5Series, data.ema13Series, times);
   };
   activeCloudRedraw = draw;
@@ -2580,8 +2591,9 @@ const ORB_COLORS = {
   down: { fill:'rgba(255,43,214,0.22)',  edge:'rgba(255,43,214,0.85)' },
   mid:  { fill:'rgba(160,172,176,0.20)', edge:'rgba(160,172,176,0.75)' }
 };
-function drawOrbCloud(canvas, container, chart, times, days, closes, mins){
-  if(!activeCandleSeries) return;
+function drawOrbCloud(canvas, container, chart, times, days, closes, mins, series){
+  const candleSeries = series || activeCandleSeries;
+  if(!candleSeries) return;
   const rect = container.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
   const ctx = canvas.getContext('2d');
@@ -2599,8 +2611,8 @@ function drawOrbCloud(canvas, container, chart, times, days, closes, mins){
       if(mins[i] >= 570 && mins[i] < 960) idx.push(i);
     }
     if(!idx.length) return;
-    const yH = activeCandleSeries.priceToCoordinate(d.orh);
-    const yL = activeCandleSeries.priceToCoordinate(d.orl);
+    const yH = candleSeries.priceToCoordinate(d.orh);
+    const yL = candleSeries.priceToCoordinate(d.orl);
     if(yH === null || yL === null) return;
     const top = Math.min(yH, yL), h = Math.max(2, Math.abs(yL - yH));
     const xs = idx.map(i => ts.timeToCoordinate(times[i]));
@@ -2899,11 +2911,15 @@ const OC = (() => {
   function setScan(mode, all, shown, meta){
     scan = { mode, all: (all || []).slice(), shown: (shown || []).slice(), meta: meta || {} };
     $('ocTabCount').textContent = scan.all.length ? `(${scan.all.length})` : '';
+    const hc = $('hcTabCount');
+    if(hc) hc.textContent = scan.shown.length ? `(${scan.shown.length})` : '';
+    if(!$('viewHitCharts').hidden) renderHitCharts();
     if($('ocFollow').checked){
       applyScanSymbols();
       if(visible() && $('ocAuto').checked && !state.playing) loadChain();
     }
   }
+  function getScan(){ return scan; }
   function openFor(sym){
     $('ocFollow').checked = false;
     $('ocSymbols').value = sym;
@@ -3705,7 +3721,7 @@ const OC = (() => {
   document.addEventListener('visibilitychange', () => { if(document.hidden && state.playing) setPlaying(false); });
 
   restoreSettings();
-  return { setScan, openFor, openScan, onShow, onHide };
+  return { setScan, getScan, openFor, openScan, onShow, onHide };
 })();
 
 /* =====================================================================
@@ -5138,13 +5154,198 @@ const PD = (() => {
   return { run };
 })();
 
+/* =====================================================================
+   HIT CHARTS TAB — small-multiple charts for every symbol the current
+   scan produced, using the same EMA cloud / Supertrend / day-band /
+   ORB-cloud indicators as the individual symbol chart.
+   ===================================================================== */
+const MAX_HIT_CHARTS = 30;
+const HIT_CHART_ST_LEN = 10, HIT_CHART_ST_MULT = 3;
+let miniCharts = [];
+
+function teardownMiniCharts(){
+  miniCharts.forEach(m => {
+    try { m.chart.remove(); } catch(e){}
+    if(m.ro) { try { m.ro.disconnect(); } catch(e){} }
+  });
+  miniCharts = [];
+}
+
+function renderMiniChart(container, allBarsRaw, allBars10Raw){
+  const allBars = allBarsRaw.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+  if(!allBars.length){ container.textContent = 'No bar data.'; return; }
+
+  const allCloses = allBars.map(b => b.c);
+  const ema5Full = computeEMASeries(allCloses, 5);
+  const ema13Full = computeEMASeries(allCloses, 13);
+  const superTrendRes = SuperTrend(allBars, HIT_CHART_ST_LEN, HIT_CHART_ST_MULT);
+
+  const barParts = allBars.map(b => etParts(new Date(b.t)));
+  const barDates = barParts.map(p => p.dateStr);
+  const allDates = [...new Set(barDates)];
+  const keepDates = allDates.slice(-2);
+  let startIdx = barDates.findIndex(d => keepDates.includes(d));
+  if(startIdx === -1) startIdx = 0;
+
+  const rth = {};
+  allBars.forEach((b, i) => {
+    const m = barParts[i].hh * 60 + barParts[i].mm;
+    if(m < 570 || m >= 960) return;
+    const r = rth[barDates[i]] || (rth[barDates[i]] = { hi: -Infinity, lo: Infinity });
+    r.hi = Math.max(r.hi, b.h); r.lo = Math.min(r.lo, b.l);
+  });
+  const bars10 = allBars10Raw.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
+  const parts10 = bars10.map(b => etParts(new Date(b.t)));
+  const orRange = {};
+  bars10.forEach((b, i) => {
+    const m = parts10[i].hh * 60 + parts10[i].mm;
+    if(m < 570 || m >= 580) return;
+    const r = orRange[parts10[i].dateStr] || (orRange[parts10[i].dateStr] = { hi: -Infinity, lo: Infinity });
+    r.hi = Math.max(r.hi, b.h); r.lo = Math.min(r.lo, b.l);
+  });
+  const days = keepDates.map(d => {
+    const di = allDates.indexOf(d);
+    const prev = di > 0 ? rth[allDates[di - 1]] : null;
+    const orr = orRange[d];
+    return {
+      date: d, parity: di % 2,
+      startIdx: barDates.indexOf(d) - startIdx, endIdx: barDates.lastIndexOf(d) - startIdx,
+      prevHigh: prev ? prev.hi : null, prevLow: prev ? prev.lo : null,
+      orh: orr ? orr.hi : null, orl: orr ? orr.lo : null
+    };
+  });
+
+  const bars = allBars.slice(startIdx);
+  const ema5 = ema5Full.slice(startIdx);
+  const ema13 = ema13Full.slice(startIdx);
+  const stVals = superTrendRes.st.slice(startIdx);
+  const stTrend = superTrendRes.trend.slice(startIdx);
+  const times = bars.map(b => toETTimestamp(b.t));
+  const barMins = barParts.slice(startIdx).map(p => p.hh * 60 + p.mm);
+  const closes = bars.map(b => b.c);
+
+  const chart = LightweightCharts.createChart(container, {
+    layout: { background: { color: 'transparent' }, textColor: '#dce6e6', fontSize: 10 },
+    grid: { vertLines: { visible: false }, horzLines: { visible: false } },
+    timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#232d30', rightOffset: 2, minBarSpacing: 0.5 },
+    rightPriceScale: { borderColor: '#232d30', scaleMargins: { top: 0.1, bottom: 0.1 } },
+    handleScroll: false, handleScale: false,
+    width: container.clientWidth, height: container.clientHeight || 190
+  });
+
+  const candles = chart.addCandlestickSeries({
+    upColor: '#39d98a', downColor: 'rgba(0,0,0,0)',
+    borderVisible: true, borderUpColor: '#39d98a', borderDownColor: '#ff8177',
+    wickUpColor: '#39d98a', wickDownColor: '#ff8177'
+  });
+  candles.setData(bars.map(b => ({ time: toETTimestamp(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
+
+  const buildLine = (series, color) => {
+    const pts = series.map((v, i) => v === null ? null : { time: times[i], value: v }).filter(Boolean);
+    if(!pts.length) return null;
+    const s = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    s.setData(pts);
+    return s;
+  };
+  const ema5Line = buildLine(ema5, '#c084fc');
+  const ema13Line = buildLine(ema13, '#e0a13b');
+
+  let i = 0;
+  while(i < bars.length){
+    if(isNaN(stVals[i])){ i++; continue; }
+    const trend = stTrend[i];
+    const color = trend === 1 ? '#39d98a' : '#ff8177';
+    let j = i;
+    while(j < bars.length && stTrend[j] === trend && !isNaN(stVals[j])) j++;
+    const pts = [];
+    if(i > 0 && !isNaN(stVals[i - 1])) pts.push({ time: times[i - 1], value: stVals[i - 1] });
+    for(let k = i; k < j; k++) pts.push({ time: times[k], value: stVals[k] });
+    const seg = chart.addLineSeries({ color, lineWidth: 1.5, priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false });
+    seg.setData(pts);
+    i = j;
+  }
+
+  const dayCanvas = ensureDayCanvas(container);
+  const cloudCanvas = (ema5Line && ema13Line) ? ensureCloudCanvas(container) : null;
+  const draw = () => {
+    drawDayBands(dayCanvas, container, chart, times, days);
+    drawOrbCloud(dayCanvas, container, chart, times, days, closes, barMins, candles);
+    if(cloudCanvas) drawEmaCloud(cloudCanvas, container, chart, ema5Line, ema13Line, ema5, ema13, times);
+  };
+  chart.timeScale().fitContent();
+  chart.timeScale().subscribeVisibleLogicalRangeChange(draw);
+  requestAnimationFrame(draw);
+
+  let ro = null;
+  if(typeof ResizeObserver !== 'undefined'){
+    ro = new ResizeObserver(() => {
+      const w = container.clientWidth, h = container.clientHeight;
+      if(w > 0 && h > 0) chart.applyOptions({ width: w, height: h });
+      requestAnimationFrame(draw);
+    });
+    ro.observe(container);
+  }
+  miniCharts.push({ chart, ro });
+}
+
+let hitChartsToken = 0;
+async function renderHitCharts(){
+  const grid = document.getElementById('hitChartsGrid');
+  const status = document.getElementById('hitChartsStatus');
+  if(!grid || !status) return;
+  const myToken = ++hitChartsToken;
+
+  const scan = OC.getScan();
+  const symbols = (scan.shown && scan.shown.length ? scan.shown : scan.all).slice(0, MAX_HIT_CHARTS);
+  document.getElementById('hcTabCount').textContent = symbols.length ? `(${symbols.length})` : '';
+  teardownMiniCharts();
+
+  if(!symbols.length){
+    grid.innerHTML = '';
+    status.textContent = 'Run a scan on the Scanner, Setups, or Prev Day tab — its hits will chart here automatically.';
+    return;
+  }
+
+  status.textContent = `Loading charts for ${symbols.length} symbol${symbols.length === 1 ? '' : 's'}…`;
+  grid.innerHTML = '';
+  const cards = symbols.map(sym => {
+    const meta = scan.meta[sym] || {};
+    const pct = meta.percent_change;
+    const card = document.createElement('div');
+    card.className = 'hit-chart-card';
+    card.innerHTML = `<div class="hit-chart-head"><span>${sym}</span>${pct != null ? `<span class="pct" style="color:${pct >= 0 ? 'var(--pass)' : 'var(--fail)'};">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : ''}</div><div class="hit-chart-body"></div>`;
+    card.addEventListener('click', () => openModalList(symbols, symbols.indexOf(sym), null));
+    grid.appendChild(card);
+    return { sym, body: card.querySelector('.hit-chart-body') };
+  });
+
+  try{
+    const feed = document.getElementById('feed').value;
+    const start = new Date(Date.now() - 18*24*3600*1000).toISOString();
+    const [bars30, bars10] = await Promise.all([
+      fetchBars(symbols, '30Min', start, feed),
+      fetchBars(symbols, '10Min', start, feed)
+    ]);
+    if(myToken !== hitChartsToken) return;
+    cards.forEach(({ sym, body }) => {
+      try { renderMiniChart(body, bars30[sym] || [], bars10[sym] || []); }
+      catch(e){ body.textContent = 'Chart error: ' + e.message; }
+    });
+    status.textContent = `${symbols.length} hit chart${symbols.length === 1 ? '' : 's'} · 30m · tap a chart to open the full view`;
+  }catch(e){
+    if(myToken === hitChartsToken) status.textContent = `Error loading charts: ${e.message}`;
+  }
+}
+
 function showTab(name){
   document.querySelectorAll('#mainTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.getElementById('viewScanner').hidden = name !== 'scanner';
   document.getElementById('viewSetups').hidden = name !== 'setups';
   document.getElementById('viewPrevDay').hidden = name !== 'prevday';
   document.getElementById('viewOptions').hidden = name !== 'options';
+  document.getElementById('viewHitCharts').hidden = name !== 'hitcharts';
   if(name === 'options') OC.onShow(); else OC.onHide();
+  if(name === 'hitcharts') renderHitCharts();
 }
 document.getElementById('mainTabs').addEventListener('click', e => {
   const b = e.target.closest('.tab');
