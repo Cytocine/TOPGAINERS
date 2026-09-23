@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Gainer Scan — Breakout Screener</title>
 
+<!-- For the embedded CytoOptions tab -->
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://cdn.jsdelivr.net/npm/@msgpack/msgpack@2.8.0/dist.min.js"></script>
+
+<style>
+  @media (max-width: 768px) {
+    #viewCyto input, #viewCyto select, #viewCyto textarea { font-size: 16px !important; }
+  }
+  #viewCyto button, #viewCyto select { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+</style>
+
 <style>
   :root{
     --bg:#0b0f10;
@@ -24,7 +35,7 @@
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:var(--sans);-webkit-tap-highlight-color:transparent;}
   body{padding:12px 12px 60px;max-width:1120px;margin:0 auto;}
-  h1{font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:0.2px;margin:4px 0 2px;}
+  h1:not(#viewCyto *){font-family:var(--mono);font-size:18px;font-weight:600;letter-spacing:0.2px;margin:4px 0 2px;}
   .sub{color:var(--muted);font-size:12px;margin:0 0 12px;}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;}
   .action-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px;}
@@ -32,14 +43,14 @@
   .row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;}
   .field{display:flex;flex-direction:column;gap:3px;flex:1 1 120px;min-width:100px;}
   .field label{font-size:10.5px;color:var(--muted);}
-  input[type=text],input[type=password],input[type=number],input[type=date],select,textarea{
+  input[type=text]:not(#viewCyto *),input[type=password]:not(#viewCyto *),input[type=number]:not(#viewCyto *),input[type=date]:not(#viewCyto *),select:not(#viewCyto *),textarea:not(#viewCyto *){
     background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     border-radius:7px;padding:7px 9px;font-size:13px;font-family:var(--mono);
     width:100%;
   }
-  textarea{font-family:var(--mono);min-height:64px;resize:vertical;}
-  input[type=date]{color-scheme:dark;}
-  button{
+  textarea:not(#viewCyto *){font-family:var(--mono);min-height:64px;resize:vertical;}
+  input[type=date]:not(#viewCyto *){color-scheme:dark;}
+  button:not(#viewCyto *){
     background:var(--panel-2);border:1px solid var(--line);color:var(--text);
     border-radius:7px;padding:7px 11px;font-size:12px;font-weight:600;cursor:pointer;
     font-family:var(--sans);white-space:nowrap;touch-action:manipulation;
@@ -58,10 +69,10 @@
   #settingsPanel{display:none;}
   #settingsPanel.open{display:block;}
 
-  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
-  th{text-align:right;color:var(--muted);font-weight:500;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line);}
-  th:first-child,td:first-child{text-align:left;}
-  td{text-align:right;padding:8px;border-bottom:1px solid var(--line);}
+  table:not(#viewCyto *){width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;}
+  th:not(#viewCyto *){text-align:right;color:var(--muted);font-weight:500;font-size:11px;padding:6px 8px;border-bottom:1px solid var(--line);}
+  th:not(#viewCyto *):first-child,td:not(#viewCyto *):first-child{text-align:left;}
+  td:not(#viewCyto *){text-align:right;padding:8px;border-bottom:1px solid var(--line);}
   tr.rank1 td{background:rgba(57,217,138,0.06);}
   .sym{font-weight:700;font-size:13px;cursor:pointer;}
   .sym:hover{text-decoration:underline;}
@@ -268,7 +279,7 @@
   <div class="tabs" id="mainTabs">
     <button class="tab active" data-tab="scanner">Scanner</button>
     <button class="tab" data-tab="setups">Setups<span class="tabcount" id="suTabCount"></span></button>
-    <button class="tab" data-tab="prevday">Prev Day<span class="tabcount" id="pdTabCount"></span></button>
+    <button class="tab" data-tab="cyto">🔗 CytoOptions</button>
     <button class="tab" data-tab="options">Options<span class="tabcount" id="ocTabCount"></span></button>
     <button class="tab" data-tab="hitcharts">Charts<span class="tabcount" id="hcTabCount"></span></button>
   </div>
@@ -327,6 +338,14 @@
         <label># Gainers</label>
         <input type="number" id="gainerCount" value="10" min="1" max="30">
       </div>
+      <div class="field" style="flex:0 1 110px;">
+        <label>Min Efficiency Ratio</label>
+        <input type="number" id="minER" value="0.4" min="0" max="1" step="0.05" title="Kaufman's Efficiency Ratio — net move ÷ total path length over the last 10 daily bars. 0 = off. Filters out choppy names, keeps clean trends.">
+      </div>
+      <div class="field" style="flex:0 1 110px;">
+        <label>Min Relative Strength</label>
+        <input type="number" id="minRS" value="90" min="0" max="100" step="1" title="30-min RS = (close − Lowest(low,252)) ÷ (Highest(high,252) − Lowest(low,252)) × 100. 0 = off.">
+      </div>
     </div>
     <div class="divider"></div>
     <div class="row">
@@ -362,6 +381,24 @@
       </div>
     </div>
     <div class="status" id="alertStatus"></div>
+    <div class="divider"></div>
+    <div class="row">
+      <div class="field" style="flex:0 1 130px;">
+        <label>Time Stop</label>
+        <div class="toggle-row" style="margin-top:6px;">
+          <input type="checkbox" id="timeStopOn">
+          <label for="timeStopOn">⏱ Enable</label>
+        </div>
+      </div>
+      <div class="field" style="flex:0 1 160px;">
+        <label>No progress after (min)</label>
+        <input type="number" id="timeStopMin" value="45" min="1" max="600" step="1">
+      </div>
+      <div class="field" style="flex:1 1 220px;">
+        <label>&nbsp;</label>
+        <div class="status" style="margin-top:0;">Alerts once a symbol's entry has been armed this long without reaching 1R (needs entry + stop set).</div>
+      </div>
+    </div>
     <div class="divider"></div>
     <div class="row">
       <div class="field" style="flex:1 1 220px;">
@@ -514,24 +551,1524 @@
     </details>
   </div><!-- /viewSetups -->
 
-  <div id="viewPrevDay" hidden>
-    <div class="action-bar">
-      <div class="action-bar-left" style="align-items:flex-end;">
-        <button class="massive-btn" id="pdLoadBtn">📅 Prev Day Gainers (&gt;$1 &amp; vol)</button>
-        <div class="field" style="flex:0 1 150px;">
-          <label>Date (blank = last session)</label>
-          <input type="date" id="pdDate">
+  <div id="viewCyto" hidden class="bg-slate-900 text-slate-100 flex flex-col font-sans" style="margin:-12px;padding:0;min-height:calc(100vh - 100px);">
+
+    <header class="bg-slate-900 border-b border-slate-800 p-4 pt-max(16px,env(safe-area-inset-top)) sticky top-0 z-50">
+        <div class="max-w-md mx-auto flex justify-between items-center">
+            <h1 class="text-md font-black tracking-widest text-cyan-400">⚡ CytoOptions</h1>
+            <div class="flex items-center gap-2">
+                <button id="pwaInstallBtn" class="hidden text-[9px] text-cyan-400 hover:text-cyan-300 font-mono uppercase border border-cyan-700 rounded-full px-2.5 py-1 transition">📲 Install</button>
+                <div class="flex items-center gap-2 bg-slate-800 rounded-full px-3 py-1 border border-slate-700">
+                    <div id="statusDot" class="w-2 h-2 rounded-full bg-slate-500"></div>
+                    <span id="statusMessage" class="text-[10px] font-bold text-slate-400 tracking-wider uppercase">IDLE</span>
+                </div>
+            </div>
         </div>
-        <div class="field" style="flex:0 1 110px;min-width:90px;">
-          <label>Min volume</label>
-          <input type="number" id="pdMinVol" value="1000000" min="0" step="100000">
+        <div id="pwaUpdateBanner" class="hidden max-w-md mx-auto mt-2 bg-cyan-950 border border-cyan-700 rounded-lg px-3 py-1.5 flex items-center justify-between gap-2">
+            <span class="text-[10px] font-mono text-cyan-300">🔄 New version cached</span>
+            <button id="pwaUpdateReloadBtn" class="text-[9px] font-black text-slate-950 bg-cyan-400 hover:bg-cyan-300 rounded-lg px-2 py-1 uppercase tracking-wider transition">Reload</button>
         </div>
-        <button id="pdOptionsBtn" title="Load these symbols in the Options tab">📈 Options chain</button>
-      </div>
+    </header>
+
+    <!-- Floating Focus Exit Pill (Appears when controls are hidden) -->
+    <div id="floatingFocusBar" class="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-800/90 backdrop-blur border border-slate-700 rounded-full px-4 py-2 shadow-2xl flex items-center gap-3">
+        <span class="text-[10px] font-mono text-cyan-400 flex items-center gap-1.5">⚡ FOCUS MODE</span>
+        <button id="exitFocusBtn" class="bg-slate-700 hover:bg-slate-600 text-xs font-bold px-3 py-1 rounded-full text-white transition">⚙️ Show Controls</button>
     </div>
-    <div class="status" id="pdStatus">Press the button to rank the last completed session's top gainers. Tap a symbol for the chart; the Options tab follows this list.</div>
-    <div id="pdResults" style="margin-top:10px;"></div>
-  </div><!-- /viewPrevDay -->
+
+    <main class="flex-1 max-w-md w-full mx-auto p-3 flex flex-col gap-3 pb-24">
+
+        <!-- Added 'hidden' by default so only the chart section is visible initially -->
+        <div id="controlPanels" class="hidden flex flex-col gap-3">
+        <section class="bg-slate-800 p-3 rounded-2xl border border-slate-700 shadow-xl flex flex-col gap-2">
+            <div class="text-[10px] font-mono text-slate-400 leading-snug">Uses the Alpaca keys from the Scanner tab's ⚙ Settings panel — no separate login needed here.</div>
+            <button id="testConnectionBtn" class="bg-slate-700 hover:bg-slate-600 active:scale-[0.99] text-xs font-bold py-2 rounded-xl transition text-white shadow-md">
+                🔌 Test Connection
+            </button>
+            <p id="keyTestResult" class="text-[10px] font-mono leading-snug break-words"></p>
+        </section>
+
+        <section class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl flex flex-col gap-3">
+            <div>
+                <label class="text-[10px] font-black text-slate-400 tracking-wider uppercase block mb-1">Symbol Watchlist</label>
+                <textarea id="stockList" rows="2" class="w-full bg-slate-950 p-2.5 rounded-xl border border-slate-700 font-mono text-xs tracking-wider focus:outline-none focus:border-cyan-400">NVDA, TSLA, AAPL, AMZN, MSFT, META, AMD, PLTR, INTC, MU, GOOGL, NFLX, SOFI, ORCL, COIN, BABA, MARA, AVGO, DIS, F,SPY,IWM,QQQ,HOOD,JPM,C,BAC,XOM,OXY,UBER,ENPH,COST, NKE, LLY,MRK</textarea>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Timeframe</span>
+                    <select id="timeframe" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="5Min">5 Min</option>
+                        <option value="15Min" selected>15 Min</option>
+                        <option value="1Hour">1 Hour</option>
+                    </select>
+                </div>
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Feed</span>
+                    <select id="optionFeed" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="indicative" selected>Indicative</option>
+                        <option value="opra">OPRA (Paid)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-2">
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Account</span>
+                    <select id="accountEnv" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="paper" selected>Paper</option>
+                        <option value="live">Live</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Min DTE</span>
+                    <select id="minDte" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="0">0+ (Any)</option>
+                        <option value="7" selected>7+</option>
+                        <option value="14" >14+</option>
+                        <option value="21">21+</option>
+                        <option value="30">30+</option>
+                        <option value="45">45+</option>
+                        <option value="60">60+</option>
+                    </select>
+                </div>
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Target Δ</span>
+                    <select id="targetDelta" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="0.30">0.30 (OTM)</option>
+                        <option value="0.40">0.40</option>
+                        <option value="0.50" selected>0.50 (ATM)</option>
+                        <option value="0.60">0.60</option>
+                        <option value="0.70">0.70 (ITM)</option>
+                        <option value="0.80">0.80 (Deep ITM)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+                <button id="prevBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 active:scale-[0.98] text-xs font-black py-2 rounded-xl transition">◀ Prev</button>
+                <button id="nextBtn" class="flex-1 bg-slate-700 hover:bg-slate-600 active:scale-[0.98] text-xs font-black py-2 rounded-xl transition">Next ▶</button>
+            </div>
+
+            <div id="badgeContainer" class="flex flex-wrap gap-1.5 pt-1"></div>
+        </section>
+
+        <section class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                <span class="text-[10px] font-black text-slate-400 tracking-wider uppercase">🔔 Watchlist Alerts</span>
+                <div class="flex gap-1.5">
+                    <button id="journalToggleBtn" class="text-[9px] text-slate-400 hover:text-cyan-400 font-mono uppercase border border-slate-700 rounded-lg px-2 py-1 transition">📓 Journal (0)</button>
+                    <button id="alertTestBtn" class="text-[9px] text-slate-400 hover:text-cyan-400 font-mono uppercase border border-slate-700 rounded-lg px-2 py-1 transition">Test</button>
+                </div>
+            </div>
+            <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <label class="text-[10px] font-bold text-slate-400 tracking-wider uppercase block mb-1">📱 Phone Push (ntfy.sh)</label>
+                <input id="ntfyTopic" type="text" placeholder="pick-a-private-topic-name" class="w-full bg-slate-800 p-1.5 rounded-lg border border-slate-700 font-mono text-xs focus:outline-none focus:border-cyan-400">
+
+            </div>
+            <div class="bg-slate-950 p-2 rounded-xl border border-slate-800">
+                <label class="text-[10px] font-bold text-slate-400 tracking-wider uppercase block mb-1">💬 Discord Webhook (optional)</label>
+                <input id="discordWebhook" type="text" placeholder="https://discord.com/api/webhooks/..." class="w-full bg-slate-800 p-1.5 rounded-lg border border-slate-700 font-mono text-xs focus:outline-none focus:border-cyan-400">
+
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span class="text-[10px] font-bold text-slate-400 tracking-wider uppercase pl-1">Scan Every</span>
+                    <select id="alertInterval" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="30000">30s</option>
+                        <option value="900000" selected>15 min</option>
+                        <option value="120000">2 min</option>
+                        <option value="300000">5 min</option>
+                    </select>
+                </div>
+                <button id="alertToggleBtn" class="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition">🔔 Enable Alerts</button>
+            </div>
+            <p id="cytoAlertStatus" class="text-[10px] font-mono text-slate-500">Alerts off</p>
+            <div id="alertFeed" class="flex flex-col-reverse gap-1 max-h-40 overflow-y-auto text-[10px] font-mono"></div>
+
+            <div id="journalPanel" class="hidden flex flex-col gap-1.5 border-t border-slate-700 pt-3">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black text-slate-400 tracking-wider uppercase">📓 Trade Journal</span>
+                    <button id="journalClearBtn" class="text-[9px] text-slate-500 hover:text-rose-400 font-mono uppercase transition">Clear All</button>
+                </div>
+                <div id="journalList" class="flex flex-col gap-1 max-h-48 overflow-y-auto text-[10px] font-mono"></div>
+            </div>
+        </section>
+
+        <section class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl flex flex-col gap-3">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+                <span class="text-[10px] font-black text-slate-400 tracking-wider uppercase">🔍 EMA10&gt;EMA20 Scanner (Calls)</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between gap-2 flex-1">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-wider uppercase pl-1">Timeframe</span>
+                    <select id="scannerTimeframe" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="5Min">5 Min</option>
+                        <option value="15Min">15 Min</option>
+                        <option value="1Hour" selected>1 Hour</option>
+                    </select>
+                </div>
+                <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between gap-2 flex-1">
+                    <span class="text-[9px] font-bold text-slate-400 tracking-wider uppercase pl-1">Min DTE</span>
+                    <select id="scannerMinDte" class="bg-slate-800 text-xs font-bold px-2 py-1 rounded-lg text-cyan-400 border border-slate-700 focus:outline-none">
+                        <option value="0">0+ (Any)</option>
+                        <option value="7">7+</option>
+                        <option value="14" selected>14+</option>
+                        <option value="21">21+</option>
+                        <option value="30">30+</option>
+                        <option value="45">45+</option>
+                        <option value="60">60+</option>
+                    </select>
+                </div>
+            </div>
+            <p class="text-[9px] font-mono text-slate-500 -mt-1">Scans the whole watchlist for calls where EMA10 is currently above EMA20 (persistent state, no "within N bars" window — just EMA10 &gt; EMA20 right now).</p>
+            <button id="scannerRunBtn" class="bg-gradient-to-r from-teal-500 to-cyan-600 hover:opacity-90 active:scale-[0.99] text-xs font-bold py-2 rounded-xl transition text-white shadow-md">
+                🔍 Run Scan
+            </button>
+            <p id="scannerStatus" class="text-[10px] font-mono text-slate-500">Not run yet.</p>
+            <div id="scannerResults" class="flex flex-col gap-1 max-h-56 overflow-y-auto text-[10px] font-mono"></div>
+        </section>
+        </div>
+
+        <section class="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-xl flex flex-col flex-1 gap-3">
+            <div class="flex justify-between items-end border-b border-slate-700 pb-2">
+                <h2 id="activeSymbolDisplay" class="text-xl font-black text-white tracking-tight">Select Ticker</h2>
+                <div class="flex gap-1.5">
+                    <button id="syncCrosshairBtn" class="text-[9px] text-cyan-400 hover:text-cyan-300 font-mono tracking-tighter uppercase border border-cyan-700 rounded-lg px-2 py-1 transition" title="Sync crosshair across both charts">🔗 Sync Crosshair</button>
+                    <button id="layoutToggleBtn" class="text-[9px] text-slate-400 hover:text-cyan-400 font-mono tracking-tighter uppercase border border-slate-700 rounded-lg px-2 py-1 transition">⛶ Show Controls</button>
+                </div>
+            </div>
+
+            <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between gap-2">
+                <select id="playInterval" class="bg-slate-800 text-xs px-1.5 py-1 rounded-lg border border-slate-700 focus:outline-none">
+                    <option value="5000" selected>5s Auto-Advance</option>
+                    <option value="10000" >10s Auto-Advance</option>
+                    <option value="20000">20s Auto-Advance</option>
+                </select>
+                <button id="playPauseBtn" class="bg-emerald-600 hover:bg-emerald-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition">Play ▶</button>
+                <button id="scannerQuickBtn" title="Run EMA Cross Scanner" class="bg-slate-700 hover:bg-slate-600 active:scale-[0.98] text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition text-cyan-400 border border-cyan-700 shrink-0">🔍 Scan</button>
+            </div>
+            <p id="scannerQuickStatus" class="text-[9px] font-mono text-slate-500 -mt-1">No scan run yet · Play cycles full watchlist.</p>
+
+            <!-- Calls Section -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black text-emerald-400 tracking-wider uppercase">📈 Calls</span>
+                    <p id="activeOptionDisplayCall" class="text-[11px] text-cyan-400 font-mono">No contract targeted</p>
+                </div>
+                <div class="flex justify-between items-center -mt-1">
+                    <div id="callOhlcvHud" class="text-[9px] font-mono text-slate-400 tracking-tight">O: — H: — L: — C: —</div>
+                    <p id="metaLineCall" class="text-[10px] font-mono text-slate-500 text-right"></p>
+                </div>
+                <div id="callChartContainer" class="relative bg-slate-950 rounded-xl border border-slate-900 overflow-hidden h-[44vh]">
+                    <canvas id="nativeCanvasCall" class="w-full h-full absolute top-0 left-0 cursor-crosshair"></canvas>
+                </div>
+            </div>
+
+            <div id="ivSkewBar" class="flex items-center justify-center bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-500">
+                Skew: —
+            </div>
+
+            <!-- Puts Section -->
+            <div class="flex flex-col gap-1.5">
+                <div class="flex items-center justify-between">
+                    <span class="text-[10px] font-black text-rose-400 tracking-wider uppercase">📉 Puts</span>
+                    <p id="activeOptionDisplayPut" class="text-[11px] text-cyan-400 font-mono">No contract targeted</p>
+                </div>
+                <div class="flex justify-between items-center -mt-1">
+                    <div id="putOhlcvHud" class="text-[9px] font-mono text-slate-400 tracking-tight">O: — H: — L: — C: —</div>
+                    <p id="metaLinePut" class="text-[10px] font-mono text-slate-500 text-right"></p>
+                </div>
+                <div id="putChartContainer" class="relative bg-slate-950 rounded-xl border border-slate-900 overflow-hidden h-[44vh]">
+                    <canvas id="nativeCanvasPut" class="w-full h-full absolute top-0 left-0 cursor-crosshair"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+    (function(){
+        const apiKeyInput = document.getElementById('apiKey');
+        const secretKeyInput = document.getElementById('apiSecret');
+        const testConnectionBtn = document.getElementById('testConnectionBtn');
+        const keyTestResult = document.getElementById('keyTestResult');
+        const stockListArea = document.getElementById('stockList');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const scannerQuickBtn = document.getElementById('scannerQuickBtn');
+        const scannerQuickStatus = document.getElementById('scannerQuickStatus');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const playIntervalSelect = document.getElementById('playInterval');
+        const timeframeSelect = document.getElementById('timeframe');
+        const optionFeedSelect = document.getElementById('optionFeed');
+        const accountEnvSelect = document.getElementById('accountEnv');
+        const minDteSelect = document.getElementById('minDte');
+        const badgeContainer = document.getElementById('badgeContainer');
+        const activeSymbolDisplay = document.getElementById('activeSymbolDisplay');
+        const statusMessage = document.getElementById('statusMessage');
+        const statusDot = document.getElementById('statusDot');
+        const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+        const pwaUpdateBanner = document.getElementById('pwaUpdateBanner');
+        const pwaUpdateReloadBtn = document.getElementById('pwaUpdateReloadBtn');
+        const syncCrosshairBtn = document.getElementById('syncCrosshairBtn');
+        const callOhlcvHud = document.getElementById('callOhlcvHud');
+        const putOhlcvHud = document.getElementById('putOhlcvHud');
+        const floatingFocusBar = document.getElementById('floatingFocusBar');
+        const exitFocusBtn = document.getElementById('exitFocusBtn');
+
+        let crosshairSynced = false;
+        syncCrosshairBtn.addEventListener('click', () => {
+            crosshairSynced = !crosshairSynced;
+            syncCrosshairBtn.className = crosshairSynced 
+                ? 'text-[9px] text-emerald-400 hover:text-emerald-300 font-mono tracking-tighter uppercase border border-emerald-700 rounded-lg px-2 py-1 transition'
+                : 'text-[9px] text-cyan-400 hover:text-cyan-300 font-mono tracking-tighter uppercase border border-cyan-700 rounded-lg px-2 py-1 transition';
+            syncCrosshairBtn.innerText = crosshairSynced ? '🔗 Crosshair Linked' : '🔗 Sync Crosshair';
+        });
+
+        window.addEventListener('pwa-install-available', () => { pwaInstallBtn.classList.remove('hidden'); });
+        window.addEventListener('pwa-installed', () => { pwaInstallBtn.classList.add('hidden'); });
+        window.addEventListener('pwa-update-available', () => { pwaUpdateBanner.classList.remove('hidden'); });
+
+        pwaInstallBtn.addEventListener('click', async () => {
+            if (typeof window.promptPwaInstall === 'function') {
+                const accepted = await window.promptPwaInstall();
+                if (accepted) pwaInstallBtn.classList.add('hidden');
+            }
+        });
+        pwaUpdateReloadBtn.addEventListener('click', () => location.reload());
+
+        const controlPanels = document.getElementById('controlPanels');
+        const layoutToggleBtn = document.getElementById('layoutToggleBtn');
+        const callChartContainer = document.getElementById('callChartContainer');
+        const putChartContainer = document.getElementById('putChartContainer');
+        const targetDeltaSelect = document.getElementById('targetDelta');
+        const ivSkewBar = document.getElementById('ivSkewBar');
+        const alertToggleBtn = document.getElementById('alertToggleBtn');
+        const alertIntervalSelect = document.getElementById('alertInterval');
+        const alertStatus = document.getElementById('cytoAlertStatus');
+        const alertFeed = document.getElementById('alertFeed');
+        const alertTestBtn = document.getElementById('alertTestBtn');
+        const ntfyTopicInput = document.getElementById('ntfyTopic');
+        const discordWebhookInput = document.getElementById('discordWebhook');
+        const journalToggleBtn = document.getElementById('journalToggleBtn');
+        const journalPanel = document.getElementById('journalPanel');
+        const journalList = document.getElementById('journalList');
+        const journalClearBtn = document.getElementById('journalClearBtn');
+        const scannerRunBtn = document.getElementById('scannerRunBtn');
+        const scannerStatus = document.getElementById('scannerStatus');
+        const scannerResults = document.getElementById('scannerResults');
+        const scannerTimeframeSelect = document.getElementById('scannerTimeframe');
+        const scannerMinDteSelect = document.getElementById('scannerMinDte');
+
+        const sides = {
+            call: {
+                canvas: document.getElementById('nativeCanvasCall'),
+                ctx: null,
+                optionDisplay: document.getElementById('activeOptionDisplayCall'),
+                metaDisplay: document.getElementById('metaLineCall'),
+                hud: callOhlcvHud,
+                barData: [], ema10: [], ema20: [], osi: null, liveBar: null, liveBarMinute: null, crosshairPos: null, lastDrawnSeries: []
+            },
+            put: {
+                canvas: document.getElementById('nativeCanvasPut'),
+                ctx: null,
+                optionDisplay: document.getElementById('activeOptionDisplayPut'),
+                metaDisplay: document.getElementById('metaLinePut'),
+                hud: putOhlcvHud,
+                barData: [], ema10: [], ema20: [], osi: null, liveBar: null, liveBarMinute: null, crosshairPos: null, lastDrawnSeries: []
+            }
+        };
+        sides.call.ctx = sides.call.canvas.getContext('2d');
+        sides.put.ctx = sides.put.canvas.getContext('2d');
+
+        let symbols = [];
+        let currentIndex = 0;
+        let playIntervalId = null;
+        // When a scan finds hits, Play/Prev/Next cycle only through these symbols.
+        let scannerHitSymbols = null; // Set<string> | null
+
+        function playbackList() {
+            if (scannerHitSymbols && scannerHitSymbols.size > 0) {
+                const filtered = symbols.filter(s => scannerHitSymbols.has(s));
+                if (filtered.length > 0) return filtered;
+            }
+            return symbols;
+        }
+
+        function stepIndex(fromIdx, direction) {
+            const list = playbackList();
+            if (list.length === 0) return fromIdx;
+            const currentSymbol = symbols[fromIdx];
+            let pos = list.indexOf(currentSymbol);
+            pos = pos === -1 ? 0 : (pos + direction + list.length) % list.length;
+            const nextSymbol = list[pos];
+            const nextIdx = symbols.indexOf(nextSymbol);
+            return nextIdx === -1 ? fromIdx : nextIdx;
+        }
+        let ws = null;
+        let wsAuthed = false;
+        let wsAuthPromiseResolve = null;
+        let wsAuthPromise = null;
+        let userForcedControlsOpen = true; // start with controls hidden, so default state is true for full screen charts
+
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('ntfy_topic')) ntfyTopicInput.value = localStorage.getItem('ntfy_topic');
+            if (localStorage.getItem('discord_webhook')) discordWebhookInput.value = localStorage.getItem('discord_webhook');
+            
+            // Force charts to be expanded fullscreen by default on load
+            setChartsFullscreen(true);
+            resizeCanvases();
+            parseAndRenderSymbols();
+            renderJournal();
+        });
+
+        ntfyTopicInput.addEventListener('change', () => localStorage.setItem('ntfy_topic', ntfyTopicInput.value.trim()));
+        discordWebhookInput.addEventListener('change', () => localStorage.setItem('discord_webhook', discordWebhookInput.value.trim()));
+
+        window.addEventListener('resize', () => {
+            resizeCanvases();
+            drawNativeChart('call');
+            drawNativeChart('put');
+        });
+
+        function resizeCanvases() {
+            ['call', 'put'].forEach(side => {
+                const s = sides[side];
+                s.canvas.width = s.canvas.parentElement.clientWidth * window.devicePixelRatio;
+                s.canvas.height = s.canvas.parentElement.clientHeight * window.devicePixelRatio;
+                s.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            });
+        }
+
+        let chartsFullscreen = true; // default true
+
+        function setChartsFullscreen(active) {
+            chartsFullscreen = active;
+            controlPanels.classList.toggle('hidden', active);
+            layoutToggleBtn.innerText = active ? '⚙️ Show Controls' : '⛶ Hide Controls';
+            
+            if (active) {
+                floatingFocusBar.classList.remove('hidden');
+            } else {
+                floatingFocusBar.classList.add('hidden');
+            }
+
+            const chartHeight = active ? '44vh' : '260px';
+            callChartContainer.style.height = chartHeight;
+            putChartContainer.style.height = chartHeight;
+            requestAnimationFrame(() => {
+                resizeCanvases();
+                drawNativeChart('call');
+                drawNativeChart('put');
+            });
+        }
+
+        layoutToggleBtn.addEventListener('click', () => {
+            userForcedControlsOpen = chartsFullscreen; 
+            setChartsFullscreen(!chartsFullscreen);
+        });
+
+        exitFocusBtn.addEventListener('click', () => {
+            userForcedControlsOpen = true;
+            setChartsFullscreen(false);
+        });
+
+
+        testConnectionBtn.addEventListener('click', async () => {
+            const key = apiKeyInput.value.trim();
+            const secret = secretKeyInput.value.trim();
+            keyTestResult.innerText = 'Testing…';
+            if (!key || !secret) {
+                keyTestResult.innerText = '⚠️ Enter keys first.';
+                keyTestResult.className = 'text-[10px] font-mono text-amber-400';
+                return;
+            }
+            const tradingHost = accountEnvSelect.value === 'live' ? 'https://api.alpaca.markets' : 'https://paper-api.alpaca.markets';
+            try {
+                const res = await fetch(`${tradingHost}/v2/account`, { headers: { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret, 'accept': 'application/json' } });
+                if (res.ok) {
+                    const data = await res.json();
+                    keyTestResult.innerText = `✅ Connected (${data.status || 'active'})`;
+                    keyTestResult.className = 'text-[10px] font-mono text-emerald-400';
+                } else {
+                    keyTestResult.innerText = `❌ Failed (${res.status})`;
+                    keyTestResult.className = 'text-[10px] font-mono text-rose-400';
+                }
+            } catch (err) {
+                keyTestResult.innerText = `❌ Error: ${err.message}`;
+                keyTestResult.className = 'text-[10px] font-mono text-rose-400';
+            }
+        });
+
+        stockListArea.addEventListener('input', parseAndRenderSymbols);
+        timeframeSelect.addEventListener('change', () => loadStockData(symbols[currentIndex]));
+        minDteSelect.addEventListener('change', () => loadStockData(symbols[currentIndex]));
+        targetDeltaSelect.addEventListener('change', () => loadStockData(symbols[currentIndex]));
+
+        function parseAndRenderSymbols() {
+            symbols = stockListArea.value.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+            renderBadges();
+        }
+
+        function renderBadges() {
+            badgeContainer.innerHTML = '';
+            symbols.forEach((sym, index) => {
+                const badge = document.createElement('button');
+                badge.innerText = sym;
+                const isHit = scannerHitSymbols && scannerHitSymbols.has(sym);
+                const isPlaying = index === currentIndex && playIntervalId;
+                badge.className = `px-3 py-1.5 rounded-xl text-xs font-black tracking-wider border transition ${
+                    isPlaying ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md'
+                    : isHit ? 'bg-emerald-900/60 text-emerald-300 border-emerald-600 hover:bg-emerald-800/60'
+                    : 'bg-slate-700 text-slate-300 border-slate-600 hover:bg-slate-600'
+                }`;
+                badge.onclick = () => {
+                    currentIndex = index;
+                    loadStockData(sym);
+                    if (playIntervalId) restartLoop();
+                };
+                badgeContainer.appendChild(badge);
+            });
+        }
+
+        playPauseBtn.addEventListener('click', () => { if (playIntervalId) stopLoop(); else startLoop(); });
+        scannerQuickBtn.addEventListener('click', () => runEmaCrossScanner());
+        prevBtn.addEventListener('click', () => {
+            if (symbols.length === 0) return;
+            currentIndex = stepIndex(currentIndex, -1);
+            renderBadges();
+            loadStockData(symbols[currentIndex]);
+            if (playIntervalId) restartLoop();
+        });
+        nextBtn.addEventListener('click', () => {
+            if (symbols.length === 0) return;
+            currentIndex = stepIndex(currentIndex, 1);
+            renderBadges();
+            loadStockData(symbols[currentIndex]);
+            if (playIntervalId) restartLoop();
+        });
+
+        function startLoop() {
+            playPauseBtn.innerText = 'Pause ⏸';
+            playPauseBtn.className = "bg-rose-600 hover:bg-rose-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition";
+            statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+            loadStockData(symbols[currentIndex]);
+            restartLoop();
+        }
+
+        function stopLoop() {
+            clearInterval(playIntervalId);
+            playIntervalId = null;
+            playPauseBtn.innerText = 'Play ▶';
+            playPauseBtn.className = "bg-emerald-600 hover:bg-emerald-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition";
+            statusDot.className = "w-2 h-2 rounded-full bg-slate-500";
+            statusMessage.innerText = "IDLE";
+            renderBadges();
+        }
+
+        function restartLoop() {
+            clearInterval(playIntervalId);
+            playIntervalId = setInterval(() => {
+                currentIndex = stepIndex(currentIndex, 1);
+                renderBadges();
+                loadStockData(symbols[currentIndex]);
+            }, parseInt(playIntervalSelect.value));
+        }
+
+        function connectStream() {
+            if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+                return wsAuthPromise;
+            }
+            const feed = optionFeedSelect.value;
+            wsAuthed = false;
+            sides.call.osi = null;
+            sides.put.osi = null;
+            wsAuthPromise = new Promise((resolve) => { wsAuthPromiseResolve = resolve; });
+
+            ws = new WebSocket(`wss://stream.data.alpaca.markets/v1beta1/${feed}`);
+            ws.binaryType = 'arraybuffer';
+
+            ws.onopen = () => { statusMessage.innerText = "WS CONNECTING"; };
+            ws.onmessage = (event) => {
+                let messages;
+                try { messages = MessagePack.decode(new Uint8Array(event.data)); } catch (e) { return; }
+                if (!Array.isArray(messages)) messages = [messages];
+                messages.forEach(handleStreamMessage);
+            };
+            ws.onerror = () => { statusMessage.innerText = "WS ERROR"; };
+            ws.onclose = () => {
+                wsAuthed = false;
+                if (playIntervalId) statusMessage.innerText = "WS CLOSED";
+            };
+            return wsAuthPromise;
+        }
+
+        function handleStreamMessage(msg) {
+            if (msg.T === 'success' && msg.msg === 'connected') {
+                const key = apiKeyInput.value.trim();
+                const secret = secretKeyInput.value.trim();
+                ws.send(JSON.stringify({ action: 'auth', key, secret }));
+            } else if (msg.T === 'success' && msg.msg === 'authenticated') {
+                wsAuthed = true;
+                statusMessage.innerText = "LIVE";
+                if (wsAuthPromiseResolve) wsAuthPromiseResolve();
+            } else if (msg.T === 'error') {
+                statusMessage.innerText = "WS ERROR";
+            } else if (msg.T === 't') {
+                if (msg.S === sides.call.osi) aggregateTick('call', msg.p, msg.t, msg.s);
+                if (msg.S === sides.put.osi) aggregateTick('put', msg.p, msg.t, msg.s);
+                statusDot.className = "w-2 h-2 rounded-full bg-emerald-500 animate-pulse";
+                statusMessage.innerText = "LIVE";
+            }
+        }
+
+        function timeframeMinutes() {
+            const tf = timeframeSelect.value;
+            if (tf === '5Min') return 5;
+            if (tf === '15Min') return 15;
+            return 60;
+        }
+
+        function minuteBucket(isoTs) {
+            const bucketMs = timeframeMinutes() * 60 * 1000;
+            const d = new Date(isoTs);
+            const bucketed = Math.floor(d.getTime() / bucketMs) * bucketMs;
+            return new Date(bucketed).toISOString();
+        }
+
+        function aggregateTick(side, price, isoTs, size = 1) {
+            const s = sides[side];
+            const bucket = minuteBucket(isoTs || new Date().toISOString());
+            if (s.liveBar && s.liveBarMinute === bucket) {
+                s.liveBar.h = Math.max(s.liveBar.h, price);
+                s.liveBar.l = Math.min(s.liveBar.l, price);
+                s.liveBar.c = price;
+                s.liveBar.v = (s.liveBar.v || 0) + size;
+            } else {
+                if (s.liveBar) s.barData.push(s.liveBar);
+                s.liveBarMinute = bucket;
+                s.liveBar = { t: bucket, o: price, h: price, l: price, c: price, v: size };
+                if (s.barData.length > 1000) s.barData.shift();
+            }
+            const drawSeries = s.liveBar ? [...s.barData, s.liveBar] : s.barData;
+            s.ema10 = calculateEMA(drawSeries, 10);
+            s.ema20 = calculateEMA(drawSeries, 20);
+            drawNativeChart(side, drawSeries);
+        }
+
+        async function subscribeToOptions(callOsi, putOsi) {
+            await connectStream();
+            if (!wsAuthed) await wsAuthPromise;
+
+            const prevOSIs = [sides.call.osi, sides.put.osi].filter(Boolean);
+            if (prevOSIs.length) {
+                ws.send(JSON.stringify({ action: 'unsubscribe', trades: prevOSIs, quotes: prevOSIs }));
+            }
+
+            sides.call.osi = callOsi || null;
+            sides.call.liveBar = null;
+            sides.call.liveBarMinute = null;
+            sides.put.osi = putOsi || null;
+            sides.put.liveBar = null;
+            sides.put.liveBarMinute = null;
+
+            const newOSIs = [callOsi, putOsi].filter(Boolean);
+            if (newOSIs.length) {
+                ws.send(JSON.stringify({ action: 'subscribe', trades: newOSIs, quotes: newOSIs }));
+            }
+        }
+
+        function calculateEMA(data, period) {
+            const k = 2 / (period + 1);
+            let ema = [];
+            if(data.length === 0) return ema;
+            let currentEma = data[0].c;
+            for (let i = 0; i < data.length; i++) {
+                currentEma = (data[i].c * k) + (currentEma * (1 - k));
+                ema.push(currentEma);
+            }
+            return ema;
+        }
+
+        function liquidityColorClass(spreadPct, oi) {
+            const badSpread = spreadPct != null && spreadPct > 10;
+            const badOI = oi != null && oi < 25;
+            const warnSpread = spreadPct != null && spreadPct > 6;
+            const warnOI = oi != null && oi < 75;
+            if (badSpread || badOI) return 'text-rose-400';
+            if (warnSpread || warnOI) return 'text-amber-400';
+            return 'text-slate-500';
+        }
+
+        async function fetchOptionSide(underlying, optionType, spotPrice, headers, tradingHost, tf, targetDelta, feed) {
+            const MIN_DTE = parseInt(minDteSelect.value);
+            const minExpiryStr = new Date(Date.now() + MIN_DTE * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const contractRes = await fetch(`${tradingHost}/v2/options/contracts?underlying_symbols=${underlying}&status=active&expiration_date_gte=${minExpiryStr}&type=${optionType}&limit=100`, { headers });
+            if (!contractRes.ok) throw new Error(`Option tracking failed (${contractRes.status})`);
+            const contractData = await contractRes.json();
+
+            if (!contractData.option_contracts || contractData.option_contracts.length === 0) {
+                throw new Error(`No ${optionType} contracts found.`);
+            }
+
+            const contractPool = contractData.option_contracts.filter(c => c.type === optionType);
+            if (contractPool.length === 0) throw new Error(`No ${optionType} contracts available.`);
+
+            const nearestExpiration = contractPool.reduce((soonest, c) => (!soonest || c.expiration_date < soonest) ? c.expiration_date : soonest, null);
+            const poolAtExpiration = contractPool.filter(c => c.expiration_date === nearestExpiration);
+
+            let snapshots = {};
+            try {
+                const snapUrl = `https://data.alpaca.markets/v1beta1/options/snapshots/${underlying}?type=${optionType}&expiration_date=${nearestExpiration}&feed=${feed}&limit=1000`;
+                const snapRes = await fetch(snapUrl, { headers });
+                if (snapRes.ok) {
+                    const snapData = await snapRes.json();
+                    snapshots = snapData.snapshots || snapData || {};
+                }
+            } catch (e) {}
+
+            const withDelta = poolAtExpiration
+                .map(c => ({ contract: c, snap: snapshots[c.symbol] }))
+                .filter(x => x.snap && x.snap.greeks && typeof x.snap.greeks.delta === 'number');
+
+            let selectedContract;
+            let usedDeltaSelection = false;
+            if (withDelta.length > 0) {
+                usedDeltaSelection = true;
+                selectedContract = withDelta
+                    .sort((a, b) => Math.abs(Math.abs(a.snap.greeks.delta) - targetDelta) - Math.abs(Math.abs(b.snap.greeks.delta) - targetDelta))
+                    [0].contract;
+            } else {
+                selectedContract = poolAtExpiration
+                    .sort((a, b) => Math.abs(a.strike_price - spotPrice) - Math.abs(b.strike_price - spotPrice))[0];
+            }
+
+            let atmIV = null;
+            if (withDelta.length > 0) {
+                const atm = withDelta.slice()
+                    .sort((a, b) => Math.abs(Math.abs(a.snap.greeks.delta) - 0.5) - Math.abs(Math.abs(b.snap.greeks.delta) - 0.5))[0];
+                if (atm.snap && typeof atm.snap.impliedVolatility === 'number') atmIV = atm.snap.impliedVolatility;
+            }
+
+            const snap = snapshots[selectedContract.symbol];
+            const delta = snap && snap.greeks && typeof snap.greeks.delta === 'number' ? snap.greeks.delta : null;
+            const iv = snap && typeof snap.impliedVolatility === 'number' ? snap.impliedVolatility : null;
+            const bid = snap && snap.latestQuote && typeof snap.latestQuote.bp === 'number' ? snap.latestQuote.bp : null;
+            const ask = snap && snap.latestQuote && typeof snap.latestQuote.ap === 'number' ? snap.latestQuote.ap : null;
+            let spreadPct = null;
+            if (bid != null && ask != null && bid > 0 && ask > 0) {
+                const mid = (bid + ask) / 2;
+                if (mid > 0) spreadPct = ((ask - bid) / mid) * 100;
+            }
+            const openInterest = selectedContract.open_interest ? parseInt(selectedContract.open_interest) : null;
+
+            const targetOSI = selectedContract.symbol;
+            const dte = Math.round((new Date(selectedContract.expiration_date) - Date.now()) / 86400000);
+            const label = `${targetOSI} ($${selectedContract.strike_price} ${optionType === 'call' ? 'Call' : 'Put'}, Exp ${selectedContract.expiration_date}, ${dte} DTE)`;
+
+            const metaBits = [];
+            if (usedDeltaSelection && delta != null) metaBits.push(`Δ ${delta.toFixed(2)}`);
+            if (iv != null) metaBits.push(`IV ${(iv * 100).toFixed(1)}%`);
+            if (spreadPct != null) metaBits.push(`Spread ${spreadPct.toFixed(1)}%`);
+            if (openInterest != null) metaBits.push(`OI ${openInterest.toLocaleString()}`);
+            const metaLine = metaBits.length ? metaBits.join(' · ') : '(no live greeks)';
+            const metaClass = usedDeltaSelection ? liquidityColorClass(spreadPct, openInterest) : 'text-slate-500';
+
+            const lookbackDays = 10;
+            const startStr = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+            const barLimit = tf === "5Min" ? 1000 : tf === "15Min" ? 400 : 150;
+
+            const barsUrl = `https://data.alpaca.markets/v1beta1/options/bars?symbols=${targetOSI}&timeframe=${tf}&start=${startStr}&limit=${barLimit}`;
+            const barsRes = await fetch(barsUrl, { headers });
+            if (!barsRes.ok) throw new Error("Option historical bar query failed");
+            const barsData = await barsRes.json();
+
+            const barData = barsData.bars[targetOSI] || [];
+            if (barData.length === 0) throw new Error("No trade bars recorded");
+
+            return {
+                targetOSI,
+                label,
+                metaLine,
+                metaClass,
+                atmIV,
+                barData,
+                ema10: calculateEMA(barData, 10),
+                ema20: calculateEMA(barData, 20)
+            };
+        }
+
+        function updateSkewBar(callAtmIV, putAtmIV) {
+            if (callAtmIV == null || putAtmIV == null) {
+                ivSkewBar.innerText = 'Skew: unavailable';
+                ivSkewBar.className = 'flex items-center justify-center bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-[10px] font-mono text-slate-500';
+                return;
+            }
+            const skewPts = (putAtmIV - callAtmIV) * 100;
+            let text, colorClass;
+            if (Math.abs(skewPts) < 0.3) {
+                text = `Skew: flat (Δ ${skewPts.toFixed(1)}pp)`;
+                colorClass = 'text-slate-400';
+            } else if (skewPts > 0) {
+                text = `Skew: puts richer by ${skewPts.toFixed(1)}pp (Bearish tilt)`;
+                colorClass = 'text-rose-400';
+            } else {
+                text = `Skew: calls richer by ${Math.abs(skewPts).toFixed(1)}pp (Bullish tilt)`;
+                colorClass = 'text-emerald-400';
+            }
+            ivSkewBar.innerText = text;
+            ivSkewBar.className = `flex items-center justify-center bg-slate-950/60 border border-slate-800 rounded-lg px-3 py-1.5 text-[10px] font-mono ${colorClass}`;
+        }
+
+        async function loadStockData(underlying) {
+            const key = apiKeyInput.value.trim();
+            const secret = secretKeyInput.value.trim();
+            if (!key || !secret) { statusMessage.innerText = "NO KEYS"; stopLoop(); return; }
+
+            activeSymbolDisplay.innerText = underlying;
+            statusMessage.innerText = "LOOKUP";
+
+            try {
+                const headers = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret, 'accept': 'application/json' };
+                const stockRes = await fetch(`https://data.alpaca.markets/v2/stocks/snapshots?symbols=${underlying}&feed=iex`, { headers });
+                if (!stockRes.ok) throw new Error(`Stock price rejected (${stockRes.status})`);
+                const stockData = await stockRes.json();
+
+                if (!stockData[underlying]) throw new Error(`No underlying data for ${underlying}`);
+                const spotPrice = stockData[underlying].latestTrade.p;
+
+                const tradingHost = accountEnvSelect.value === 'live' ? 'https://api.alpaca.markets' : 'https://paper-api.alpaca.markets';
+                const tf = timeframeSelect.value;
+
+                statusMessage.innerText = "CHAINS";
+                const targetDelta = parseFloat(targetDeltaSelect.value);
+                const feed = optionFeedSelect.value;
+                const [callResult, putResult] = await Promise.allSettled([
+                    fetchOptionSide(underlying, 'call', spotPrice, headers, tradingHost, tf, targetDelta, feed),
+                    fetchOptionSide(underlying, 'put', spotPrice, headers, tradingHost, tf, targetDelta, feed)
+                ]);
+
+                let callOsi = null, putOsi = null, callAtmIV = null, putAtmIV = null;
+
+                if (callResult.status === 'fulfilled') {
+                    const r = callResult.value;
+                    sides.call.barData = r.barData;
+                    sides.call.ema10 = r.ema10;
+                    sides.call.ema20 = r.ema20;
+                    sides.call.optionDisplay.innerText = r.label;
+                    sides.call.metaDisplay.innerText = r.metaLine;
+                    sides.call.metaDisplay.className = `text-[10px] font-mono text-right ${r.metaClass}`;
+                    callOsi = r.targetOSI;
+                    callAtmIV = r.atmIV;
+                } else {
+                    sides.call.barData = [];
+                    sides.call.optionDisplay.innerText = callResult.reason.message;
+                    sides.call.metaDisplay.innerText = '';
+                    sides.call.ctx.clearRect(0, 0, sides.call.canvas.width, sides.call.canvas.height);
+                }
+
+                if (putResult.status === 'fulfilled') {
+                    const r = putResult.value;
+                    sides.put.barData = r.barData;
+                    sides.put.ema10 = r.ema10;
+                    sides.put.ema20 = r.ema20;
+                    sides.put.optionDisplay.innerText = r.label;
+                    sides.put.metaDisplay.innerText = r.metaLine;
+                    sides.put.metaDisplay.className = `text-[10px] font-mono text-right ${r.metaClass}`;
+                    putOsi = r.targetOSI;
+                    putAtmIV = r.atmIV;
+                } else {
+                    sides.put.barData = [];
+                    sides.put.optionDisplay.innerText = putResult.reason.message;
+                    sides.put.metaDisplay.innerText = '';
+                    sides.put.ctx.clearRect(0, 0, sides.put.canvas.width, sides.put.canvas.height);
+                }
+
+                updateSkewBar(callAtmIV, putAtmIV);
+
+                if (!callOsi && !putOsi) {
+                    statusMessage.innerText = "ERROR";
+                    return;
+                }
+
+                statusMessage.innerText = "DRAW";
+                drawNativeChart('call');
+                drawNativeChart('put');
+                statusMessage.innerText = "CONNECTING STREAM";
+
+                subscribeToOptions(callOsi, putOsi).catch(err => {
+                    statusMessage.innerText = "WS ERROR";
+                });
+
+            } catch (err) {
+                statusMessage.innerText = "ERROR";
+                sides.call.optionDisplay.innerText = err.message;
+                sides.put.optionDisplay.innerText = err.message;
+                updateSkewBar(null, null);
+                sides.call.ctx.clearRect(0, 0, sides.call.canvas.width, sides.call.canvas.height);
+                sides.put.ctx.clearRect(0, 0, sides.put.canvas.width, sides.put.canvas.height);
+            }
+        }
+
+        let alertsEnabled = false;
+        let alertScanIntervalId = null;
+        let alertScanInFlight = false;
+        let alertBaselineSet = false;
+        const alertState = {};
+
+        // EMA Cross Scanner: timeframe and min DTE are user-configurable (scannerTimeframeSelect /
+        // scannerMinDteSelect); hit = a persistent EMA10 > EMA20 state on calls, not a fresh cross.
+        let scannerInFlight = false;
+
+        scannerRunBtn.addEventListener('click', () => runEmaCrossScanner());
+
+        alertToggleBtn.addEventListener('click', () => { if (alertsEnabled) stopAlertMonitor(); else startAlertMonitor(); });
+        alertIntervalSelect.addEventListener('change', () => { if (alertsEnabled) { stopAlertMonitor(); startAlertMonitor(); } });
+        alertTestBtn.addEventListener('click', () => {
+            playAlertSound();
+            fireBrowserNotification('🔔 Test Alert', 'Sound and notifications are working.');
+            logAlertEvent('TEST', 'call', true, 'Manual test alert');
+        });
+
+        function startAlertMonitor() {
+            if (symbols.length === 0) {
+                alertStatus.innerText = 'Add symbols first.';
+                alertStatus.className = 'text-[10px] font-mono text-amber-400';
+                return;
+            }
+            if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
+            alertsEnabled = true;
+            alertBaselineSet = false;
+            alertToggleBtn.innerText = '🔕 Disable Alerts';
+            alertToggleBtn.className = 'bg-rose-600 hover:bg-rose-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition';
+            alertStatus.innerText = 'Establishing baseline…';
+            alertStatus.className = 'text-[10px] font-mono text-slate-400';
+            runAlertScan();
+            alertScanIntervalId = setInterval(runAlertScan, parseInt(alertIntervalSelect.value));
+        }
+
+        function stopAlertMonitor() {
+            alertsEnabled = false;
+            clearInterval(alertScanIntervalId);
+            alertScanIntervalId = null;
+            alertToggleBtn.innerText = '🔔 Enable Alerts';
+            alertToggleBtn.className = 'bg-emerald-600 hover:bg-emerald-500 text-[10px] font-black px-3 py-1 rounded-lg uppercase tracking-wider transition';
+            alertStatus.innerText = 'Alerts off';
+            alertStatus.className = 'text-[10px] font-mono text-slate-500';
+        }
+
+        function playAlertSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 880;
+                gain.gain.value = 0.18;
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(1175, audioCtx.currentTime + 0.15);
+                osc.stop(audioCtx.currentTime + 0.35);
+            } catch (e) {}
+        }
+
+        function fireBrowserNotification(title, body) {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'granted') new Notification(title, { body });
+        }
+
+        function logAlertEvent(symbol, side, bullish, detail) {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between gap-2';
+            const label = document.createElement('span');
+            label.className = bullish ? 'text-emerald-400' : 'text-slate-500';
+            const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            label.innerText = `${time} · ${symbol} ${side === 'call' ? 'Calls' : 'Puts'} — ${detail}`;
+            row.appendChild(label);
+
+            if (bullish && symbol !== 'TEST') {
+                const tradeBtn = document.createElement('button');
+                tradeBtn.className = 'shrink-0 text-[9px] text-emerald-400 hover:text-emerald-300 border border-emerald-700 rounded px-1.5 py-0.5 font-mono uppercase transition';
+                tradeBtn.innerText = '✓ Traded';
+                tradeBtn.onclick = () => {
+                    addToJournal(symbol, side);
+                    tradeBtn.innerText = 'Logged';
+                    tradeBtn.disabled = true;
+                    tradeBtn.className = 'shrink-0 text-[9px] text-slate-600 border border-slate-700 rounded px-1.5 py-0.5 font-mono uppercase';
+                };
+                row.appendChild(tradeBtn);
+            }
+
+            alertFeed.appendChild(row);
+            while (alertFeed.children.length > 50) alertFeed.removeChild(alertFeed.firstChild);
+        }
+
+        function loadJournal() {
+            try { return JSON.parse(localStorage.getItem('optionsAlertJournal') || '[]'); } catch (e) { return []; }
+        }
+        function saveJournalEntries(entries) { localStorage.setItem('optionsAlertJournal', JSON.stringify(entries)); }
+        function addToJournal(symbol, side) {
+            const entries = loadJournal();
+            entries.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 7), ts: new Date().toISOString(), symbol, side });
+            saveJournalEntries(entries);
+            renderJournal();
+        }
+        function removeFromJournal(id) {
+            saveJournalEntries(loadJournal().filter(e => e.id !== id));
+            renderJournal();
+        }
+        function renderJournal() {
+            const entries = loadJournal();
+            journalToggleBtn.innerText = `📓 Journal (${entries.length})`;
+            journalList.innerHTML = '';
+            if (entries.length === 0) {
+                journalList.innerHTML = '<p class="text-slate-600 text-[10px]">No trades marked yet.</p>';
+                return;
+            }
+            entries.slice().reverse().forEach(e => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between bg-slate-950 rounded-lg px-2 py-1 border border-slate-800';
+                const label = document.createElement('span');
+                label.className = 'text-emerald-400';
+                const time = new Date(e.ts).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                label.innerText = `${time} · ${e.symbol} ${e.side === 'call' ? 'Calls' : 'Puts'}`;
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'shrink-0 text-slate-500 hover:text-rose-400 text-[9px] uppercase font-mono ml-2';
+                removeBtn.innerText = '✕';
+                removeBtn.onclick = () => removeFromJournal(e.id);
+                row.appendChild(label);
+                row.appendChild(removeBtn);
+                journalList.appendChild(row);
+            });
+        }
+
+        journalToggleBtn.addEventListener('click', () => journalPanel.classList.toggle('hidden'));
+        journalClearBtn.addEventListener('click', () => { if (confirm("Clear journal?")) { saveJournalEntries([]); renderJournal(); } });
+
+        async function runAlertScan() {
+            if (alertScanInFlight) return;
+            alertScanInFlight = true;
+            try {
+                const key = apiKeyInput.value.trim();
+                const secret = secretKeyInput.value.trim();
+                if (!key || !secret) return;
+                const headers = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret, 'accept': 'application/json' };
+                const tradingHost = accountEnvSelect.value === 'live' ? 'https://api.alpaca.markets' : 'https://paper-api.alpaca.markets';
+                const tf = timeframeSelect.value;
+                const MIN_DTE = parseInt(minDteSelect.value);
+                const minExpiryStr = new Date(Date.now() + MIN_DTE * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const maxExpiryStr = new Date(Date.now() + (MIN_DTE + 60) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const symbolList = symbols.join(',');
+
+                const snapRes = await fetch(`https://data.alpaca.markets/v2/stocks/snapshots?symbols=${symbolList}&feed=iex`, { headers });
+                if (!snapRes.ok) return;
+                const snapData = await snapRes.json();
+
+                const [callContractsRes, putContractsRes] = await Promise.all([
+                    fetch(`${tradingHost}/v2/options/contracts?underlying_symbols=${symbolList}&status=active&expiration_date_gte=${minExpiryStr}&expiration_date_lte=${maxExpiryStr}&type=call&limit=1000`, { headers }),
+                    fetch(`${tradingHost}/v2/options/contracts?underlying_symbols=${symbolList}&status=active&expiration_date_gte=${minExpiryStr}&expiration_date_lte=${maxExpiryStr}&type=put&limit=1000`, { headers })
+                ]);
+                if (!callContractsRes.ok || !putContractsRes.ok) return;
+                const callContractsData = await callContractsRes.json();
+                const putContractsData = await putContractsRes.json();
+                const allContracts = [...(callContractsData.option_contracts || []), ...(putContractsData.option_contracts || [])];
+
+                const targets = [];
+                symbols.forEach(sym => {
+                    const spot = snapData[sym] && snapData[sym].latestTrade ? snapData[sym].latestTrade.p : null;
+                    if (spot == null) return;
+                    ['call', 'put'].forEach(side => {
+                        const pool = allContracts.filter(c => c.underlying_symbol === sym && c.type === side);
+                        if (pool.length === 0) return;
+                        const nearestExpiration = pool.reduce((soonest, c) => (!soonest || c.expiration_date < soonest) ? c.expiration_date : soonest, null);
+                        const contract = pool.filter(c => c.expiration_date === nearestExpiration).sort((a, b) => Math.abs(a.strike_price - spot) - Math.abs(b.strike_price - spot))[0];
+                        if (contract) targets.push({ symbol: sym, side, osi: contract.symbol });
+                    });
+                });
+
+                if (targets.length === 0) return;
+
+                const osiList = targets.map(t => t.osi).join(',');
+                const lookbackDays = 10;
+                const startStr = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const barLimit = tf === "5Min" ? 1000 : tf === "15Min" ? 400 : 150;
+                const barsRes = await fetch(`https://data.alpaca.markets/v1beta1/options/bars?symbols=${osiList}&timeframe=${tf}&start=${startStr}&limit=${barLimit}`, { headers });
+                if (!barsRes.ok) return;
+                const barsData = await barsRes.json();
+
+                let checked = 0;
+                targets.forEach(t => {
+                    const bars = (barsData.bars && barsData.bars[t.osi]) || [];
+                    if (bars.length < 3) return;
+                    checked++;
+                    const ema10 = calculateEMA(bars, 10);
+                    const ema20 = calculateEMA(bars, 20);
+                    const last = bars.length - 1;
+                    const nowBullish = ema10[last] > ema20[last];
+                    const stateKey = `${t.symbol}:${t.side}`;
+                    const prevBullish = alertState[stateKey];
+
+                    if (prevBullish === undefined) { alertState[stateKey] = nowBullish; return; }
+                    if (prevBullish === nowBullish) return;
+
+                    alertState[stateKey] = nowBullish;
+                    if (!alertBaselineSet) return;
+
+                    if (nowBullish) {
+                        playAlertSound();
+                        fireBrowserNotification(`🐂 Bullish Cross: ${t.symbol} ${t.side}`, `EMA10 crossed above EMA20.`);
+                        logAlertEvent(t.symbol, t.side, true, 'EMA10 crossed above EMA20');
+                    } else {
+                        logAlertEvent(t.symbol, t.side, false, 'EMA10 crossed below EMA20');
+                    }
+                });
+
+                alertBaselineSet = true;
+                const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                alertStatus.innerText = `Watching ${checked} charts · last scan ${stamp}`;
+                alertStatus.className = 'text-[10px] font-mono text-emerald-400';
+            } catch (err) {
+                alertStatus.innerText = `Scan error`;
+            } finally {
+                alertScanInFlight = false;
+            }
+        }
+
+        function renderScannerResults(hits, container, mode) {
+            mode = mode || 'cross';
+            container.innerHTML = '';
+            if (hits.length === 0) {
+                container.innerHTML = mode === 'state'
+                    ? '<p class="text-slate-600 text-[10px]">No symbols currently match.</p>'
+                    : '<p class="text-slate-600 text-[10px]">No crosses in the last 3 bars.</p>';
+                return;
+            }
+            hits
+                .slice()
+                .sort((a, b) => a.barsAgo - b.barsAgo)
+                .forEach(hit => {
+                    const row = document.createElement('div');
+                    row.className = 'flex items-center justify-between gap-2 bg-slate-950 rounded-lg px-2 py-1 border border-slate-800';
+
+                    const label = document.createElement('span');
+                    label.className = hit.bullish ? 'text-emerald-400' : 'text-rose-400';
+                    const arrow = hit.bullish ? '▲' : '▼';
+                    const agoText = mode === 'state'
+                        ? (hit.barsAgo === 0 ? 'flipped this bar' : `in state ${hit.barsAgo} bar${hit.barsAgo > 1 ? 's' : ''}+`)
+                        : (hit.barsAgo === 0 ? 'this bar' : `${hit.barsAgo} bar${hit.barsAgo > 1 ? 's' : ''} ago`);
+                    label.innerText = `${arrow} ${hit.symbol} ${hit.side === 'call' ? 'Calls' : 'Puts'} · $${hit.strike} · ${hit.dte}DTE · ${agoText}`;
+                    row.appendChild(label);
+
+                    const goBtn = document.createElement('button');
+                    goBtn.className = 'shrink-0 text-[9px] text-cyan-400 hover:text-cyan-300 border border-cyan-700 rounded px-1.5 py-0.5 font-mono uppercase transition';
+                    goBtn.innerText = 'View';
+                    goBtn.onclick = () => {
+                        const idx = symbols.indexOf(hit.symbol);
+                        if (idx !== -1) { currentIndex = idx; loadStockData(hit.symbol); }
+                    };
+                    row.appendChild(goBtn);
+
+                    container.appendChild(row);
+                });
+        }
+
+        async function runEmaCrossScanner() {
+            if (scannerInFlight) return;
+            if (symbols.length === 0) {
+                scannerStatus.innerText = 'Add symbols first.';
+                scannerStatus.className = 'text-[10px] font-mono text-amber-400';
+                scannerQuickStatus.innerText = 'Add symbols first.';
+                scannerQuickStatus.className = 'text-[9px] font-mono text-amber-400 -mt-1';
+                return;
+            }
+            const key = apiKeyInput.value.trim();
+            const secret = secretKeyInput.value.trim();
+            if (!key || !secret) {
+                scannerStatus.innerText = 'Missing API keys.';
+                scannerStatus.className = 'text-[10px] font-mono text-amber-400';
+                scannerQuickStatus.innerText = 'Missing API keys.';
+                scannerQuickStatus.className = 'text-[9px] font-mono text-amber-400 -mt-1';
+                return;
+            }
+
+            scannerInFlight = true;
+            scannerRunBtn.disabled = true;
+            scannerRunBtn.innerText = '🔍 Scanning…';
+            scannerStatus.innerText = 'Scanning watchlist…';
+            scannerStatus.className = 'text-[10px] font-mono text-slate-400';
+            scannerQuickBtn.disabled = true;
+            scannerQuickBtn.innerText = '🔍 Scanning…';
+            scannerQuickStatus.innerText = 'Scanning watchlist…';
+            scannerQuickStatus.className = 'text-[9px] font-mono text-slate-400 -mt-1';
+
+            const SCANNER_TIMEFRAME = scannerTimeframeSelect.value;
+            const SCANNER_MIN_DTE = parseInt(scannerMinDteSelect.value);
+            const tfLabel = scannerTimeframeSelect.options[scannerTimeframeSelect.selectedIndex].innerText;
+
+            try {
+                const headers = { 'APCA-API-KEY-ID': key, 'APCA-API-SECRET-KEY': secret, 'accept': 'application/json' };
+                const tradingHost = accountEnvSelect.value === 'live' ? 'https://api.alpaca.markets' : 'https://paper-api.alpaca.markets';
+                const minExpiryStr = new Date(Date.now() + SCANNER_MIN_DTE * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const maxExpiryStr = new Date(Date.now() + (SCANNER_MIN_DTE + 60) * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const symbolList = symbols.join(',');
+
+                const snapRes = await fetch(`https://data.alpaca.markets/v2/stocks/snapshots?symbols=${symbolList}&feed=iex`, { headers });
+                if (!snapRes.ok) throw new Error('Spot price lookup failed');
+                const snapData = await snapRes.json();
+
+                const callContractsRes = await fetch(`${tradingHost}/v2/options/contracts?underlying_symbols=${symbolList}&status=active&expiration_date_gte=${minExpiryStr}&expiration_date_lte=${maxExpiryStr}&type=call&limit=1000`, { headers });
+                if (!callContractsRes.ok) throw new Error('Option chain lookup failed');
+                const callContractsData = await callContractsRes.json();
+                const allContracts = callContractsData.option_contracts || [];
+
+                const targets = [];
+                symbols.forEach(sym => {
+                    const spot = snapData[sym] && snapData[sym].latestTrade ? snapData[sym].latestTrade.p : null;
+                    if (spot == null) return;
+                    const side = 'call'; // only EMA10 > EMA20 (bullish) calls are scanned
+                    const pool = allContracts.filter(c => c.underlying_symbol === sym && c.type === side);
+                    if (pool.length === 0) return;
+                    const nearestExpiration = pool.reduce((soonest, c) => (!soonest || c.expiration_date < soonest) ? c.expiration_date : soonest, null);
+                    const contract = pool.filter(c => c.expiration_date === nearestExpiration).sort((a, b) => Math.abs(a.strike_price - spot) - Math.abs(b.strike_price - spot))[0];
+                    if (contract) {
+                        const dte = Math.round((new Date(contract.expiration_date) - Date.now()) / 86400000);
+                        targets.push({ symbol: sym, side, osi: contract.symbol, strike: contract.strike_price, dte });
+                    }
+                });
+
+                if (targets.length === 0) throw new Error(`No eligible contracts (${SCANNER_MIN_DTE}+ DTE) found.`);
+
+                const osiList = targets.map(t => t.osi).join(',');
+                const lookbackDaysByTf = { '5Min': 3, '15Min': 7, '1Hour': 15 };
+                const lookbackDays = lookbackDaysByTf[SCANNER_TIMEFRAME] || 15;
+                const startStr = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+                const barsRes = await fetch(`https://data.alpaca.markets/v1beta1/options/bars?symbols=${osiList}&timeframe=${SCANNER_TIMEFRAME}&start=${startStr}&limit=200`, { headers });
+                if (!barsRes.ok) throw new Error('Option bar lookup failed');
+                const barsData = await barsRes.json();
+
+                const hits = [];
+                let checked = 0;
+                targets.forEach(t => {
+                    const bars = (barsData.bars && barsData.bars[t.osi]) || [];
+                    if (bars.length < 2) return;
+                    checked++;
+                    const ema10 = calculateEMA(bars, 10);
+                    const ema20 = calculateEMA(bars, 20);
+                    // Persistent state check, not a fresh cross: only EMA10 > EMA20 qualifies.
+                    const state = currentEmaState(ema10, ema20);
+                    if (state !== 'bullish') return;
+                    const duration = barsSinceLastFlip(ema10, ema20);
+                    hits.push({ symbol: t.symbol, side: t.side, strike: t.strike, dte: t.dte, barsAgo: duration, bullish: true });
+                });
+
+                renderScannerResults(hits, scannerResults, 'state');
+                const stamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                scannerStatus.innerText = `${hits.length} hit${hits.length === 1 ? '' : 's'} · ${checked} contracts checked (${tfLabel}, ${SCANNER_MIN_DTE}+ DTE) · ${stamp}`;
+                scannerStatus.className = 'text-[10px] font-mono text-emerald-400';
+
+                applyScannerHits(new Set(hits.map(h => h.symbol)), 'Scanner #1', stamp);
+            } catch (err) {
+                scannerStatus.innerText = `Scan error: ${err.message}`;
+                scannerStatus.className = 'text-[10px] font-mono text-rose-400';
+                scannerQuickStatus.innerText = `Scan error: ${err.message}`;
+                scannerQuickStatus.className = 'text-[9px] font-mono text-rose-400 -mt-1';
+            } finally {
+                scannerInFlight = false;
+                scannerRunBtn.disabled = false;
+                scannerRunBtn.innerText = '🔍 Run Scan';
+                scannerQuickBtn.disabled = false;
+                scannerQuickBtn.innerText = '🔍 Scan';
+            }
+        }
+
+        // Shared by both scanners: sets which symbols Play/Prev/Next cycle through
+        // and updates the compact status line next to the Play button.
+        function applyScannerHits(hitSymbolsSet, label, stamp) {
+            scannerHitSymbols = hitSymbolsSet;
+            if (scannerHitSymbols.size > 0) {
+                scannerQuickStatus.innerText = `${scannerHitSymbols.size} hit symbol${scannerHitSymbols.size === 1 ? '' : 's'} (${label}) · ${stamp} · Play cycles hits only.`;
+                scannerQuickStatus.className = 'text-[9px] font-mono text-emerald-400 -mt-1';
+            } else {
+                scannerQuickStatus.innerText = `No hits (${label}) · ${stamp} · Play cycles full watchlist.`;
+                scannerQuickStatus.className = 'text-[9px] font-mono text-slate-500 -mt-1';
+            }
+            renderBadges();
+        }
+
+        // Current EMA10-vs-EMA20 state (not a fresh cross) — used by the scanner.
+        function currentEmaState(ema10, ema20) {
+            const n = ema10.length;
+            if (n === 0) return null;
+            const diff = ema10[n - 1] - ema20[n - 1];
+            if (diff === 0) return null;
+            return diff > 0 ? 'bullish' : 'bearish';
+        }
+
+        // How many bars the current state has persisted (0 = flipped on the last bar).
+        // Returns n-1 (i.e. "at least this long") if no flip is found in the available history.
+        function barsSinceLastFlip(ema10, ema20) {
+            const n = ema10.length;
+            if (n < 2) return null;
+            const lastDiff = ema10[n - 1] - ema20[n - 1];
+            if (lastDiff === 0) return null;
+            const currentSign = lastDiff > 0;
+            for (let i = n - 1; i >= 1; i--) {
+                const prevDiff = ema10[i - 1] - ema20[i - 1];
+                if (prevDiff === 0) continue;
+                const prevSign = prevDiff > 0;
+                if (prevSign !== currentSign) return (n - 1) - i;
+            }
+            return n - 1;
+        }
+
+        function drawNativeChart(side, series) {
+            const s = sides[side];
+            const canvas = s.canvas;
+            const ctx = s.ctx;
+            const barData = series || s.barData;
+            s.lastDrawnSeries = barData;
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            ctx.clearRect(0, 0, w, h);
+
+            if (barData.length === 0) return;
+
+            let minPrice = Infinity;
+            let maxPrice = -Infinity;
+            barData.forEach((bar, i) => {
+                minPrice = Math.min(minPrice, bar.l, s.ema10[i] || bar.l, s.ema20[i] || bar.l);
+                maxPrice = Math.max(maxPrice, bar.h, s.ema10[i] || bar.h, s.ema20[i] || bar.h);
+            });
+            if (minPrice === maxPrice) { minPrice -= 1; maxPrice += 1; }
+
+            const padTop = 15;
+            const padBottom = 26;
+            const padRight = 48;
+            const chartHeight = h - padTop - padBottom;
+            const plotWidth = w - padRight;
+            const totalBars = barData.length;
+            const barWidth = plotWidth / totalBars;
+
+            function getY(val) {
+                return h - padBottom - ((val - minPrice) / (maxPrice - minPrice)) * chartHeight;
+            }
+            function xAt(i) {
+                return (i * barWidth) + (barWidth / 2);
+            }
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(100, 116, 139, 0.15)';
+            ctx.fillStyle = '#64748b';
+            ctx.font = '9px monospace';
+            ctx.lineWidth = 1;
+
+            const PRICE_GRID_LINES = 5;
+            for (let g = 0; g <= PRICE_GRID_LINES; g++) {
+                const price = minPrice + (g / PRICE_GRID_LINES) * (maxPrice - minPrice);
+                const y = getY(price);
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(plotWidth, y);
+                ctx.stroke();
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(price.toFixed(2), plotWidth + 4, y);
+            }
+
+            const TIME_GRID_LINES = Math.min(4, totalBars - 1);
+            if (TIME_GRID_LINES > 0) {
+                for (let g = 0; g <= TIME_GRID_LINES; g++) {
+                    const idx = Math.round((g / TIME_GRID_LINES) * (totalBars - 1));
+                    const x = xAt(idx);
+                    ctx.beginPath();
+                    ctx.moveTo(x, padTop);
+                    ctx.lineTo(x, h - padBottom);
+                    ctx.stroke();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(formatAxisLabel(barData[idx].t), x, h - padBottom + 6);
+                }
+            }
+            ctx.restore();
+
+            for (let i = 0; i < totalBars - 1; i++) {
+                const x1 = xAt(i);
+                const x2 = xAt(i + 1);
+                const bullish = s.ema10[i] >= s.ema20[i];
+
+                ctx.beginPath();
+                ctx.moveTo(x1, getY(s.ema10[i]));
+                ctx.lineTo(x2, getY(s.ema10[i + 1]));
+                ctx.lineTo(x2, getY(s.ema20[i + 1]));
+                ctx.lineTo(x1, getY(s.ema20[i]));
+                ctx.closePath();
+                ctx.fillStyle = bullish ? 'rgba(34, 197, 94, 0.18)' : 'rgba(239, 68, 68, 0.18)';
+                ctx.fill();
+            }
+
+            barData.forEach((bar, i) => {
+                const xCenter = xAt(i);
+                const isGreen = bar.c >= bar.o;
+                const barColor = isGreen ? '#22c55e' : '#ef4444';
+
+                ctx.beginPath();
+                ctx.strokeStyle = barColor;
+                ctx.lineWidth = 1;
+                ctx.moveTo(xCenter, getY(bar.h));
+                ctx.lineTo(xCenter, getY(bar.l));
+                ctx.stroke();
+
+                const topY = getY(Math.max(bar.o, bar.c));
+                const bottomY = getY(Math.min(bar.o, bar.c));
+                const bodyH = Math.max(1.5, bottomY - topY);
+
+                ctx.fillStyle = barColor;
+                ctx.fillRect(xCenter - (barWidth * 0.3), topY, barWidth * 0.6, bodyH);
+            });
+
+            ctx.lineWidth = 0.75;
+            ctx.beginPath();
+            ctx.strokeStyle = '#2dd4bf';
+            s.ema10.forEach((val, i) => {
+                const x = xAt(i);
+                if (i === 0) ctx.moveTo(x, getY(val)); else ctx.lineTo(x, getY(val));
+            });
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#f59e0b';
+            s.ema20.forEach((val, i) => {
+                const x = xAt(i);
+                if (i === 0) ctx.moveTo(x, getY(val)); else ctx.lineTo(x, getY(val));
+            });
+            ctx.stroke();
+
+            for (let i = 1; i < totalBars; i++) {
+                const prevDiff = s.ema10[i - 1] - s.ema20[i - 1];
+                const currDiff = s.ema10[i] - s.ema20[i];
+                if (prevDiff === 0 || currDiff === 0 || (prevDiff > 0) === (currDiff > 0)) continue;
+
+                const t = prevDiff / (prevDiff - currDiff);
+                const cx = xAt(i - 1) + t * (xAt(i) - xAt(i - 1));
+                const cyVal = s.ema10[i - 1] + t * (s.ema10[i] - s.ema10[i - 1]);
+                const cy = getY(cyVal);
+                const bullishCross = currDiff > 0;
+
+                ctx.save();
+                ctx.strokeStyle = bullishCross ? '#22c55e' : '#ef4444';
+                ctx.lineWidth = 2;
+                const r = 4;
+                ctx.beginPath();
+                ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r);
+                ctx.moveTo(cx - r, cy + r); ctx.lineTo(cx + r, cy - r);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            if (s.crosshairPos && s.crosshairPos.x >= 0 && s.crosshairPos.x <= plotWidth && s.crosshairPos.y >= padTop && s.crosshairPos.y <= h - padBottom) {
+                const cx = s.crosshairPos.x;
+                const cy = s.crosshairPos.y;
+                ctx.save();
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.7)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx, padTop); ctx.lineTo(cx, h - padBottom); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(0, cy); ctx.lineTo(plotWidth, cy); ctx.stroke();
+                ctx.setLineDash([]);
+
+                const priceAtY = maxPrice - ((cy - padTop) / chartHeight) * (maxPrice - minPrice);
+                ctx.fillStyle = '#0891b2';
+                ctx.fillRect(plotWidth, cy - 8, padRight, 16);
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(priceAtY.toFixed(2), plotWidth + 4, cy);
+
+                const barIndex = Math.min(totalBars - 1, Math.max(0, Math.round((cx - barWidth / 2) / barWidth)));
+                const bar = barData[barIndex];
+                if (bar) {
+                    const label = formatCrosshairLabel(bar.t);
+                    const labelWidth = ctx.measureText(label).width + 10;
+                    ctx.fillStyle = '#0891b2';
+                    ctx.fillRect(cx - labelWidth / 2, h - padBottom, labelWidth, 16);
+                    ctx.fillStyle = '#f8fafc';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'top';
+                    ctx.fillText(label, cx, h - padBottom + 3);
+
+                    s.hud.innerText = `O: ${bar.o.toFixed(2)}  H: ${bar.h.toFixed(2)}  L: ${bar.l.toFixed(2)}  C: ${bar.c.toFixed(2)}  V: ${bar.v || 0}`;
+                }
+                ctx.restore();
+            }
+        }
+
+        const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+        function formatAxisLabel(isoTs) {
+            const d = new Date(isoTs);
+            return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}`;
+        }
+
+        function formatCrosshairLabel(isoTs) {
+            const d = new Date(isoTs);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return `${MONTH_ABBR[d.getMonth()]} ${d.getDate()}, ${hh}:${min}`;
+        }
+
+        function updateCrosshairFromEvent(side, clientX, clientY) {
+            const s = sides[side];
+            const rect = s.canvas.getBoundingClientRect();
+            s.crosshairPos = { x: clientX - rect.left, y: clientY - rect.top };
+            drawNativeChart(side, s.lastDrawnSeries);
+
+            if (crosshairSynced) {
+                const otherSide = side === 'call' ? 'put' : 'call';
+                const sOther = sides[otherSide];
+                const rectOther = sOther.canvas.getBoundingClientRect();
+                sOther.crosshairPos = { x: clientX - rect.left, y: (clientY - rect.top) * (rectOther.height / rect.height) };
+                drawNativeChart(otherSide, sOther.lastDrawnSeries);
+            }
+        }
+
+        ['call', 'put'].forEach(side => {
+            const s = sides[side];
+            s.canvas.addEventListener('mousemove', (e) => updateCrosshairFromEvent(side, e.clientX, e.clientY));
+            s.canvas.addEventListener('mouseleave', () => { 
+                s.crosshairPos = null; 
+                drawNativeChart(side, s.lastDrawnSeries);
+                s.hud.innerText = `O: — H: — L: — C: —`;
+                if (crosshairSynced) {
+                    const otherSide = side === 'call' ? 'put' : 'call';
+                    sides[otherSide].crosshairPos = null;
+                    drawNativeChart(otherSide, sides[otherSide].lastDrawnSeries);
+                    sides[otherSide].hud.innerText = `O: — H: — L: — C: —`;
+                }
+            });
+            s.canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length) updateCrosshairFromEvent(side, e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+            s.canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length) updateCrosshairFromEvent(side, e.touches[0].clientX, e.touches[0].clientY);
+            }, { passive: true });
+            s.canvas.addEventListener('touchend', () => { 
+                s.crosshairPos = null; 
+                drawNativeChart(side, s.lastDrawnSeries);
+                s.hud.innerText = `O: — H: — L: — C: —`;
+            });
+        });
+    })();
+    </script>
+
+  </div><!-- /viewCyto -->
 
 <div id="viewHitCharts" hidden>
   <div class="draw-bar">
@@ -541,7 +2078,7 @@
     </select>
     <button id="btnHitLevel" class="draw-btn level" title="Tap a chart to add a price level (tap a level to remove it)">📏<span class="lbl"> Level</span></button>
   </div>
-  <div class="status" id="hitChartsStatus">Run a scan on the Scanner, Setups, or Prev Day tab — its hits will chart here automatically.</div>
+  <div class="status" id="hitChartsStatus">Run a scan on the Scanner or Setups tab — its hits will chart here automatically.</div>
   <div class="hit-charts-grid" id="hitChartsGrid"></div>
 </div>
 
@@ -747,6 +2284,7 @@
 
 <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
+
 const ALPACA_BASE = 'https://data.alpaca.markets';
 const WIKI_SP500_URL = 'https://en.wikipedia.org/w/api.php?action=parse&page=List_of_S%26P_500_companies&format=json&prop=text&origin=*';
 
@@ -777,6 +2315,9 @@ function restoreStoredConfig(){
   const wu = localStorage.getItem('alert_worker_url'), wk = localStorage.getItem('alert_worker_key');
   if(wu) document.getElementById('workerUrl').value = wu;
   if(wk) document.getElementById('workerKey').value = wk;
+  if(localStorage.getItem('time_stop_on') === '1') document.getElementById('timeStopOn').checked = true;
+  const tsm = localStorage.getItem('time_stop_min');
+  if(tsm) document.getElementById('timeStopMin').value = tsm;
   
   const gk = localStorage.getItem('gemini_api_key'), gm = localStorage.getItem('gemini_model'), gs = localStorage.getItem('gemini_search');
   if(gk) document.getElementById('geminiKey').value = gk;
@@ -809,6 +2350,8 @@ function saveStoredConfig(){
   localStorage.setItem('alerts_on', document.getElementById('alertsOn').checked ? '1' : '0');
   localStorage.setItem('alert_worker_url', document.getElementById('workerUrl').value.trim());
   localStorage.setItem('alert_worker_key', document.getElementById('workerKey').value.trim());
+  localStorage.setItem('time_stop_on', document.getElementById('timeStopOn').checked ? '1' : '0');
+  localStorage.setItem('time_stop_min', document.getElementById('timeStopMin').value);
   localStorage.setItem('gemini_api_key', document.getElementById('geminiKey').value.trim());
   localStorage.setItem('gemini_model', document.getElementById('geminiModel').value.trim());
   localStorage.setItem('gemini_search', document.getElementById('geminiSearch').checked ? '1' : '0');
@@ -820,6 +2363,8 @@ document.getElementById('feed').addEventListener('change', saveStoredConfig);
 document.getElementById('barMode').addEventListener('change', saveStoredConfig);
 document.getElementById('manualList').addEventListener('input', saveStoredConfig);
 document.getElementById('defaultRisk').addEventListener('input', saveStoredConfig);
+document.getElementById('timeStopOn').addEventListener('change', saveStoredConfig);
+document.getElementById('timeStopMin').addEventListener('input', saveStoredConfig);
 document.getElementById('stAtrLength').addEventListener('input', (e) => {
   document.getElementById('modalStLen').value = e.target.value;
   saveStoredConfig();
@@ -922,6 +2467,31 @@ function computeEMASeries(values, period){
     out[i] = ema;
   }
   return out;
+}
+
+// Kaufman's Efficiency Ratio: net price change ÷ total path length over the window.
+// Near 1 = a clean, direct trend; near 0 = a choppy, sawtooth move covering the same net distance.
+const ER_PERIOD = 10;
+function computeEfficiencyRatio(closesAsc, period){
+  if(!closesAsc || closesAsc.length < period + 1) return null;
+  const win = closesAsc.slice(-(period + 1));
+  const net = Math.abs(win[win.length - 1] - win[0]);
+  let path = 0;
+  for(let i = 1; i < win.length; i++) path += Math.abs(win[i] - win[i - 1]);
+  return path > 0 ? net / path : null;
+}
+
+// ToS-style Relative Strength: where price sits in its N-bar high/low range, as a 0-100 percentile.
+const RS_PERIOD = 252;
+function computeRS(barsAsc, period){
+  if(!barsAsc || barsAsc.length < 2) return null;
+  const win = barsAsc.length > period ? barsAsc.slice(-period) : barsAsc;
+  let h = -Infinity, l = Infinity;
+  win.forEach(b => { if(b.h > h) h = b.h; if(b.l < l) l = b.l; });
+  const range = h - l;
+  const close = win[win.length - 1].c;
+  const x = range !== 0 ? (close - l) / range : 0;
+  return Math.round(x * 100);
 }
 
 function computeATR(dailyBarsAsc, period){
@@ -1098,7 +2668,7 @@ async function runSupertrendFlipScan(){
     const stLen = parseInt(document.getElementById('stAtrLength').value, 10) || 10;
     const stMult = parseFloat(document.getElementById('stAtrMult').value) || 3.0;
 
-    const tenDaysAgo = new Date(Date.now() - 15*24*3600*1000).toISOString();
+    const tenDaysAgo = new Date(Date.now() - 60*24*3600*1000).toISOString();
     const symbolChunks = chunk(symbols, 40);
     const snapChunks = chunk(symbols, 100);
 
@@ -1112,6 +2682,7 @@ async function runSupertrendFlipScan(){
 
     const results = [];
     const gainerMeta = {};
+    const minRS = minRSThreshold();
 
     for(const sc of symbolChunks){
       let barsBySymbol = {};
@@ -1125,6 +2696,9 @@ async function runSupertrendFlipScan(){
         const bars = closedBarsOnly() ? barsAll.filter(b => isClosed30(b, nowMs)) : barsAll;
         if(bars.length < stLen + 5) return;
 
+        const rs = computeRS(bars, RS_PERIOD);
+        if(minRS > 0 && (rs == null || rs < minRS)) return;
+
         const stRes = SuperTrend(bars, stLen, stMult);
         const flipAge = barsSinceSupertrendFlip(stRes.trend);
 
@@ -1134,8 +2708,8 @@ async function runSupertrendFlipScan(){
           const prevC = snap && snap.prevDailyBar && snap.prevDailyBar.c;
           const pctChg = prevC ? ((liveBar.c - prevC) / prevC) * 100 : 0;
 
-          rowDataMap[sym] = { bars, lastClose: liveBar.c, mode: 'st_flip' };
-          results.push({ symbol: sym, flipAge, pctChg, lastClose: liveBar.c });
+          rowDataMap[sym] = { bars, lastClose: liveBar.c, mode: 'st_flip', rs };
+          results.push({ symbol: sym, flipAge, pctChg, lastClose: liveBar.c, rs });
         }
       });
     }
@@ -1161,24 +2735,26 @@ function renderSupertrendFlipResults(rows, gainerMeta){
   OC.setScan('st_flip', lastSymbols, rows.map(r => r.symbol), gainerMeta);
   document.getElementById('legend').style.display = 'flex';
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>Last Price</th><th>%Chg</th><th>Flip Age</th>
+    <th>Symbol</th><th>Last Price</th><th>%Chg</th><th>RS</th><th>Flip Age</th>
   </tr></thead><tbody>`;
 
   rows.forEach((r, idx) => {
     const fresh = r.flipAge === 0;
     const badge = `<span class="badge ${fresh ? 'fresh' : 'aging'}">${r.flipAge === 0 ? 'Current Bar (0)' : `${r.flipAge} bars ago`}</span>`;
     const pctTag = `<span class="pct" style="color:${r.pctChg >= 0 ? 'var(--pass)' : 'var(--fail)'};">${r.pctChg >= 0 ? '+' : ''}${r.pctChg.toFixed(2)}%</span>`;
+    const rsTag = r.rs != null ? `<span style="color:${r.rs >= 90 ? 'var(--pass)' : r.rs >= 70 ? '#facc15' : 'var(--fail)'};">${r.rs}</span>` : '—';
 
     html += `<tr class="${fresh ? 'rank1' : ''}">
       <td data-label="Symbol"><span class="sym" data-index="${idx}">${r.symbol}</span></td>
       <td data-label="Last Price">$${r.lastClose.toFixed(2)}</td>
       <td data-label="% Chg">${pctTag}</td>
+      <td data-label="RS">${rsTag}</td>
       <td data-label="Flip Age">${badge}</td>
     </tr>`;
   });
 
   if(rows.length === 0){
-    html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No symbols found with a Supertrend green flip in the last 5 bars.</td></tr>`;
+    html += `<tr><td colspan="5" style="text-align:center;opacity:0.6;padding:16px;">No symbols found with a Supertrend green flip in the last 5 bars.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
@@ -1197,13 +2773,13 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const now = new Date();
   const nowMs = now.getTime();
   const closedOnly = closedBarsOnly();
-  const tenDaysAgo = new Date(now.getTime() - 10*24*3600*1000).toISOString();
+  const rsLookback = new Date(now.getTime() - 60*24*3600*1000).toISOString();
   const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
   const fortyDaysAgo = new Date(now.getTime() - 40*24*3600*1000).toISOString();
   const needsDaily = (mode === 'manual' || mode === 'sp500');
 
   const [bars30, bars5, barsDaily] = await Promise.all([
-    fetchBars(symbols, '30Min', tenDaysAgo, feed),
+    fetchBars(symbols, '30Min', rsLookback, feed),
     fetchBars(symbols, '5Min', oneDayAgo, feed),
     needsDaily ? fetchBars(symbols, '1Day', fortyDaysAgo, feed) : Promise.resolve({})
   ]);
@@ -1215,7 +2791,7 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     const b5 = (bars5[sym] || []);
     const bDaily = (barsDaily[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
-    let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null, pass:false, lastBar:null };
+    let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null, pass:false, lastBar:null, er:null, rs:null };
 
     if(b30.length < 15){
       row.error = 'insufficient bars';
@@ -1248,13 +2824,15 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     row.emaSlow = emaSlow;
     row.pmHigh = pmHigh;
     row.lastBar = lastBar;
+    row.er = bDaily.length ? computeEfficiencyRatio(bDaily.map(b => b.c), ER_PERIOD) : null;
+    row.rs = computeRS(b30, RS_PERIOD);
 
     const c1 = emaFast !== null && emaSlow !== null && emaFast > emaSlow;
     const c3 = pmHigh !== null && lastClose > pmHigh;
     row.pass = c1 && c3;
 
     rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
-      pmHigh, pmLow, lastClose: livePx != null ? livePx : lastClose, signalClose: lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, mode
+      pmHigh, pmLow, lastClose: livePx != null ? livePx : lastClose, signalClose: lastClose, emaFast, emaSlow, lastBarLow: lastBar.l, mode, er: row.er, rs: row.rs
     });
     return row;
   });
@@ -1268,23 +2846,29 @@ function render(rows, gainerMeta, showAll){
   const displayRows = showAll ? rows : rows;
   OC.setScan(lastMode, lastSymbols, displayRows.map(r => r.symbol), gainerMeta);
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>%Chg</th>
+    <th>Symbol</th><th>%Chg</th><th>ER</th><th>RS</th>
   </tr></thead><tbody>`;
 
   displayRows.forEach((r) => {
     const meta = gainerMeta[r.symbol];
     const rankTag = meta ? `<span class="rank">#${meta.rank}</span>` : '';
     const pctTag = meta ? `<span class="pct" style="color:${meta.percent_change >= 0 ? 'var(--pass)' : 'var(--fail)'};">${meta.percent_change >= 0 ? '+' : ''}${meta.percent_change.toFixed(2)}%</span>` : '—';
+    const er = meta && meta.er != null ? meta.er : r.er;
+    const erTag = er != null ? `<span class="badge" style="color:${er >= 0.5 ? 'var(--pass)' : er >= 0.3 ? '#facc15' : 'var(--fail)'};background:transparent;padding:0;">${er.toFixed(2)}</span>` : '—';
+    const rs = meta && meta.rs != null ? meta.rs : r.rs;
+    const rsTag = rs != null ? `<span class="badge" style="color:${rs >= 90 ? 'var(--pass)' : rs >= 70 ? '#facc15' : 'var(--fail)'};background:transparent;padding:0;">${rs}</span>` : '—';
     const realIdx = list.indexOf(r.symbol);
 
     html += `<tr>
       <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span></td>
       <td data-label="% Chg">${pctTag}</td>
+      <td data-label="ER">${erTag}</td>
+      <td data-label="RS">${rsTag}</td>
     </tr>`;
   });
 
   if(displayRows.length === 0){
-    html += `<tr><td colspan="2" style="text-align:center;opacity:0.6;padding:16px;">No gainer data available.</td></tr>`;
+    html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No gainer data available.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
@@ -1711,7 +3295,10 @@ function mutateLevels(symbol, fn){
   scheduleAlertSync();
 }
 function setLevel(symbol, key, price){
-  mutateLevels(symbol, e => { e[key] = price; e.arm[key] = Date.now(); delete e.fired[key]; });
+  mutateLevels(symbol, e => {
+    e[key] = price; e.arm[key] = Date.now(); delete e.fired[key];
+    if(key === 'entry') delete e.fired.timestop;
+  });
 }
 function addPriceLevel(symbol, price){
   let ok = true;
@@ -1771,7 +3358,10 @@ function levelSummaryLines(symbol){
   const lv = symbol ? getLevels(symbol) : { lv: [] };
   if(!last) return [];
   const lines = [];
-  if(lv.entry != null) lines.push(`EN $${lv.entry.toFixed(2)} (${fmtPct(lv.entry, last)})`);
+  if(lv.entry != null){
+    lines.push(`EN $${lv.entry.toFixed(2)} (${fmtPct(lv.entry, last)})`);
+    if(isLevelFired(symbol, 'timestop')) lines.push('⏱ Time stop: no progress — consider closing');
+  }
   if(lv.stop != null) lines.push(`SL $${lv.stop.toFixed(2)} (${fmtPct(lv.stop, levelBase('stop', lv, last))})`);
   if(lv.target != null){
     const base = levelBase('target', lv, last);
@@ -1819,9 +3409,11 @@ function drawLevelLines(){
   const lv = getLevels(symbol);
   const mk = (kind, price, key) => {
     const st = LEVEL_STYLE[kind];
+    let title = levelTitle(kind, price, levelBase(kind, lv, last), isLevelFired(symbol, key));
+    if(kind === 'entry' && isLevelFired(symbol, 'timestop')) title += ' · ⏱ stalled';
     return series.createPriceLine({
       price, color: st.color, lineWidth: st.width, lineStyle: LightweightCharts.LineStyle[st.style],
-      axisLabelVisible: true, title: levelTitle(kind, price, levelBase(kind, lv, last), isLevelFired(symbol, key))
+      axisLabelVisible: true, title
     });
   };
   ['entry', 'stop', 'target'].forEach(k => { if(lv[k] != null) levelLines[k] = mk(k, lv[k], k); });
@@ -2230,18 +3822,51 @@ function inAlertHours(){
   return m >= 240 && m < 1200;
 }
 
+function timeStopEnabled(){ const el = document.getElementById('timeStopOn'); return !!(el && el.checked); }
+function timeStopMinutes(){
+  const el = document.getElementById('timeStopMin');
+  const v = el ? parseInt(el.value, 10) : NaN;
+  return (isFinite(v) && v > 0) ? v : null;
+}
+// A symbol qualifies once its entry has been armed >= timeStopMinutes ago, it still has a stop
+// set (so an R multiple is defined), and it hasn't already fired a time-stop alert.
+function collectTimeStops(){
+  if(!timeStopEnabled()) return [];
+  const minutes = timeStopMinutes();
+  if(!minutes) return [];
+  const store = loadLevelsStore(), now = Date.now(), out = [];
+  Object.keys(store).forEach(sym => {
+    const e = store[sym];
+    if(!e || now - (e.ts || 0) > LEVELS_TTL_MS) return;
+    if(e.entry == null || e.stop == null) return;
+    if(e.fired && e.fired.timestop) return;
+    const armedAt = armAt(e, 'entry');
+    if(!armedAt || now - armedAt < minutes * 60000) return;
+    out.push({ sym, entry: e.entry, stop: e.stop, armedAt });
+  });
+  return out;
+}
+function fireTimeStop(sym, px, r, minutes){
+  markLevelFired(sym, 'timestop');
+  const msg = `${sym} time stop: only ${r.toFixed(2)}R after ${minutes}m` + (px != null ? ` · last $${px.toFixed(2)}` : '') + ' — consider closing.';
+  localNotify('Time stop', msg, sym + '|timestop');
+  if(activeModalSymbol === sym) drawLevelLines();
+  scheduleAlertSync();
+}
+
 const lastPx = {};
 let pollBusy = false;
 async function pollAlerts(){
-  if(pollBusy || !alertsEnabled() || !inAlertHours()) return;
+  if(pollBusy || !inAlertHours()) return;
   const h = alpacaHeaders();
   if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']) return;
-  const active = collectAlerts().filter(a => !a.fired);
-  if(!active.length) return;
+  const active = alertsEnabled() ? collectAlerts().filter(a => !a.fired) : [];
+  const timeStops = collectTimeStops();
+  if(!active.length && !timeStops.length) return;
   pollBusy = true;
   try {
     const feed = document.getElementById('feed').value;
-    const syms = [...new Set(active.map(a => a.sym))];
+    const syms = [...new Set([...active.map(a => a.sym), ...timeStops.map(t => t.sym)])];
     const snaps = {};
     for(const c of chunk(syms, 100)) Object.assign(snaps, await fetchSnapshotsChunk(c, feed));
     const now = Date.now();
@@ -2254,6 +3879,16 @@ async function pollAlerts(){
       if(bar && Date.parse(bar.t) >= a.armedAt && bar.l <= a.price && a.price <= bar.h) hit = true;
       if(!hit && px != null && prev && prev.t >= a.armedAt && (prev.p - a.price) * (px - a.price) <= 0) hit = true;
       if(hit) fireLocalAlert(a, px);
+    });
+    const minutes = timeStopMinutes();
+    timeStops.forEach(t => {
+      const s = snaps[t.sym];
+      const px = s && ((s.latestTrade && s.latestTrade.p) ?? (s.minuteBar && s.minuteBar.c));
+      if(px == null) return;
+      const risk = t.entry - t.stop;
+      if(!(risk > 0)) return;
+      const r = (px - t.entry) / risk;
+      if(r < 1) fireTimeStop(t.sym, px, r, minutes);
     });
     syms.forEach(sym => {
       const s = snaps[sym];
@@ -2716,6 +4351,41 @@ window.addEventListener('resize', () => {
   }
 });
 
+function minERThreshold(){ const el = document.getElementById('minER'); const v = el ? parseFloat(el.value) : 0; return isFinite(v) && v > 0 ? v : 0; }
+function minRSThreshold(){ const el = document.getElementById('minRS'); const v = el ? parseFloat(el.value) : 0; return isFinite(v) && v > 0 ? v : 0; }
+
+// Shared by both gainer modes: takes this cycle's raw ranked pool (already ER-filtered),
+// evaluates it, and ranks it by percent change.
+async function finishGainerScan(mode, pool, feed, count){
+  const minER = minERThreshold();
+  const minRS = minRSThreshold();
+  const poolSymbols = pool.map(g => g.symbol);
+  const rows = await evaluateSymbols(poolSymbols, feed, mode, {});
+  const rowBySym = {};
+  rows.forEach(r => { rowBySym[r.symbol] = r; });
+
+  let candidates = pool
+    .filter(g => rowBySym[g.symbol] && !rowBySym[g.symbol].error)
+    .map(g => Object.assign({}, g, { er: rowBySym[g.symbol].er, rs: rowBySym[g.symbol].rs, row: rowBySym[g.symbol] }));
+  const afterDataCount = candidates.length;
+  if(minER > 0) candidates = candidates.filter(c => c.er != null && c.er >= minER);
+  const afterERCount = candidates.length;
+  if(minRS > 0) candidates = candidates.filter(c => c.rs != null && c.rs >= minRS);
+  const afterRSCount = candidates.length;
+
+  const confirmed = candidates.slice().sort((a, b) => b.percent_change - a.percent_change).slice(0, count);
+
+  const gainerMeta = {};
+  confirmed.forEach((c, idx) => {
+    gainerMeta[c.symbol] = { rank: idx + 1, percent_change: c.percent_change, volume: c.volume, er: c.er, rs: c.rs };
+  });
+  lastSymbols = confirmed.map(c => c.symbol);
+  const finalRows = confirmed.map(c => c.row);
+  render(finalRows, gainerMeta, true);
+  confirmed.diag = { pool: pool.length, afterData: afterDataCount, afterER: afterERCount, afterRS: afterRSCount, minER, minRS };
+  return confirmed;
+}
+
 async function runManualScan(){
   if(!requireAlpacaKeys()) return;
   lastMode = 'manual';
@@ -2729,10 +4399,11 @@ async function runManualScan(){
   try{
     const feed = document.getElementById('feed').value;
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
-    
+    const poolSize = Math.min(symbols.length, Math.max(count * 3, 30));
+
     const chunks = chunk(symbols, 100);
     const gainers = [];
-    
+
     for(const ch of chunks){
       const snaps = await fetchSnapshotsChunk(ch, feed);
       Object.keys(snaps).forEach(sym => {
@@ -2745,19 +4416,17 @@ async function runManualScan(){
         gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
       });
     }
-    
+
     gainers.sort((a,b) => b.percent_change - a.percent_change);
-    const topGainers = gainers.slice(0, count);
+    const pool = gainers.slice(0, poolSize);
 
-    const gainerMeta = {};
-    topGainers.forEach((g, idx) => { 
-      gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; 
-    });
-    lastSymbols = topGainers.map(g => g.symbol);
-
-    const rows = await evaluateSymbols(lastSymbols, feed, 'manual', gainerMeta);
-    render(rows, gainerMeta, true);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · Top gainer from watchlist: ${topGainers[0]?.symbol || 'None'} (+${topGainers[0]?.percent_change.toFixed(2)}%)`);
+    const confirmed = await finishGainerScan('manual', pool, feed, count);
+    if(confirmed.length === 0){
+      const d = confirmed.diag;
+      statusMsg(`0 hits — pool ${d.pool} → priced ${d.afterData} → ER≥${d.minER} left ${d.afterER} → RS≥${d.minRS} left ${d.afterRS}`, true);
+    } else {
+      statusMsg(`Updated ${new Date().toLocaleTimeString()} · Top gainer from watchlist: ${confirmed[0]?.symbol || 'None'} (${confirmed[0] ? (confirmed[0].percent_change >= 0 ? '+' : '') + confirmed[0].percent_change.toFixed(2) + '%' : '—'})`);
+    }
   }catch(e){
     statusMsg(e.message, true);
   }finally{
@@ -2765,7 +4434,7 @@ async function runManualScan(){
   }
 }
 
-async function fetchSP500RankedGainers(count, feed){
+async function fetchSP500RankedGainers(poolSize, feed){
   const universe = await getSP500Tickers();
   const groups = chunk(universe, 100);
   const snapshots = {};
@@ -2784,7 +4453,7 @@ async function fetchSP500RankedGainers(count, feed){
     ranked.push({ symbol: sym, percent_change: ((cur - prev) / prev) * 100, price: cur, volume: vol });
   });
   ranked.sort((a,b) => b.percent_change - a.percent_change);
-  return ranked.slice(0, count);
+  return ranked.slice(0, poolSize);
 }
 
 async function runGainerScan(){
@@ -2796,15 +4465,16 @@ async function runGainerScan(){
   try{
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
     const feed = document.getElementById('feed').value;
-    const top = await fetchSP500RankedGainers(count, feed);
+    const poolSize = Math.max(count * 3, 30);
+    const pool = await fetchSP500RankedGainers(poolSize, feed);
 
-    const gainerMeta = {};
-    top.forEach((g, idx) => { gainerMeta[g.symbol.toUpperCase()] = { rank: idx+1, percent_change: g.percent_change, volume: g.volume }; });
-    lastSymbols = top.map(g => g.symbol);
-
-    const rows = await evaluateSymbols(lastSymbols, feed, 'sp500', gainerMeta);
-    render(rows, gainerMeta, true);
-    statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${top.length} S&P 500 gainers`);
+    const confirmed = await finishGainerScan('sp500', pool, feed, count);
+    if(confirmed.length === 0){
+      const d = confirmed.diag;
+      statusMsg(`0 hits — pool ${d.pool} → priced ${d.afterData} → ER≥${d.minER} left ${d.afterER} → RS≥${d.minRS} left ${d.afterRS}`, true);
+    } else {
+      statusMsg(`Updated ${new Date().toLocaleTimeString()} · top ${confirmed.length} S&P 500 gainers`);
+    }
   }catch(e){
     statusMsg(e.message, true);
   }finally{
@@ -2838,7 +4508,7 @@ const OC = (() => {
   const LOOKBACK_DAYS = { '5Min': 6, '15Min': 12, '30Min': 20, '1Hour': 40, '1Day': 200 };
   const EMA_COLORS = ['#c084fc', '#e0a13b', '#c9d1d1'];
   const MAX_SYMBOLS = 30;
-  const MODE_LABEL = { manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', prev_day: 'Prev-day gainers', setup: 'Graded setups' };
+  const MODE_LABEL = { manual: 'Watchlist', st_flip: 'ST flip', sp500: 'S&P 500 gainers', setup: 'Graded setups' };
   const SETTING_IDS = ['ocSymbols', 'ocSide', 'ocSource', 'ocMinDte', 'ocMaxDte', 'ocMinVol', 'ocTopN', 'ocItmPct', 'ocOtmPct', 'ocTf', 'ocEma1', 'ocEma2', 'ocEma3', 'ocSpeed', 'ocOptFeed'];
   const CHECK_IDS = ['ocFollow', 'ocAuto'];
 
@@ -5042,128 +6712,6 @@ const SU = (() => {
   return { run, runReplay, aiReview, reviewScanner, aiTest };
 })();
 
-const PD = (() => {
-  const $ = id => document.getElementById(id);
-  const EXTRA_POOL = [
-	  
-'AA', 'AAL', 'ABBV', 'ABT', 'ACB', 'ACN', 'ADBE', 'ADSK', 'AFRM', 'AGNC', 'ALHC', 'AMD', 'AMZN', 'APP', 'ARM', 'ASPI', 'ASTS', 'AVDL', 'AXON', 'B', 'BA', 'BABA', 'BAC', 'BAM', 'BE', 'BMY', 'BULL', 'C', 'CARR', 'CAVA', 'CC', 'CCJ', 'CCL', 'CELH', 'CHWY', 'CLMT', 'CLOV', 'CLSK', 'CMG', 'CNQ', 'CORZ', 'COST', 'COTY', 'CPNG', 'CRM', 'CRML', 'CRWD', 'CRWV', 'CVNA', 'CVS', 'DAR', 'DBX', 'DELL', 'DJT', 'DKNG', 'DOW', 'EBAY', 'ENPH', 'ENR', 'EQX', 'EXE', 'F', 'FCX', 'FDX', 'FSLR', 'GILD', 'GILT', 'GM', 'GME', 'GOOG', 'GOOGL', 'HIMS', 'HOOD', 'HPE', 'HPQ', 'HUT', 'INTC', 'IQ', 'IREN', 'IWM', 'JBLU', 'JD', 'JMIA', 'JNJ', 'JPM', 'KHC', 'KMI', 'KO', 'KSS', 'LLY', 'LOW', 'LULU', 'LUV', 'LVS', 'LYFT', 'MARA', 'MBLY', 'MBOT', 'META', 'MNDY', 'MO', 'MRK', 'MRVL', 'MSFT', 'MU', 'NEE', 'NEXT', 'NFLX', 'NIO', 'NKE', 'NU', 'NVDA', 'ONDS', 'OPEN', 'OWL', 'OXY', 'PBR', 'PCG', 'PDD', 'PEP', 'PFE', 'PG', 'PGEN', 'PINS', 'PLTR', 'PSKY', 'QBTS', 'QCOM', 'QD', 'QQQ', 'QS', 'RELY', 'RGTI', 'RIOT', 'RIVN', 'RKT', 'ROKU', 'RTX', 'SATS', 'SBUX', 'SERV', 'SLV', 'SMCI', 'SNAP', 'SOFI', 'SOUN', 'SPY', 'T', 'TCOM', 'TDOC', 'TEVA', 'TGT', 'TIGR', 'TMUS', 'TNA', 'TRMD', 'TSLA', 'TTD', 'U', 'UAL', 'UBER', 'UPS', 'UPST', 'VALE', 'VZ', 'WDC', 'WMT', 'WULF', 'XLE', 'XLF', 'XOM', 'XPEV', 'Z'
-  ];
-  const MIN_PRICE = 1.0;
-  let list = [], meta = {}, session = null, busy = false;
-
-  function setStatus(msg, isErr){ const el = $('pdStatus'); el.textContent = msg; el.className = 'status' + (isErr ? ' err' : ''); }
-  const shift = (ymd, n) => { const [y, m, d] = ymd.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10); };
-  const fmtDate = ymd => new Date(ymd + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
-  const fmtVol = v => v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : (v >= 1e3 ? Math.round(v / 1e3) + 'K' : String(v));
-  const barDate = b => b.t.slice(0, 10);
-
-  function render(rows){
-    let html = `<div class="panel"><table><thead><tr>
-      <th>Symbol</th><th>%Chg</th><th>Close</th><th>Volume</th>
-    </tr></thead><tbody>`;
-    rows.forEach((r, i) => {
-      html += `<tr>
-        <td data-label="Symbol"><span class="sym" data-index="${i}"><span class="rank">#${i + 1}</span>${r.symbol}</span></td>
-        <td data-label="% Chg"><span class="pct">+${r.pct.toFixed(2)}%</span></td>
-        <td data-label="Close">$${r.close.toFixed(2)}</td>
-        <td data-label="Volume"><span class="vol">${fmtVol(r.volume)}</span></td>
-      </tr>`;
-    });
-    if(!rows.length) html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No gainers passed the price / volume filters.</td></tr>`;
-    html += `</tbody></table></div>`;
-    $('pdResults').innerHTML = html;
-    document.querySelectorAll('#pdResults .sym').forEach(el => {
-      el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), session));
-    });
-  }
-
-  async function run(){
-    if(busy) return;
-    if(!requireAlpacaKeys()){ showTab('scanner'); return; }
-    busy = true; $('pdLoadBtn').disabled = true;
-    try {
-      const feed = $('feed').value;
-      const minVol = Math.max(0, parseInt($('pdMinVol').value, 10) || 0);
-      const topN = Math.min(50, Math.max(1, parseInt($('gainerCount').value, 10) || 10));
-      const override = $('pdDate').value;
-      const todayET = etParts(new Date()).dateStr;
-      if(override && override >= todayET){ setStatus('Pick a session date before today.', true); return; }
-
-      setStatus('Building symbol universe…');
-      const wl = $('manualList').value.split(/[\s,]+/).map(s => s.trim().toUpperCase()).filter(Boolean);
-      let sp = [];
-      try { sp = await getSP500Tickers(); } catch(e){}
-      const universe = [...new Set([...wl, ...sp, ...EXTRA_POOL, 'SPY'])];
-
-      const base = override || todayET;
-      const start = new Date(shift(base, -14) + 'T00:00:00Z').toISOString();
-      let end = null;
-      if(override){
-        const e = new Date(shift(override, 2) + 'T00:00:00Z');
-        if(e.getTime() < Date.now() - 86400000) end = e.toISOString();
-      }
-      const barsBy = {};
-      const chunks = chunk(universe, 100);
-      let failed = 0;
-      for(let i = 0; i < chunks.length; i++){
-        setStatus(`Loading daily bars… ${i + 1}/${chunks.length}`);
-        try { Object.assign(barsBy, await fetchBars(chunks[i], '1Day', start, feed, end)); } catch(e){ failed++; }
-      }
-      if(failed === chunks.length) throw new Error('Could not load daily bars from Alpaca — check your keys and feed.');
-
-      let sess = override || null;
-      if(!sess){
-        const seen = {};
-        Object.values(barsBy).forEach(arr => (arr || []).forEach(b => { const d = barDate(b); if(d < todayET) seen[d] = (seen[d] || 0) + 1; }));
-        const most = Math.max(0, ...Object.values(seen));
-        const dates = Object.keys(seen).filter(d => seen[d] >= most * 0.5).sort();
-        sess = dates.length ? dates[dates.length - 1] : null;
-      }
-      if(!sess){ setStatus('No completed session found in the data.', true); return; }
-
-      const rows = [];
-      Object.keys(barsBy).forEach(sym => {
-        const bars = barsBy[sym] || [];
-        const k = bars.findIndex(b => barDate(b) === sess);
-        if(k < 1) return;
-        const c = bars[k].c, pc = bars[k - 1].c, v = bars[k].v;
-        if(!(pc > 0) || c <= MIN_PRICE || !(v > 0) || v < minVol) return;
-        rows.push({ symbol: sym, pct: (c - pc) / pc * 100, close: c, volume: v });
-      });
-      if(!rows.length && !Object.keys(barsBy).some(sym => (barsBy[sym] || []).some(b => barDate(b) === sess))){
-        setStatus(`No trading session on ${fmtDate(sess)} (weekend or market holiday).`, true);
-        return;
-      }
-      rows.sort((a, b) => b.pct - a.pct);
-      const top = rows.filter(r => r.pct > 0).slice(0, topN);
-
-      session = sess;
-      list = top.map(r => r.symbol);
-      meta = {};
-      top.forEach((r, i) => {
-        meta[r.symbol] = { rank: i + 1, percent_change: r.pct, volume: r.volume };
-        rowDataMap[r.symbol] = Object.assign(rowDataMap[r.symbol] || {}, { lastClose: r.close, mode: 'prev_day' });
-      });
-      $('pdTabCount').textContent = list.length ? `(${list.length})` : '';
-      render(top);
-      OC.setScan('prev_day', list, list, meta);
-      setStatus(`${fmtDate(sess)} · top ${top.length} of ${universe.length} symbols scanned (price > $${MIN_PRICE}, vol ≥ ${fmtVol(minVol)})`
-        + (failed ? ` · ${failed} of ${chunks.length} batches failed` : ''));
-    } catch(e){
-      setStatus(e.message, true);
-    } finally {
-      busy = false; $('pdLoadBtn').disabled = false;
-    }
-  }
-
-  $('pdLoadBtn').addEventListener('click', run);$('pdOptionsBtn').addEventListener('click', () => {
-    if(!list.length){ setStatus('Load the previous-day gainers first.', true); return; }
-    OC.setScan('prev_day', list, list, meta);
-    OC.openScan();
-  });
-  return { run };
-})();
-
 /* =====================================================================
    HIT CHARTS TAB — small-multiple charts for every symbol the current
    scan produced, using the same EMA cloud / Supertrend / day-band /
@@ -5315,17 +6863,41 @@ function renderMiniChart(container, sym, allBarsRaw, allBars10Raw){
   const state = { sym, candles, lines: [] };
   drawMiniLevels(state);
   container.style.cursor = hitLevelMode ? 'crosshair' : 'pointer';
-  container.addEventListener('click', e => {
-    if(!hitLevelMode) return;
-    e.stopPropagation();
+
+  // Tap-to-add-a-level. Lightweight Charts binds its own touch handling to the
+  // canvas and calls preventDefault, which usually stops the synthetic 'click'
+  // mobile browsers would otherwise fire — so touch is handled explicitly here,
+  // in the capture phase so it runs before the chart library sees the touch.
+  const handleTap = clientY => {
     const rect = container.getBoundingClientRect();
-    const raw = candles.coordinateToPrice(e.clientY - rect.top);
+    const raw = candles.coordinateToPrice(clientY - rect.top);
     if(raw == null || !isFinite(raw) || raw <= 0) return;
     const price = round2(raw);
     const near = getLevels(sym).lv.find(p => Math.abs(p - price) <= Math.max(0.02, price * 0.0025));
     if(near !== undefined) removePriceLevel(sym, near);
     else if(!addPriceLevel(sym, price)) statusMsg(`Level not added (max ${MAX_PRICE_LEVELS} per symbol, no duplicates).`, true);
     drawMiniLevels(state);
+  };
+  let tapStart = null;
+  container.addEventListener('touchstart', e => {
+    if(!hitLevelMode || !e.touches.length) { tapStart = null; return; }
+    const t = e.touches[0];
+    tapStart = { x: t.clientX, y: t.clientY };
+  }, { capture: true, passive: true });
+  container.addEventListener('touchend', e => {
+    if(!hitLevelMode || !tapStart) return;
+    const t = e.changedTouches[0];
+    const moved = Math.hypot(t.clientX - tapStart.x, t.clientY - tapStart.y);
+    const y = tapStart.y; tapStart = null;
+    if(moved > 10) return;
+    e.stopPropagation();
+    if(e.cancelable) e.preventDefault();
+    handleTap(y);
+  }, { capture: true });
+  container.addEventListener('click', e => {
+    if(!hitLevelMode) return;
+    e.stopPropagation();
+    handleTap(e.clientY);
   });
 
   miniCharts.push({ chart, ro, sym, candles, lines: state.lines });
@@ -5345,7 +6917,7 @@ async function renderHitCharts(){
 
   if(!symbols.length){
     grid.innerHTML = '';
-    status.textContent = 'Run a scan on the Scanner, Setups, or Prev Day tab — its hits will chart here automatically.';
+    status.textContent = 'Run a scan on the Scanner or Setups tab — its hits will chart here automatically.';
     return;
   }
 
@@ -5385,7 +6957,7 @@ function showTab(name){
   document.querySelectorAll('#mainTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.getElementById('viewScanner').hidden = name !== 'scanner';
   document.getElementById('viewSetups').hidden = name !== 'setups';
-  document.getElementById('viewPrevDay').hidden = name !== 'prevday';
+  document.getElementById('viewCyto').hidden = name !== 'cyto';
   document.getElementById('viewOptions').hidden = name !== 'options';
   document.getElementById('viewHitCharts').hidden = name !== 'hitcharts';
   if(name === 'options') OC.onShow(); else OC.onHide();
