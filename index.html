@@ -1380,6 +1380,65 @@ const BAR30_MS = 30 * 60 * 1000;
 function closedBarsOnly(){ const el = document.getElementById('barMode'); return !el || el.value !== 'live'; }
 function isClosed30(bar, nowMs){ return new Date(bar.t).getTime() + BAR30_MS <= nowMs; }
 
+// ---------------------------------------------------------------------
+// Watchlist scan: "AVWAP green" + "EMA cloud green" (port of the AVWAP / EMA-cloud / PVT / RSI indicator)
+//  AVWAP  = EMA(typical*vol, 120) / EMA(vol, 120)              → green when close > AVWAP
+//  Cloud  = green when ALL of: PVT > SMA(PVT,21), EMA10 > EMA21, RSI14 > 50,
+//           and |EMA10-EMA21| > 0.3 × ATR14   (this is the indicator's "bullish" state)
+// ---------------------------------------------------------------------
+const GS = { avwapBars: 120, fast: 10, slow: 21, atrLen: 14, minHeight: 0.3, pvtSig: 21, rsiLen: 14, rsiMid: 50 };
+const GREEN_MIN_BARS = GS.avwapBars + 1;
+
+function emaFromFirst(values, period){
+  const k = 2 / (period + 1);
+  const out = new Array(values.length);
+  let e = values[0];
+  out[0] = e;
+  for(let i = 1; i < values.length; i++){ e = values[i] * k + e * (1 - k); out[i] = e; }
+  return out;
+}
+function rsiWilderLast(closes, period){
+  if(closes.length < period + 1) return null;
+  let g = 0, l = 0;
+  for(let i = 1; i <= period; i++){ const d = closes[i] - closes[i-1]; if(d > 0) g += d; else l -= d; }
+  let ag = g / period, al = l / period;
+  for(let i = period + 1; i < closes.length; i++){
+    const d = closes[i] - closes[i-1];
+    ag = (ag * (period - 1) + (d > 0 ? d : 0)) / period;
+    al = (al * (period - 1) + (d < 0 ? -d : 0)) / period;
+  }
+  return al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+}
+function computeGreenState(bars){
+  const n = bars.length;
+  if(n < GREEN_MIN_BARS) return null;
+  const closes = bars.map(b => b.c);
+  const close = closes[n - 1];
+
+  const num = emaFromFirst(bars.map(b => ((b.h + b.l + b.c) / 3) * (b.v || 0)), GS.avwapBars);
+  const den = emaFromFirst(bars.map(b => b.v || 0), GS.avwapBars);
+  const avwap = den[n - 1] === 0 ? 0 : num[n - 1] / den[n - 1];
+  const avwapGreen = avwap > 0 && close > avwap;
+
+  const emaF = emaFromFirst(closes, GS.fast)[n - 1];
+  const emaS = emaFromFirst(closes, GS.slow)[n - 1];
+  const atr = computeATRSeries(bars, GS.atrLen)[n - 1];
+  const hasMinHeight = atr != null && Math.abs(emaF - emaS) > atr * GS.minHeight;
+
+  const pvt = new Array(n).fill(0);
+  for(let i = 1; i < n; i++){
+    const prev = closes[i - 1];
+    pvt[i] = pvt[i - 1] + (prev ? ((closes[i] - prev) / prev) * (bars[i].v || 0) : 0);
+  }
+  let sig = 0;
+  for(let i = n - GS.pvtSig; i < n; i++) sig += pvt[i];
+  sig /= GS.pvtSig;
+
+  const rsi = rsiWilderLast(closes, GS.rsiLen);
+  const cloudGreen = pvt[n - 1] > sig && emaF > emaS && rsi != null && rsi > GS.rsiMid && hasMinHeight;
+  return { close, avwap, avwapGreen, cloudGreen, emaF, emaS, rsi, atr };
+}
+
 async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const symbols = symbolList.map(s => s.toUpperCase());
   const now = new Date();
@@ -1388,11 +1447,12 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const rsLookback = new Date(now.getTime() - 30*24*3600*1000).toISOString();
   const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
   const fortyDaysAgo = new Date(now.getTime() - 40*24*3600*1000).toISOString();
-  const needsDaily = (mode === 'manual' || mode === 'sp500');
+  const needsDaily = (mode === 'sp500');
+  const needs5m = (mode !== 'manual');
 
   const [bars30, bars5, barsDaily] = await Promise.all([
     fetchBarsCached(symbols, '30Min', rsLookback, feed),
-    fetchBarsCached(symbols, '5Min', oneDayAgo, feed),
+    needs5m ? fetchBarsCached(symbols, '5Min', oneDayAgo, feed) : Promise.resolve({}),
     needsDaily ? fetchBarsCached(symbols, '1Day', fortyDaysAgo, feed) : Promise.resolve({})
   ]);
 
@@ -1404,6 +1464,20 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
     const bDaily = (barsDaily[sym] || []).slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
 
     let row = { symbol: sym, error: null, close:null, emaFast:null, emaSlow:null, pmHigh:null, pass:false, lastBar:null, er:null, rs:null };
+
+    if(mode === 'manual'){
+      const g = computeGreenState(b30);
+      if(!g){ row.error = 'insufficient bars'; return row; }
+      const lastBarM = b30[b30.length - 1];
+      row.close = g.close; row.lastBar = lastBarM;
+      row.avwap = g.avwap; row.avwapGreen = g.avwapGreen; row.cloudGreen = g.cloudGreen;
+      row.pass = g.avwapGreen && g.cloudGreen;
+      rowDataMap[sym] = Object.assign(rowDataMap[sym] || {}, {
+        lastClose: livePx != null ? livePx : g.close, signalClose: g.close, lastBarLow: lastBarM.l, mode,
+        avwap: g.avwap, avwapGreen: g.avwapGreen, cloudGreen: g.cloudGreen
+      });
+      return row;
+    }
 
     if(b30.length < 15){
       row.error = 'insufficient bars';
@@ -1454,11 +1528,16 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
 
 function render(rows, gainerMeta, showAll){
   const list = lastSymbols.slice();
-  document.getElementById('legend').style.display = 'flex';
+  const legendEl = document.getElementById('legend');
+  legendEl.style.display = 'flex';
+  legendEl.innerHTML = lastMode === 'manual'
+    ? `<span><b>Conditions:</b> Close &gt; AVWAP (green) &nbsp;·&nbsp; EMA cloud green (PVT &gt; signal, EMA10 &gt; EMA21, RSI &gt; 50, cloud height &gt; 0.3 ATR) — 30m bars</span>`
+    : `<span><b>Conditions:</b> Ranked by % change · Min ER · Min RS filters</span>`;
+  const isManualView = lastMode === 'manual';
   const displayRows = showAll ? rows : rows;
   OC.setScan(lastMode, lastSymbols, displayRows.map(r => r.symbol), gainerMeta);
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>%Chg</th><th>ER</th><th>RS</th>
+    <th>Symbol</th><th>%Chg</th>${isManualView ? '<th>vs AVWAP</th><th>Cloud</th>' : '<th>ER</th><th>RS</th>'}
   </tr></thead><tbody>`;
 
   displayRows.forEach((r) => {
@@ -1471,16 +1550,20 @@ function render(rows, gainerMeta, showAll){
     const rsTag = rs != null ? `<span class="badge" style="color:${rs >= 90 ? 'var(--pass)' : rs >= 70 ? '#facc15' : 'var(--fail)'};background:transparent;padding:0;">${rs}</span>` : '—';
     const realIdx = list.indexOf(r.symbol);
 
+    const avDist = meta && meta.avwapDist != null ? meta.avwapDist : null;
+    const avTag = avDist != null ? `<span style="color:var(--pass);">${avDist >= 0 ? '+' : ''}${avDist.toFixed(2)}%</span>` : '—';
+    const cloudTag = r.cloudGreen ? `<span style="color:var(--pass);">● green</span>` : '—';
     html += `<tr>
       <td data-label="Symbol"><span class="sym" data-index="${realIdx}">${rankTag}${r.symbol}</span></td>
       <td data-label="% Chg">${pctTag}</td>
-      <td data-label="ER">${erTag}</td>
-      <td data-label="RS">${rsTag}</td>
+      ${isManualView
+        ? `<td data-label="vs AVWAP">${avTag}</td><td data-label="Cloud">${cloudTag}</td>`
+        : `<td data-label="ER">${erTag}</td><td data-label="RS">${rsTag}</td>`}
     </tr>`;
   });
 
   if(displayRows.length === 0){
-    html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No gainer data available.</td></tr>`;
+    html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No matches.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
@@ -2980,21 +3063,31 @@ async function finishGainerScan(mode, pool, feed, count){
     .filter(g => rowBySym[g.symbol] && !rowBySym[g.symbol].error)
     .map(g => Object.assign({}, g, { er: rowBySym[g.symbol].er, rs: rowBySym[g.symbol].rs, row: rowBySym[g.symbol] }));
   const afterDataCount = candidates.length;
-  if(minER > 0) candidates = candidates.filter(c => c.er != null && c.er >= minER);
-  const afterERCount = candidates.length;
-  if(minRS > 0) candidates = candidates.filter(c => c.rs != null && c.rs >= minRS);
-  const afterRSCount = candidates.length;
+  let afterERCount = afterDataCount, afterRSCount = afterDataCount, afterAvwapCount = null, afterCloudCount = null;
+  if(mode === 'manual'){
+    // watchlist scan: AVWAP green AND EMA cloud green (ER / RS filters don't apply here)
+    candidates = candidates.filter(c => c.row.avwapGreen);
+    afterAvwapCount = candidates.length;
+    candidates = candidates.filter(c => c.row.cloudGreen);
+    afterCloudCount = candidates.length;
+  } else {
+    if(minER > 0) candidates = candidates.filter(c => c.er != null && c.er >= minER);
+    afterERCount = candidates.length;
+    if(minRS > 0) candidates = candidates.filter(c => c.rs != null && c.rs >= minRS);
+    afterRSCount = candidates.length;
+  }
 
   const confirmed = candidates.slice().sort((a, b) => b.percent_change - a.percent_change).slice(0, count);
 
   const gainerMeta = {};
   confirmed.forEach((c, idx) => {
     gainerMeta[c.symbol] = { rank: idx + 1, percent_change: c.percent_change, volume: c.volume, er: c.er, rs: c.rs };
+    if(mode === 'manual' && c.row.avwap) gainerMeta[c.symbol].avwapDist = ((c.row.close - c.row.avwap) / c.row.avwap) * 100;
   });
   lastSymbols = confirmed.map(c => c.symbol);
   const finalRows = confirmed.map(c => c.row);
   render(finalRows, gainerMeta, true);
-  confirmed.diag = { pool: pool.length, afterData: afterDataCount, afterER: afterERCount, afterRS: afterRSCount, minER, minRS };
+  confirmed.diag = { pool: pool.length, afterData: afterDataCount, afterER: afterERCount, afterRS: afterRSCount, afterAvwap: afterAvwapCount, afterCloud: afterCloudCount, minER, minRS };
   return confirmed;
 }
 
@@ -3007,11 +3100,11 @@ async function runManualScan(){
 
   const btn = document.getElementById('btnScanManual');
   btn.disabled = true;
-  statusMsg(`Scanning watchlist for top gainers...`);
+  statusMsg(`Scanning watchlist for AVWAP + EMA cloud green…`);
   try{
     const feed = document.getElementById('feed').value;
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
-    const poolSize = Math.min(symbols.length, Math.max(count * 3, 30));
+    const poolSize = symbols.length;   // conditions decide the hits now, so every watchlist ticker is checked
 
     const gainers = [];
     const snaps = await fetchSnapshots(symbols, feed);
@@ -3031,9 +3124,9 @@ async function runManualScan(){
     const confirmed = await finishGainerScan('manual', pool, feed, count);
     if(confirmed.length === 0){
       const d = confirmed.diag;
-      statusMsg(`0 hits — pool ${d.pool} → priced ${d.afterData} → ER≥${d.minER} left ${d.afterER} → RS≥${d.minRS} left ${d.afterRS}`, true);
+      statusMsg(`0 hits — checked ${d.pool} → enough data (${GREEN_MIN_BARS}+ bars) ${d.afterData} → AVWAP green ${d.afterAvwap} → EMA cloud green ${d.afterCloud}`, true);
     } else {
-      statusMsg(`Updated ${new Date().toLocaleTimeString()} · Top gainer from watchlist: ${confirmed[0]?.symbol || 'None'} (${confirmed[0] ? (confirmed[0].percent_change >= 0 ? '+' : '') + confirmed[0].percent_change.toFixed(2) + '%' : '—'})`);
+      statusMsg(`Updated ${new Date().toLocaleTimeString()} · ${confirmed.length} watchlist hit${confirmed.length === 1 ? '' : 's'} with AVWAP + EMA cloud green · top gainer: ${confirmed[0]?.symbol || 'None'} (${confirmed[0] ? (confirmed[0].percent_change >= 0 ? '+' : '') + confirmed[0].percent_change.toFixed(2) + '%' : '—'})`);
     }
   }catch(e){
     statusMsg(e.message, true);
