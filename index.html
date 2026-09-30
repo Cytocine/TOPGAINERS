@@ -110,6 +110,10 @@
   .hit-chart-card:hover{border-color:var(--accent);}
   .hit-chart-head{display:flex;justify-content:space-between;align-items:center;font-family:var(--mono);font-size:12px;font-weight:700;margin-bottom:6px;}
   .hit-chart-body{width:100%;height:190px;position:relative;}
+  .watch-slot{position:relative;width:100%;height:190px;}
+  .watch-slot > .hit-chart-body{position:absolute;inset:0;height:auto;}
+  .wc-meta{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;}
+  .wc-badge{font-size:10px;padding:1px 5px;border-radius:4px;border:1px solid var(--line);background:var(--panel-2);}
   #cloudCanvas,#dayCanvas{position:absolute;top:0;left:0;pointer-events:none;}
   .draw-bar{display:flex;align-items:center;gap:6px;margin:0 0 8px;flex-wrap:wrap;}
   .draw-btn{background:var(--panel-2);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:7px 11px;font-size:12px;cursor:pointer;white-space:nowrap;}
@@ -282,6 +286,7 @@
     <button class="tab" data-tab="cyto">🔗 CytoOptions</button>
     <button class="tab" data-tab="options">Options<span class="tabcount" id="ocTabCount"></span></button>
     <button class="tab" data-tab="hitcharts">Charts<span class="tabcount" id="hcTabCount"></span></button>
+    <button class="tab" data-tab="watch">Watch<span class="tabcount" id="watchTabCount"></span></button>
   </div>
 
   <div id="viewScanner">
@@ -2082,6 +2087,29 @@
   <div class="hit-charts-grid" id="hitChartsGrid"></div>
 </div>
 
+<div id="viewWatch" hidden>
+  <div class="panel" style="padding:10px;">
+    <div class="row">
+      <div class="field" style="flex:4 1 260px;">
+        <label for="watchList">Static watch list — tickers separated by commas or spaces (max 40, kept in this browser)</label>
+        <textarea id="watchList" spellcheck="false" placeholder="SPY, QQQ, NVDA, TSLA, AAPL…" style="min-height:44px;"></textarea>
+      </div>
+      <button class="primary" id="btnWatchSave">Save &amp; Load</button>
+    </div>
+  </div>
+  <div class="draw-bar">
+    <select id="watchTf" title="Follows the Charts tab timeframe" style="width:auto;padding:5px 6px;font-size:11.5px;">
+      <option value="30m" selected>30m</option>
+      <option value="10m">10m</option>
+    </select>
+    <button id="btnWatchRefresh" class="draw-btn">↻<span class="lbl"> Refresh</span></button>
+    <button id="btnWatchLevel" class="draw-btn level" title="Tap a chart to add a price level (tap a level to remove it)">📏<span class="lbl"> Level</span></button>
+    <div class="toggle-row"><input type="checkbox" id="watchAuto" checked><label for="watchAuto">Auto 1m</label></div>
+  </div>
+  <div class="status" id="watchStatus">Add tickers above to track them through the whole day.</div>
+  <div class="hit-charts-grid" id="watchGrid"></div>
+</div>
+
 <div id="viewOptions" hidden>
   <div class="panel">
     <details class="oc-filters" id="ocFilters" open>
@@ -2598,15 +2626,66 @@ function chunk(arr, size){
   return out;
 }
 
-async function fetchSnapshotsChunk(symbols, feed){
-  const params = new URLSearchParams({ symbols: symbols.join(','), feed });
-  const res = await fetch(`${ALPACA_BASE}/v2/stocks/snapshots?${params.toString()}`, { headers: alpacaHeaders() });
-  if(!res.ok) throw new Error(`Alpaca snapshots failed (${res.status})`);
-  return res.json();
+/* ---------------------------------------------------------------------
+   FAST ALPACA DATA LAYER
+   - one shared concurrency limiter + retry/backoff on 429/5xx
+   - bars are split into symbol groups fetched in PARALLEL (each group still follows next_page_token)
+   - snapshots are fetched in parallel chunks
+   - fetchBarsCached keeps bars in memory; later scans only download what's new since last fetch
+   --------------------------------------------------------------------- */
+const HTTP_MAX_CONCURRENT = 6;
+let httpActive = 0;
+const httpQueue = [];
+function httpAcquire(){
+  return new Promise(res => {
+    if(httpActive < HTTP_MAX_CONCURRENT){ httpActive++; res(); }
+    else httpQueue.push(res);
+  });
+}
+function httpRelease(){
+  const next = httpQueue.shift();
+  if(next) next();          // hand the slot straight to the next waiter
+  else httpActive--;
+}
+async function alpacaGet(url, label){
+  await httpAcquire();
+  try{
+    for(let attempt = 0; ; attempt++){
+      const res = await fetch(url, { headers: alpacaHeaders() });
+      if((res.status === 429 || res.status >= 500) && attempt < 3){
+        await new Promise(r => setTimeout(r, 400 * Math.pow(2, attempt) + Math.random() * 200));
+        continue;
+      }
+      if(!res.ok) throw new Error(`${label} failed (${res.status})`);
+      return await res.json();
+    }
+  } finally { httpRelease(); }
 }
 
-async function fetchBars(symbols, timeframe, start, feed, end, onPage){
-  if(symbols.length === 0) return {};
+async function fetchSnapshotsChunk(symbols, feed){
+  const params = new URLSearchParams({ symbols: symbols.join(','), feed });
+  return alpacaGet(`${ALPACA_BASE}/v2/stocks/snapshots?${params.toString()}`, 'Alpaca snapshots');
+}
+
+// All snapshot chunks in parallel. tolerant=true skips failed chunks instead of throwing.
+async function fetchSnapshots(symbols, feed, tolerant){
+  const out = {};
+  if(!symbols.length) return out;
+  const parts = await Promise.allSettled(chunk(symbols, 100).map(c => fetchSnapshotsChunk(c, feed)));
+  let firstErr = null;
+  parts.forEach(r => {
+    if(r.status === 'fulfilled'){ Object.assign(out, r.value); }
+    else if(!firstErr) firstErr = r.reason;
+  });
+  if(firstErr && !tolerant) throw firstErr;
+  return out;
+}
+
+const TF_BARS_PER_DAY = { '1Min': 960, '5Min': 192, '10Min': 96, '15Min': 64, '30Min': 32, '1Hour': 16, '1Day': 1 };
+const TF_MS = { '1Min': 60e3, '5Min': 300e3, '10Min': 600e3, '15Min': 900e3, '30Min': 1800e3, '1Hour': 3600e3, '1Day': 86400e3 };
+
+// One symbol group, following next_page_token sequentially.
+async function fetchBarsPaged(symbols, timeframe, start, feed, end, onPage){
   const base = { symbols: symbols.join(','), timeframe, start, limit: '10000', adjustment: 'raw', feed };
   if(end) base.end = end;
   const out = {};
@@ -2616,19 +2695,92 @@ async function fetchBars(symbols, timeframe, start, feed, end, onPage){
   do {
     const params = new URLSearchParams(base);
     if(token) params.set('page_token', token);
-    const res = await fetch(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, { headers: alpacaHeaders() });
-    if(!res.ok) throw new Error(`Bars fetch failed (${res.status})`);
-    const data = await res.json();
+    const data = await alpacaGet(`${ALPACA_BASE}/v2/stocks/bars?${params.toString()}`, 'Bars fetch');
     const bars = data.bars || {};
-    Object.keys(bars).forEach(s => { out[s] = (out[s] || []).concat(bars[s]); });
+    Object.keys(bars).forEach(sym => { out[sym] = (out[sym] || []).concat(bars[sym]); });
     token = data.next_page_token || null;
-    if(onPage) onPage(pages + 1);
+    if(onPage) onPage();
   } while(token && ++pages < 60);
+  return out;
+}
+
+async function fetchBars(symbols, timeframe, start, feed, end, onPage){
+  if(symbols.length === 0) return {};
+  const spanDays = Math.max(1, ((end ? new Date(end).getTime() : Date.now()) - new Date(start).getTime()) / 86400000);
+  const rowsPerSym = Math.max(1, (spanDays * 5 / 7 + 1) * (TF_BARS_PER_DAY[timeframe] || 100));
+  // size each group so it usually fits in ONE page, then run the groups side by side
+  const groupSize = Math.max(1, Math.min(100, Math.floor(8000 / rowsPerSym)));
+  let pageCount = 0;
+  const tick = onPage ? () => onPage(++pageCount) : null;
+  const parts = await Promise.all(chunk(symbols, groupSize).map(g => fetchBarsPaged(g, timeframe, start, feed, end, tick)));
+  const out = {};
+  parts.forEach(part => Object.assign(out, part));
+  return out;
+}
+
+// In-memory bar cache. A repeat call for the same feed/timeframe only downloads bars since the last
+// fetch (minus a small overlap so the still-forming bar is refreshed), then merges by timestamp.
+const BAR_CACHE = new Map();     // `${feed}|${tf}|${sym}` -> { from, fetchedAt, bars(asc) }
+const BAR_CACHE_MAX = 2000;
+async function fetchBarsCached(symbols, timeframe, start, feed){
+  if(symbols.length === 0) return {};
+  const startMs = new Date(start).getTime();
+  const startKey = new Date(startMs).toISOString().slice(0, 19);
+  const tfMs = TF_MS[timeframe] || 60e3;
+  const keyOf = sym => `${feed}|${timeframe}|${sym}`;
+  const fresh = [], incr = [];
+  let incrFrom = Infinity;
+  symbols.forEach(sym => {
+    const c = BAR_CACHE.get(keyOf(sym));
+    if(c && c.from <= startMs){ incr.push(sym); incrFrom = Math.min(incrFrom, c.fetchedAt); }
+    else fresh.push(sym);
+  });
+
+  const t0 = Date.now();        // stamped BEFORE the request so nothing printed during it is missed next time
+  const cutoff = t0 - 75 * 86400000;
+  const jobs = [];
+  if(fresh.length){
+    jobs.push(fetchBars(fresh, timeframe, start, feed).then(res => {
+      fresh.forEach(sym => { BAR_CACHE.set(keyOf(sym), { from: startMs, fetchedAt: t0, bars: res[sym] || [] }); });
+    }));
+  }
+  if(incr.length){
+    const iStart = new Date(incrFrom - 2 * tfMs).toISOString();
+    jobs.push(fetchBars(incr, timeframe, iStart, feed).then(res => {
+      incr.forEach(sym => {
+        const c = BAR_CACHE.get(keyOf(sym));
+        if(!c) return;
+        const m = new Map(c.bars.map(b => [b.t, b]));
+        (res[sym] || []).forEach(b => m.set(b.t, b));
+        let arr = Array.from(m.values()).sort((a, b) => a.t < b.t ? -1 : a.t > b.t ? 1 : 0);
+        if(c.from < cutoff){ c.from = cutoff; const ck = new Date(cutoff).toISOString().slice(0, 19); arr = arr.filter(b => b.t >= ck); }
+        c.bars = arr;
+        c.fetchedAt = t0;
+      });
+    }));
+  }
+  await Promise.all(jobs);
+
+  while(BAR_CACHE.size > BAR_CACHE_MAX){ BAR_CACHE.delete(BAR_CACHE.keys().next().value); }
+  const out = {};
+  symbols.forEach(sym => {
+    const c = BAR_CACHE.get(keyOf(sym));
+    if(!c) return;
+    const arr = c.bars.filter(b => b.t >= startKey);
+    if(arr.length) out[sym] = arr;
+  });
   return out;
 }
 
 async function getSP500Tickers(){
   if(sp500Cache) return sp500Cache;
+  try{
+    const c = JSON.parse(localStorage.getItem('sp500_cache_v1') || 'null');
+    if(c && Array.isArray(c.tickers) && c.tickers.length > 400 && Date.now() - c.t < 24 * 3600 * 1000){
+      sp500Cache = c.tickers; sp500Sectors = c.sectors || {};
+      return sp500Cache;
+    }
+  }catch(e){}
   const res = await fetch(WIKI_SP500_URL);
   if(!res.ok) throw new Error(`Could not load S&P 500 (${res.status})`);
   const data = await res.json();
@@ -2649,6 +2801,7 @@ async function getSP500Tickers(){
     }
   });
   sp500Cache = tickers;
+  try{ localStorage.setItem('sp500_cache_v1', JSON.stringify({ t: Date.now(), tickers, sectors: sp500Sectors })); }catch(e){}
   return tickers;
 }
 
@@ -2668,51 +2821,40 @@ async function runSupertrendFlipScan(){
     const stLen = parseInt(document.getElementById('stAtrLength').value, 10) || 10;
     const stMult = parseFloat(document.getElementById('stAtrMult').value) || 3.0;
 
-    const tenDaysAgo = new Date(Date.now() - 60*24*3600*1000).toISOString();
-    const symbolChunks = chunk(symbols, 40);
-    const snapChunks = chunk(symbols, 100);
+    const lookback = new Date(Date.now() - 30*24*3600*1000).toISOString();
 
-    const snapshots = {};
-    for(const sc of snapChunks){
-      try{
-        const part = await fetchSnapshotsChunk(sc, feed);
-        Object.assign(snapshots, part);
-      }catch(e){}
-    }
+    // snapshots and bars download side by side; bars come from the incremental cache
+    const [snapshots, barsBySymbol] = await Promise.all([
+      fetchSnapshots(symbols, feed, true),
+      fetchBarsCached(symbols, '30Min', lookback, feed)
+    ]);
 
     const results = [];
     const gainerMeta = {};
     const minRS = minRSThreshold();
 
-    for(const sc of symbolChunks){
-      let barsBySymbol = {};
-      try{
-        barsBySymbol = await fetchBars(sc, '30Min', tenDaysAgo, feed);
-      }catch(e){ continue; }
+    symbols.forEach(sym => {
+      const barsAll = (barsBySymbol[sym] || []).slice().sort((a,b) => new Date(a.t) - new Date(b.t));
+      const nowMs = Date.now();
+      const bars = closedBarsOnly() ? barsAll.filter(b => isClosed30(b, nowMs)) : barsAll;
+      if(bars.length < stLen + 5) return;
 
-      sc.forEach(sym => {
-        const barsAll = (barsBySymbol[sym] || []).slice().sort((a,b) => new Date(a.t) - new Date(b.t));
-        const nowMs = Date.now();
-        const bars = closedBarsOnly() ? barsAll.filter(b => isClosed30(b, nowMs)) : barsAll;
-        if(bars.length < stLen + 5) return;
+      const rs = computeRS(bars, RS_PERIOD);
+      if(minRS > 0 && (rs == null || rs < minRS)) return;
 
-        const rs = computeRS(bars, RS_PERIOD);
-        if(minRS > 0 && (rs == null || rs < minRS)) return;
+      const stRes = SuperTrend(bars, stLen, stMult);
+      const flipAge = barsSinceSupertrendFlip(stRes.trend);
 
-        const stRes = SuperTrend(bars, stLen, stMult);
-        const flipAge = barsSinceSupertrendFlip(stRes.trend);
+      if(flipAge !== null && flipAge <= 4){
+        const liveBar = barsAll[barsAll.length - 1];
+        const snap = snapshots[sym];
+        const prevC = snap && snap.prevDailyBar && snap.prevDailyBar.c;
+        const pctChg = prevC ? ((liveBar.c - prevC) / prevC) * 100 : 0;
 
-        if(flipAge !== null && flipAge <= 4){
-          const liveBar = barsAll[barsAll.length - 1];
-          const snap = snapshots[sym];
-          const prevC = snap && snap.prevDailyBar && snap.prevDailyBar.c;
-          const pctChg = prevC ? ((liveBar.c - prevC) / prevC) * 100 : 0;
-
-          rowDataMap[sym] = { bars, lastClose: liveBar.c, mode: 'st_flip', rs };
-          results.push({ symbol: sym, flipAge, pctChg, lastClose: liveBar.c, rs });
-        }
-      });
-    }
+        rowDataMap[sym] = { bars, lastClose: liveBar.c, mode: 'st_flip', rs };
+        results.push({ symbol: sym, flipAge, pctChg, lastClose: liveBar.c, rs });
+      }
+    });
 
     results.sort((a, b) => a.flipAge - b.flipAge);
     lastSymbols = results.map(r => r.symbol);
@@ -2773,15 +2915,15 @@ async function evaluateSymbols(symbolList, feed, mode, gainerMeta){
   const now = new Date();
   const nowMs = now.getTime();
   const closedOnly = closedBarsOnly();
-  const rsLookback = new Date(now.getTime() - 60*24*3600*1000).toISOString();
+  const rsLookback = new Date(now.getTime() - 30*24*3600*1000).toISOString();
   const oneDayAgo = new Date(now.getTime() - 24*3600*1000).toISOString();
   const fortyDaysAgo = new Date(now.getTime() - 40*24*3600*1000).toISOString();
   const needsDaily = (mode === 'manual' || mode === 'sp500');
 
   const [bars30, bars5, barsDaily] = await Promise.all([
-    fetchBars(symbols, '30Min', rsLookback, feed),
-    fetchBars(symbols, '5Min', oneDayAgo, feed),
-    needsDaily ? fetchBars(symbols, '1Day', fortyDaysAgo, feed) : Promise.resolve({})
+    fetchBarsCached(symbols, '30Min', rsLookback, feed),
+    fetchBarsCached(symbols, '5Min', oneDayAgo, feed),
+    needsDaily ? fetchBarsCached(symbols, '1Day', fortyDaysAgo, feed) : Promise.resolve({})
   ]);
 
   const rows = symbols.map(sym => {
@@ -4401,21 +4543,17 @@ async function runManualScan(){
     const count = parseInt(document.getElementById('gainerCount').value, 10) || 10;
     const poolSize = Math.min(symbols.length, Math.max(count * 3, 30));
 
-    const chunks = chunk(symbols, 100);
     const gainers = [];
-
-    for(const ch of chunks){
-      const snaps = await fetchSnapshotsChunk(ch, feed);
-      Object.keys(snaps).forEach(sym => {
-        const snap = snaps[sym];
-        if(!snap) return;
-        const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
-        const prev = snap.prevDailyBar ? snap.prevDailyBar.c : cur;
-        const vol = (snap.dailyBar && snap.dailyBar.v) || ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
-        const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
-        gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
-      });
-    }
+    const snaps = await fetchSnapshots(symbols, feed);
+    Object.keys(snaps).forEach(sym => {
+      const snap = snaps[sym];
+      if(!snap) return;
+      const cur = (snap.dailyBar && snap.dailyBar.c) || (snap.latestTrade && snap.latestTrade.p) || 0;
+      const prev = snap.prevDailyBar ? snap.prevDailyBar.c : cur;
+      const vol = (snap.dailyBar && snap.dailyBar.v) || ((snap.prevDailyBar && snap.prevDailyBar.v) || 0);
+      const pct = prev > 0 ? ((cur - prev) / prev) * 100 : 0;
+      gainers.push({ symbol: sym, percent_change: pct, price: cur, volume: vol });
+    });
 
     gainers.sort((a,b) => b.percent_change - a.percent_change);
     const pool = gainers.slice(0, poolSize);
@@ -4436,12 +4574,7 @@ async function runManualScan(){
 
 async function fetchSP500RankedGainers(poolSize, feed){
   const universe = await getSP500Tickers();
-  const groups = chunk(universe, 100);
-  const snapshots = {};
-  for(let i=0;i<groups.length;i++){
-    const part = await fetchSnapshotsChunk(groups[i], feed);
-    Object.assign(snapshots, part);
-  }
+  const snapshots = await fetchSnapshots(universe, feed);
   const ranked = [];
   Object.keys(snapshots).forEach(sym => {
     const snap = snapshots[sym];
@@ -6745,9 +6878,9 @@ function drawMiniLevels(state){
   lv.lv.forEach(p => state.lines.push({ price: p, line: mk('lvl', p) }));
 }
 
-function renderMiniChart(container, sym, allBarsRaw, allBars10Raw){
+function renderMiniChart(container, sym, allBarsRaw, allBars10Raw, registry){
   const allBars = allBarsRaw.slice().sort((a,b)=>new Date(a.t)-new Date(b.t));
-  if(!allBars.length){ container.textContent = 'No bar data.'; return; }
+  if(!allBars.length){ container.textContent = 'No bar data.'; return null; }
 
   const allCloses = allBars.map(b => b.c);
   const ema5Full = computeEMASeries(allCloses, 5);
@@ -6900,7 +7033,15 @@ function renderMiniChart(container, sym, allBarsRaw, allBars10Raw){
     handleTap(e.clientY);
   });
 
-  miniCharts.push({ chart, ro, sym, candles, lines: state.lines });
+  const entry = { chart, ro, sym, candles, lines: state.lines };
+  (registry || miniCharts).push(entry);
+  const li = bars.length - 1;
+  return {
+    entry,
+    last: bars[li].c,
+    emaUp: (ema5[li] != null && ema13[li] != null) ? ema5[li] > ema13[li] : null,
+    stUp: !isNaN(stVals[li]) ? stTrend[li] === 1 : null
+  };
 }
 
 let hitChartsToken = 0;
@@ -6939,8 +7080,8 @@ async function renderHitCharts(){
     const feed = document.getElementById('feed').value;
     const start = new Date(Date.now() - 18*24*3600*1000).toISOString();
     const [bars30, bars10] = await Promise.all([
-      fetchBars(symbols, '30Min', start, feed),
-      fetchBars(symbols, '10Min', start, feed)
+      fetchBarsCached(symbols, '30Min', start, feed),
+      fetchBarsCached(symbols, '10Min', start, feed)
     ]);
     if(myToken !== hitChartsToken) return;
     cards.forEach(({ sym, body }) => {
@@ -6953,6 +7094,168 @@ async function renderHitCharts(){
   }
 }
 
+/* =====================================================================
+   WATCH TAB — static ticker list, multi-chart, same indicators as the Charts
+   tab, timeframe shared with the Charts tab, refreshes through the whole day.
+   Only the bars that are new since the last refresh are downloaded.
+   ===================================================================== */
+const MAX_WATCH = 40;
+const WATCH_KEY = 'watch_symbols_v1';
+const TF_KEY = 'chart_tf_v1';
+let watchCharts = [];
+const watchCards = new Map();      // sym -> { card, slot, meta, entry, sig, status }
+let watchLayoutKey = '';
+let watchToken = 0, watchBusy = false, watchPending = false, watchTimer = null;
+
+function parseWatchList(text){
+  const seen = new Set(), out = [];
+  String(text || '').toUpperCase().split(/[\s,;]+/).forEach(t => {
+    t = t.trim();
+    if(t && /^[A-Z0-9.\-]{1,10}$/.test(t) && !seen.has(t)){ seen.add(t); out.push(t); }
+  });
+  return out.slice(0, MAX_WATCH);
+}
+function removeMini(entry, registry){
+  if(!entry) return;
+  try { entry.chart.remove(); } catch(e){}
+  if(entry.ro){ try { entry.ro.disconnect(); } catch(e){} }
+  const i = registry.indexOf(entry);
+  if(i >= 0) registry.splice(i, 1);
+}
+function teardownWatch(){
+  watchCharts.forEach(m => {
+    try { m.chart.remove(); } catch(e){}
+    if(m.ro){ try { m.ro.disconnect(); } catch(e){} }
+  });
+  watchCharts = [];
+  watchCards.clear();
+  watchLayoutKey = '';
+  document.getElementById('watchGrid').innerHTML = '';
+}
+function fillWatchMeta(sym, snap){
+  const w = watchCards.get(sym);
+  if(!w) return;
+  const st = w.status;
+  const px = (snap && ((snap.latestTrade && snap.latestTrade.p) || (snap.dailyBar && snap.dailyBar.c))) || (st && st.last) || null;
+  const prev = snap && snap.prevDailyBar && snap.prevDailyBar.c;
+  const pct = (prev && px) ? ((px - prev) / prev) * 100 : null;
+  const badge = (label, up) => up == null ? '' : `<span class="wc-badge" style="color:${up ? 'var(--pass)' : 'var(--fail)'};">${label} ${up ? '▲' : '▼'}</span>`;
+  w.meta.innerHTML =
+    (st ? badge('EMA', st.emaUp) + badge('ST', st.stUp) : '') +
+    (px ? `<span>$${px.toFixed(2)}</span>` : '') +
+    (pct != null ? `<span style="color:${pct >= 0 ? 'var(--pass)' : 'var(--fail)'};">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>` : '');
+}
+
+async function renderWatch(force){
+  const grid = document.getElementById('watchGrid');
+  const status = document.getElementById('watchStatus');
+  if(!grid || document.getElementById('viewWatch').hidden) return;
+
+  const symbols = parseWatchList(document.getElementById('watchList').value);
+  document.getElementById('watchTabCount').textContent = symbols.length ? `(${symbols.length})` : '';
+  if(!symbols.length){
+    teardownWatch();
+    status.className = 'status';
+    status.textContent = 'Add tickers above to track them through the whole day.';
+    return;
+  }
+  const h = alpacaHeaders();
+  if(!h['APCA-API-KEY-ID'] || !h['APCA-API-SECRET-KEY']){
+    status.className = 'status err';
+    status.textContent = 'Enter your Alpaca key and secret in Scanner → Settings.';
+    return;
+  }
+  if(watchBusy){ watchPending = true; return; }
+  watchBusy = true;
+  const myToken = ++watchToken;
+  const tf = document.getElementById('watchTf').value;
+
+  try{
+    const layoutKey = symbols.join(',') + '|' + tf;
+    if(force || layoutKey !== watchLayoutKey){
+      teardownWatch();
+      symbols.forEach(sym => {
+        const card = document.createElement('div');
+        card.className = 'hit-chart-card';
+        card.innerHTML = `<div class="hit-chart-head"><span>${sym}</span><span class="wc-meta"></span></div><div class="watch-slot"></div>`;
+        card.addEventListener('click', () => openModalList(symbols, symbols.indexOf(sym), null));
+        grid.appendChild(card);
+        watchCards.set(sym, { card, slot: card.querySelector('.watch-slot'), meta: card.querySelector('.wc-meta'), entry: null, sig: '', status: null });
+      });
+      watchLayoutKey = layoutKey;
+    }
+
+    if(status.textContent.indexOf('·') < 0){
+      status.className = 'status';
+      status.textContent = `Loading ${symbols.length} chart${symbols.length === 1 ? '' : 's'}…`;
+    }
+
+    const feed = document.getElementById('feed').value;
+    const start = new Date(Date.now() - 18 * 86400000).toISOString();
+    const [bars30, bars10, snaps] = await Promise.all([
+      fetchBarsCached(symbols, '30Min', start, feed),
+      fetchBarsCached(symbols, '10Min', start, feed),
+      fetchSnapshots(symbols, feed, true)
+    ]);
+    if(myToken !== watchToken || document.getElementById('viewWatch').hidden) return;
+
+    symbols.forEach(sym => {
+      const w = watchCards.get(sym);
+      if(!w) return;
+      const main = (tf === '10m' ? bars10[sym] : bars30[sym]) || [];
+      const b10 = bars10[sym] || [];
+      const lb = main[main.length - 1];
+      const sig = `${tf}|${main.length}|${lb ? [lb.t, lb.o, lb.h, lb.l, lb.c, lb.v].join('|') : ''}|${b10.length ? b10[0].t : ''}|${JSON.stringify(getLevels(sym))}`;
+      if(sig !== w.sig || !w.slot.firstChild){
+        // build the new chart underneath the old one, then drop the old one — no blank flash
+        const old = w.entry, oldEl = w.slot.firstChild;
+        const body = document.createElement('div');
+        body.className = 'hit-chart-body';
+        body.style.zIndex = '0';
+        if(oldEl) oldEl.style.zIndex = '1';
+        w.slot.appendChild(body);
+        let st = null;
+        try { st = renderMiniChart(body, sym, main, b10, watchCharts); }
+        catch(e){ body.textContent = 'Chart error: ' + e.message; }
+        w.entry = st ? st.entry : null;
+        w.status = st;
+        w.sig = sig;
+        if(oldEl){
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            removeMini(old, watchCharts);
+            if(oldEl.parentNode) oldEl.parentNode.removeChild(oldEl);
+          }));
+        }
+      }
+      fillWatchMeta(sym, snaps[sym]);
+    });
+    status.className = 'status';
+    status.textContent = `${symbols.length} symbol${symbols.length === 1 ? '' : 's'} · ${tf} · updated ${new Date().toLocaleTimeString()} · tap a chart for the full view`;
+  }catch(e){
+    if(myToken === watchToken){ status.className = 'status err'; status.textContent = `Error loading charts: ${e.message}`; }
+  }finally{
+    watchBusy = false;
+    if(watchPending){ watchPending = false; renderWatch(); }
+  }
+}
+
+function startWatchTimer(){
+  if(watchTimer){ clearInterval(watchTimer); watchTimer = null; }
+  if(!document.getElementById('watchAuto').checked) return;
+  watchTimer = setInterval(() => {
+    if(document.hidden || document.getElementById('viewWatch').hidden) return;
+    if(!inAlertHours()) return;                 // 4:00–20:00 ET weekdays
+    renderWatch();
+  }, 60 * 1000);
+}
+
+function setChartTf(v){
+  ['hitChartsTf', 'watchTf'].forEach(id => { const el = document.getElementById(id); if(el && el.value !== v) el.value = v; });
+  try { localStorage.setItem(TF_KEY, v); } catch(e){}
+  if(!document.getElementById('viewHitCharts').hidden) renderHitCharts();
+  if(!document.getElementById('viewWatch').hidden) renderWatch();
+}
+
 function showTab(name){
   document.querySelectorAll('#mainTabs .tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
   document.getElementById('viewScanner').hidden = name !== 'scanner';
@@ -6960,15 +7263,39 @@ function showTab(name){
   document.getElementById('viewCyto').hidden = name !== 'cyto';
   document.getElementById('viewOptions').hidden = name !== 'options';
   document.getElementById('viewHitCharts').hidden = name !== 'hitcharts';
+  document.getElementById('viewWatch').hidden = name !== 'watch';
   if(name === 'options') OC.onShow(); else OC.onHide();
   if(name === 'hitcharts') renderHitCharts();
+  if(name === 'watch') renderWatch();
 }
-document.getElementById('hitChartsTf').addEventListener('change', () => { if(!document.getElementById('viewHitCharts').hidden) renderHitCharts(); });
-document.getElementById('btnHitLevel').addEventListener('click', () => {
-  hitLevelMode = !hitLevelMode;
-  document.getElementById('btnHitLevel').classList.toggle('armed', hitLevelMode);
-  document.querySelectorAll('.hit-chart-body').forEach(el => { el.style.cursor = hitLevelMode ? 'crosshair' : 'pointer'; });
+document.getElementById('hitChartsTf').addEventListener('change', e => setChartTf(e.target.value));
+document.getElementById('watchTf').addEventListener('change', e => setChartTf(e.target.value));
+function setHitLevelMode(on){
+  hitLevelMode = on;
+  ['btnHitLevel', 'btnWatchLevel'].forEach(id => document.getElementById(id).classList.toggle('armed', on));
+  document.querySelectorAll('.hit-chart-body').forEach(el => { el.style.cursor = on ? 'crosshair' : 'pointer'; });
+}
+document.getElementById('btnHitLevel').addEventListener('click', () => setHitLevelMode(!hitLevelMode));
+document.getElementById('btnWatchLevel').addEventListener('click', () => setHitLevelMode(!hitLevelMode));
+document.getElementById('btnWatchSave').addEventListener('click', () => {
+  const list = parseWatchList(document.getElementById('watchList').value);
+  document.getElementById('watchList').value = list.join(', ');
+  try { localStorage.setItem(WATCH_KEY, list.join(',')); } catch(e){}
+  renderWatch(true);
 });
+document.getElementById('btnWatchRefresh').addEventListener('click', () => renderWatch());
+document.getElementById('watchAuto').addEventListener('change', startWatchTimer);
+(function initWatch(){
+  try{
+    const saved = localStorage.getItem(WATCH_KEY);
+    if(saved) document.getElementById('watchList').value = saved.split(',').join(', ');
+    const tf = localStorage.getItem(TF_KEY);
+    if(tf === '10m' || tf === '30m'){ document.getElementById('hitChartsTf').value = tf; document.getElementById('watchTf').value = tf; }
+    const n = parseWatchList(document.getElementById('watchList').value).length;
+    if(n) document.getElementById('watchTabCount').textContent = `(${n})`;
+  }catch(e){}
+  startWatchTimer();
+})();
 document.getElementById('mainTabs').addEventListener('click', e => {
   const b = e.target.closest('.tab');
   if(b) showTab(b.dataset.tab);
