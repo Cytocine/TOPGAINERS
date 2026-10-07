@@ -573,6 +573,7 @@
       <option value="10m">10m</option>
     </select>
     <button id="btnWatchRefresh" class="draw-btn">↻<span class="lbl"> Refresh</span></button>
+    <button id="btnWatchOptions" class="draw-btn" title="Open every Watch ticker in the Options tab">📈<span class="lbl"> All in Options</span></button>
     <button id="btnWatchLevel" class="draw-btn level" title="Tap a chart to add a price level (tap a level to remove it)">📏<span class="lbl"> Level</span></button>
     <div class="toggle-row"><input type="checkbox" id="watchAuto" checked><label for="watchAuto">Auto 1m</label></div>
   </div>
@@ -606,6 +607,8 @@
         </select>
         <div class="toggle-row"><input type="checkbox" id="ocAuto" checked><label for="ocAuto">Auto-load</label></div>
         <button id="ocUseScan">↻ Use latest scan</button>
+        <button id="ocUseWatch" title="Load the Watch tab list into the chain viewer">★ Watch list</button>
+        <button id="ocAddWatch" title="Add the symbols above to the Watch tab">+ Add to Watch</button>
       </div>
       <div class="row">
         <div class="field"><label>Min DTE</label><input type="number" id="ocMinDte" value="7" min="0" step="1"></div>
@@ -1347,7 +1350,7 @@ function renderSupertrendFlipResults(rows, gainerMeta){
   OC.setScan('st_flip', lastSymbols, rows.map(r => r.symbol), gainerMeta);
   document.getElementById('legend').style.display = 'flex';
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>Last Price</th><th>%Chg</th><th>RS</th><th>Flip Age</th>
+    <th>Symbol</th><th>Last Price</th><th>%Chg</th><th>RS</th><th>Flip Age</th><th>Watch</th>
   </tr></thead><tbody>`;
 
   rows.forEach((r, idx) => {
@@ -1362,15 +1365,17 @@ function renderSupertrendFlipResults(rows, gainerMeta){
       <td data-label="% Chg">${pctTag}</td>
       <td data-label="RS">${rsTag}</td>
       <td data-label="Flip Age">${badge}</td>
+      <td data-label="Watch">${watchBtnHtml(r.symbol)}</td>
     </tr>`;
   });
 
   if(rows.length === 0){
-    html += `<tr><td colspan="5" style="text-align:center;opacity:0.6;padding:16px;">No symbols found with a Supertrend green flip in the last 5 bars.</td></tr>`;
+    html += `<tr><td colspan="6" style="text-align:center;opacity:0.6;padding:16px;">No symbols found with a Supertrend green flip in the last 5 bars.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
   document.getElementById('resultsWrap').innerHTML = html;
+  attachWatchControls(rows.map(r => r.symbol));
   document.querySelectorAll('#resultsWrap .sym').forEach(el => {
     el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), null));
   });
@@ -1537,7 +1542,7 @@ function render(rows, gainerMeta, showAll){
   const displayRows = showAll ? rows : rows;
   OC.setScan(lastMode, lastSymbols, displayRows.map(r => r.symbol), gainerMeta);
   let html = `<div class="panel"><table><thead><tr>
-    <th>Symbol</th><th>%Chg</th>${isManualView ? '<th>vs AVWAP</th><th>Cloud</th>' : '<th>ER</th><th>RS</th>'}
+    <th>Symbol</th><th>%Chg</th>${isManualView ? '<th>vs AVWAP</th><th>Cloud</th>' : '<th>ER</th><th>RS</th>'}<th>Watch</th>
   </tr></thead><tbody>`;
 
   displayRows.forEach((r) => {
@@ -1559,15 +1564,17 @@ function render(rows, gainerMeta, showAll){
       ${isManualView
         ? `<td data-label="vs AVWAP">${avTag}</td><td data-label="Cloud">${cloudTag}</td>`
         : `<td data-label="ER">${erTag}</td><td data-label="RS">${rsTag}</td>`}
+      <td data-label="Watch">${watchBtnHtml(r.symbol)}</td>
     </tr>`;
   });
 
   if(displayRows.length === 0){
-    html += `<tr><td colspan="4" style="text-align:center;opacity:0.6;padding:16px;">No matches.</td></tr>`;
+    html += `<tr><td colspan="5" style="text-align:center;opacity:0.6;padding:16px;">No matches.</td></tr>`;
   }
 
   html += `</tbody></table></div>`;
   document.getElementById('resultsWrap').innerHTML = html;
+  attachWatchControls(displayRows.map(r => r.symbol));
   document.querySelectorAll('#resultsWrap .sym').forEach(el => {
     el.addEventListener('click', () => openModalList(list, parseInt(el.dataset.index, 10), null));
   });
@@ -3301,6 +3308,15 @@ const OC = (() => {
     showTab('options');
     loadChain();
   }
+  function openList(list, label){
+    $('ocFollow').checked = false;
+    $('ocSymbols').value = list.join(', ');
+    $('ocSrcNote').textContent = `· ${label || 'list'} (${list.length})`;
+    saveSettings();
+    showTab('options');
+    if(!list.length){ setStatus('Nothing to load — the list is empty.', true); return; }
+    loadChain();
+  }
   function openScan(){
     $('ocFollow').checked = true; saveSettings();
     if(!scan.all.length){ showTab('options'); setStatus('No scan results yet — run a scan first.', true); return; }
@@ -4081,6 +4097,17 @@ const OC = (() => {
     if(!scan.all.length){ setStatus('No scan results yet — run a scan on the Scanner tab first.', true); return; }
     applyScanSymbols(); loadChain();
   });
+  $('ocUseWatch').addEventListener('click', () => {
+    const w = getWatchSymbols();
+    if(!w.length){ setStatus('Your Watch list is empty — add tickers on the Watch tab or from the Scanner.', true); return; }
+    openList(w, 'Watch list');
+  });
+  $('ocAddWatch').addEventListener('click', () => {
+    const syms = $('ocSymbols').value.toUpperCase().split(/[\s,]+/).filter(Boolean);
+    if(!syms.length){ setStatus('No symbols to add.', true); return; }
+    const n = addToWatch(syms);
+    showToast(n ? `Added ${n} to Watch` : 'Already on Watch');
+  });
   $('ocPlayBtn').addEventListener('click', () => setPlaying(!state.playing));
   $('ocPrevBtn').addEventListener('click', () => { select(state.idx - 1); if(state.playing) schedule(); });
   $('ocNextBtn').addEventListener('click', () => { select(state.idx + 1); if(state.playing) schedule(); });
@@ -4094,7 +4121,7 @@ const OC = (() => {
   document.addEventListener('visibilitychange', () => { if(document.hidden && state.playing) setPlaying(false); });
 
   restoreSettings();
-  return { setScan, getScan, openFor, openScan, onShow, onHide };
+  return { setScan, getScan, openFor, openList, openScan, onShow, onHide };
 })();
 
 /* =====================================================================
@@ -5678,6 +5705,55 @@ function parseWatchList(text){
   });
   return out.slice(0, MAX_WATCH);
 }
+function getWatchSymbols(){ return parseWatchList(document.getElementById('watchList').value); }
+function setWatchSymbols(list){
+  list = list.slice(0, MAX_WATCH);
+  document.getElementById('watchList').value = list.join(', ');
+  try { localStorage.setItem(WATCH_KEY, list.join(',')); } catch(e){}
+  document.getElementById('watchTabCount').textContent = list.length ? `(${list.length})` : '';
+  markWatchButtons();
+  if(!document.getElementById('viewWatch').hidden) renderWatch(true);
+}
+function addToWatch(syms){
+  const cur = getWatchSymbols();
+  const have = new Set(cur);
+  let added = 0, full = false;
+  parseWatchList(syms.join(' ')).forEach(sym => {
+    if(have.has(sym)) return;
+    if(cur.length >= MAX_WATCH){ full = true; return; }
+    cur.push(sym); have.add(sym); added++;
+  });
+  if(full) showToast(`Watch list is full (${MAX_WATCH} max)`, 'err');
+  if(added) setWatchSymbols(cur); else markWatchButtons();
+  return added;
+}
+function removeFromWatch(sym){ setWatchSymbols(getWatchSymbols().filter(s => s !== sym)); }
+function watchBtnHtml(sym){ return `<button class="draw-btn wl-add" data-sym="${sym}" style="padding:3px 9px;">☆</button>`; }
+function markWatchButtons(){
+  const have = new Set(getWatchSymbols());
+  document.querySelectorAll('.wl-add').forEach(b => {
+    const on = have.has(b.dataset.sym);
+    b.textContent = on ? '★' : '☆';
+    b.style.color = on ? '#facc15' : '';
+    b.title = on ? 'On Watch tab — tap to remove' : 'Add to Watch tab';
+  });
+}
+function attachWatchControls(symbols){
+  const wrap = document.getElementById('resultsWrap');
+  if(symbols.length){
+    wrap.insertAdjacentHTML('afterbegin', `<div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><button class="draw-btn" id="btnHitsToWatch">★ Add all ${symbols.length} to Watch</button></div>`);
+    document.getElementById('btnHitsToWatch').addEventListener('click', () => {
+      const n = addToWatch(symbols);
+      showToast(n ? `Added ${n} to Watch` : 'All already on Watch');
+    });
+  }
+  wrap.querySelectorAll('.wl-add').forEach(el => el.addEventListener('click', e => {
+    e.stopPropagation();
+    const sym = el.dataset.sym;
+    if(getWatchSymbols().includes(sym)) removeFromWatch(sym); else addToWatch([sym]);
+  }));
+  markWatchButtons();
+}
 function removeMini(entry, registry){
   if(!entry) return;
   try { entry.chart.remove(); } catch(e){}
@@ -5740,8 +5816,10 @@ async function renderWatch(force){
       symbols.forEach(sym => {
         const card = document.createElement('div');
         card.className = 'hit-chart-card';
-        card.innerHTML = `<div class="hit-chart-head"><span>${sym}</span><span class="wc-meta"></span></div><div class="watch-slot"></div>`;
+        card.innerHTML = `<div class="hit-chart-head"><span>${sym}</span><span style="display:flex;align-items:center;gap:6px;"><span class="wc-meta"></span><button class="draw-btn wc-opt" title="Open ${sym} in Options" style="padding:3px 7px;">📈</button><button class="draw-btn wc-rm" title="Remove from Watch" style="padding:3px 7px;">✕</button></span></div><div class="watch-slot"></div>`;
         card.addEventListener('click', () => openModalList(symbols, symbols.indexOf(sym), null));
+        card.querySelector('.wc-opt').addEventListener('click', e => { e.stopPropagation(); OC.openFor(sym); });
+        card.querySelector('.wc-rm').addEventListener('click', e => { e.stopPropagation(); removeFromWatch(sym); });
         grid.appendChild(card);
         watchCards.set(sym, { card, slot: card.querySelector('.watch-slot'), meta: card.querySelector('.wc-meta'), entry: null, sig: '', status: null });
       });
@@ -5843,9 +5921,15 @@ document.getElementById('btnWatchSave').addEventListener('click', () => {
   const list = parseWatchList(document.getElementById('watchList').value);
   document.getElementById('watchList').value = list.join(', ');
   try { localStorage.setItem(WATCH_KEY, list.join(',')); } catch(e){}
+  markWatchButtons();
   renderWatch(true);
 });
 document.getElementById('btnWatchRefresh').addEventListener('click', () => renderWatch());
+document.getElementById('btnWatchOptions').addEventListener('click', () => {
+  const w = getWatchSymbols();
+  if(!w.length){ document.getElementById('watchStatus').textContent = 'Add tickers first, then send them to Options.'; return; }
+  OC.openList(w, 'Watch list');
+});
 document.getElementById('watchAuto').addEventListener('change', startWatchTimer);
 (function initWatch(){
   try{
